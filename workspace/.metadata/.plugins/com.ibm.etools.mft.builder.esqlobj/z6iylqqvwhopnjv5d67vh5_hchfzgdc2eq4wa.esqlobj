@@ -1,0 +1,13 @@
+CREATE FILTER MODULE RetrieveClaimSummary_v1_Filter_Claims_or_Bonus
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+-- Route to Claims or Bonus based on the first 3 characters of the claim ID		
+		IF Root.XMLNSC.esbenv:Envelope.ns:Body.defns:retrieveClaimSummaryReq.claimNumber.componentId = 'BCL' THEN		
+			RETURN TRUE;
+		ELSE					
+			RETURN FALSE;
+		END IF;		
+
+	END;
+
+END MODULE;

@@ -1,0 +1,7 @@
+<wmb>
+	<project>mfp_ClaimEnquiryDetails_BS</project>
+	<app>
+		<name>ClaimEnquiryDetails</name>
+		<executionGroup>egClaimManagement</executionGroup>
+	</app>
+</wmb>

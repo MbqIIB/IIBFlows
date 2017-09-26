@@ -1,0 +1,12 @@
+CREATE COMPUTE MODULE NZ_MQMD_Header
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN		
+		SET OutputRoot																= InputRoot;					
+-- Build MQMD					
+ 		CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN 'MQMD';
+ 		DECLARE refOut REFERENCE TO OutputRoot.MQMD;		
+ 		CALL Build_MQMD_Header (refOut, CAST(InputRoot.HTTPInputHeader."X-Message-Transaction-Correlation-Id" AS BLOB),' ',' ');
+-- Save the SOAP Reply and HTTP Header for the response		
+		SET Environment.HTTP												   = InputRoot.HTTPInputHeader;				
+	END;
+END MODULE;

@@ -1,0 +1,32 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN	
+		DECLARE start 			REFERENCE TO InputExceptionList.*[1];	  
+-- Create HTTP Header   		 
+   		SET OutputRoot.HTTPReplyHeader						= Environment.HTTP;	
+-- Build MQMD					
+ 		CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN 'MQMD';
+ 		DECLARE refOut REFERENCE TO OutputRoot.MQMD;					
+ 		CALL Build_MQMD_Header (refOut, Environment.Msgid,Environment.REPLY_TO_QUEUE,Environment.REPLY_TO_QUEUE_MANAGER);	
+-- HTTP Header		
+		SET Environment.HTTP											= InputRoot.HTTPInputHeader;		
+		SET OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".ResponseHeader.Header 						= InputRoot.XMLNSC.ser:CalculatePremiumSoapIn.Header;
+		SET OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".ResponseHeader.maxReturnLevel 				= 'ERROR';
+		SET OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".ResponseHeader.errorList.errorInfo.level 	= 'ERROR';
+		SET OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".ResponseHeader.errorList.errorInfo.system 	= 'WMB';				
+-- Map Error code in ResponseHeader 		
+		WHILE start.Number IS NOT NULL DO 
+			IF start.Number = 3002 THEN		
+				SET OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE03';
+				SET OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".ResponseHeader.errorList.errorInfo.message 		= 'Calculate Premium Timeout';				
+			ELSE	
+				SET OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE04';
+				SET OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".ResponseHeader.errorList.errorInfo.message 		= 'Calculate Premium Call Exception';
+			END IF;
+-- Move start to the last child of the field to which it currently points 
+				MOVE start LASTCHILD;
+		END WHILE;					
+-- 	Set destination				
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueManagerName 	= InputRoot.MQMD.ReplyToQMgr;
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueName 		= InputRoot.MQMD.ReplyToQ;	
+
+	END;

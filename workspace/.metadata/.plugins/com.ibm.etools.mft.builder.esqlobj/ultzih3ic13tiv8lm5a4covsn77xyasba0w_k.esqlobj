@@ -1,0 +1,58 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		SET OutputRoot.MQMD = InputRoot.MQMD;
+		SET OutputRoot.MQMD.CorrelId = InputRoot.MQMD.MsgId;
+
+		DECLARE jsonResponseCommon, jsonResponse, jsonResponse_1234, jsonResponse_2345, jsonResponse_3456, jsonErrorResponse CHARACTER '';
+		SET jsonResponseCommon = '{"CustomerResponse":{"CustomerId":"YYYY","Error":{"Code":"E0001","TimeStamp":"20170820T10:00:01.1234","Details":"CommonError","Application":"X12345","Severity":"Major", "SourceSystem":"ABCD"}}}';
+		SET jsonResponse_1234 = '{"CustomerResponse":{"CustomerId":"XXXX","Name":"The Big Shipping Company","ContactName":"Mr Smith","ContactTitle":"Top Dog","Address":{"AddressLine1":"Esplanaden 50","AddressLine2":"","AddressLine3":"","PostalCode":"1098","City":"Copenhagen","Country":"Denmark"},"TelephoneNumbers":{"Mobile":"123456","Work":"345656","Fax":"1212121212"},"emailAddress":{"email":"emailtest@maersk.com","email":"mail@maersk.com"}}}';		
+		SET jsonResponse_2345 = '{"CustomerResponse":{"CustomerId":"XXXX","Name":"Maersk","ContactName":"Mr Jones","ContactTitle":"Top Dog","Address":{"AddressLine1":"1 The Street","AddressLine2":"","AddressLine3":"","PostalCode":"1234","City":"Maidenhead","Country":"UK"},"TelephoneNumbers":{"Mobile":"8765436363"},"emailAddress":{"email":"emailtest@maersk.com"}}}';		
+		SET jsonResponse_3456 = '{"CustomerResponse":{"CustomerId":"XXXX","Name":"Company","ContactName":"John","ContactTitle":"","Address":{"AddressLine1":"1325 Pitt Street","AddressLine2":"","AddressLine3":"New SouthWales","PostalCode":"2001","City":"Sydney","Country":"AUS"},"TelephoneNumbers":{"Mobile":"8765436363"},"emailAddress":{"email":"emailtest@maersk.com"}}}';		
+
+		SET jsonResponse_3456 = '{"CustomerResponse":[{"CustomerId":"C00001","Name":"The Big Shipping Company"}]}';
+
+		SET jsonErrorResponse = '{"CustomerResponse":{"CustomerId":"YYYY","Error":{"Code":"E0101","TimeStamp":"20170820T10:00:01.1234","Details":"Error occurred reading database table","Application":"X12345","Severity":"Major", "SourceSystem":"ABCD"}}}';
+		
+		DECLARE refInBody REFERENCE TO InputRoot.JSON.Data."CustomerRequest";
+		
+		DECLARE rnd FLOAT 0.0;
+		DECLARE seed INTEGER '';
+		SET seed = EXTRACT(SECOND FROM CURRENT_TIME);		 
+		SET rnd = RAND(seed) * 10000;
+
+		DECLARE inRef REFERENCE TO InputRoot.JSON.Data.CustomerRequest;
+		DECLARE sTime CHARACTER '';
+		SET sTime = CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyyMMdd HHmmSS');
+		
+		IF (rnd > 50) THEN
+			CREATE LASTCHILD OF OutputRoot DOMAIN 'JSON' PARSE (jsonErrorResponse CCSID 1208);
+			DECLARE refErr REFERENCE TO OutputRoot.JSON.Data.CustomerResponse;
+			SET refErr.Error.TimeStamp = sTime;		
+			
+		ELSE
+			IF (inRef.CustomerId = '1234') THEN
+				SET jsonResponse = jsonResponse_1234;
+			ELSEIF (inRef.CustomerId = '2345') THEN
+				SET jsonResponse = jsonResponse_2345;
+			ELSEIF (inRef.CustomerId = '3456') THEN
+				SET jsonResponse = jsonResponse_3456;
+				
+			ELSE
+				SET jsonResponse = jsonResponseCommon;
+			END IF;				
+			CREATE LASTCHILD OF OutputRoot DOMAIN 'JSON' PARSE (jsonResponse CCSID 1208);
+			
+		END IF;
+
+		DECLARE outRef REFERENCE TO OutputRoot.JSON.Data.CustomerResponse;
+		SET outRef.CustomerId = inRef.CustomerId;
+					
+
+
+
+		
+		RETURN TRUE;
+		
+	END;

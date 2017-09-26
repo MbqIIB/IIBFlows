@@ -1,0 +1,21 @@
+CREATE COMPUTE MODULE Customer_Reply_term_v1_BuildResponse
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+			END IF;
+		END IF;
+
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'XMLNSC' NAME 'CustomerResponse';
+		DECLARE ref REFERENCE TO OutputRoot.XMLNSC."CustomerResponse";
+		SET ref.CustomerID = 'ABCD';
+		
+		RETURN TRUE;
+
+	END;
+END MODULE;

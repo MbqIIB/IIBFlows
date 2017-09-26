@@ -1,0 +1,121 @@
+BROKER SCHEMA di.policy.policyInquiry.bs
+
+
+CREATE COMPUTE MODULE RetrieveInsurancePolicyDetails_Request_v2_StopTimer
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+	
+		set OutputRoot.Properties = InputRoot.Properites; 
+		set OutputRoot.MQMD = InputRoot.MQMD;
+			 
+		set OutputLocalEnvironment.TimeoutRequest.Action = 'CANCEL'; 
+        set OutputLocalEnvironment.TimeoutRequest.Identifier = 'HUON_timeout';   
+
+		-- Indicate we are come through the timer control and save the header
+	 	set Environment.MQTimerControl = 'Y';
+ 	 	set Environment.Original.esbenv:Envelope.esbhdr:Header[] = InputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header[];
+	 	
+		return true;	
+	
+	
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE RetrieveInsurancePolicyDetails_Request_v2_SetTimer
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		set OutputRoot = InputRoot; 
+	 
+		set OutputLocalEnvironment.TimeoutRequest.Action = 'SET'; 
+        set OutputLocalEnvironment.TimeoutRequest.Identifier = 'HUON_timeout';        
+        set OutputLocalEnvironment.TimeoutRequest.StartDate = 'TODAY';        
+        --set OutputLocalEnvironment.TimeoutRequest.StartTime = 'NOW';
+        set OutputLocalEnvironment.TimeoutRequest.StartTime = CURRENT_TIME + interval '15' second;
+                
+        set OutputLocalEnvironment.TimeoutRequest.Count = 1;        
+        set OutputLocalEnvironment.TimeoutRequest.Interval = 15;		
+
+
+		return true;
+	END;
+END MODULE;
+
+
+
+CREATE COMPUTE MODULE RetrieveInsurancePolicyDetails_Request_v2_SetupRequest
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		DECLARE refInputHeader 	REFERENCE TO InputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header;
+		DECLARE refInputBody 	REFERENCE TO InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsReq;
+
+		-- Save Input Fields
+		SET Environment.HubWorkArea.policyNumber.policyId   		= refInputBody.policyNumber.policyId;
+		SET Environment.HubWorkArea.policyNumber.productCode    	= refInputBody.policyNumber.productCode;
+		SET Environment.HubWorkArea.asAtDate    					= refInputBody.asAtDate;
+
+		-- Save Input Message MsgId and Correlid
+		SET Environment.HubWorkArea.Origin.MsgId       			= InputRoot.MQMD.MsgId;
+
+		-- Save ReplyToQueue/ReplyToQueueManager
+		SET Environment.HubWorkArea.Origin.ReplyToQ     		= InputRoot.MQMD.ReplyToQ;
+		SET Environment.HubWorkArea.Origin.ReplyToQMgr  		= InputRoot.MQMD.ReplyToQMgr;
+		
+		set Environment.Original.esbenv:Envelope.esbhdr:Header[] = InputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header[];
+		
+		RETURN TRUE;
+
+
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE RetrieveInsurancePolicyDetails_Request_V2_SetupThruReply
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		set OutputRoot = InputRoot;
+
+		-- Create MQMD 	
+		set OutputRoot.MQMD.Version             			= MQMD_CURRENT_VERSION; 
+		set OutputRoot.MQMD.MsgType             			= MQMT_REPLY;  
+		set OutputRoot.MQMD.Format              			= MQFMT_STRING;
+
+		-- When the timer fires, use the input message msgid, otherwise, the saved state correlid
+		if (Environment.MQTimerControl = 'Y') then
+			set OutputRoot.MQMD.CorrelId						= InputRoot.MQMD.MsgId;
+		else
+			set OutputRoot.MQMD.CorrelId						= Environment.StateMQMD.CorrelId;
+
+		end if;
+
+		-- reset the header
+		if exists(Environment.Original.esbenv:Envelope[]) then
+			set OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.*[] = Environment.Original.esbenv:Envelope.esbhdr:Header.*[];
+		end if;
+		
+		RETURN TRUE;
+
+	END;
+END MODULE;
+
+CREATE FILTER MODULE RetrieveInsurancePolicyDetails_Request_v2_Which_Consumer
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		declare refIn reference to Root.XMLNSC;
+		declare refHeader reference to refIn.esbenv:Envelope.esbhdr:Header;
+		
+		/* If New Zealand */
+		if (refHeader.esbhdr:brand = 'STATE') then	
+			return true;
+		else
+			return false;
+		end if;
+		
+	END;
+
+END MODULE;
+

@@ -1,0 +1,15 @@
+CREATE FILTER MODULE CheckReply
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		IF Environment.HubWorkArea.maxReturnLevel = 'OK' THEN 
+	   		IF Environment.HubWorkArea.Distributor = 'RACV' THEN
+	   			RETURN FALSE;
+	   		ELSE
+	   			RETURN TRUE;
+	   		END IF;			
+		ELSE						
+		 	RETURN FALSE;
+		END IF;	 	
+	END;
+
+END MODULE;

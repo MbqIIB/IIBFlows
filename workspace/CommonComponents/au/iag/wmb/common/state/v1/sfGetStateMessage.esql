@@ -1,0 +1,10 @@
+BROKER SCHEMA au.iag.wmb.common.state.v1
+
+CREATE COMPUTE MODULE GetStateMessage_Compute_RestoreReqStateMQMD
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		SET OutputRoot = InputRoot;
+		SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+		RETURN TRUE;
+	END;
+END MODULE;

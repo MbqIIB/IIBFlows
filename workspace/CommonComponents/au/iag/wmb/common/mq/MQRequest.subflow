@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" 
+xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmMQGet.msgnode="ComIbmMQGet.msgnode" xmlns:ComIbmMQHeader.msgnode="ComIbmMQHeader.msgnode" xmlns:ComIbmPassthru.msgnode="ComIbmPassthru.msgnode" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" 
+xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="au/iag/wmb/common/mq/MQRequest.subflow" 
+nsPrefix="au_iag_wmb_common_mq_MQRequest.subflow">
+<eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+<eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+<eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.OutputQueue" name="OutputQueue" >
+  <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+</eStructuralFeatures>
+<eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.Reply-To-Queue" name="Reply-To-Queue" lowerBound="1"  defaultValueLiteral="Dummy_reply">
+  <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+</eStructuralFeatures>
+<eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.waitInterval" name="waitInterval" lowerBound="1"  defaultValueLiteral="1000">
+  <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EInt"/>
+</eStructuralFeatures>
+<eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.messageDomainProperty" name="messageDomainProperty" >
+  <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+</eStructuralFeatures>
+<eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.messageSetProperty" name="messageSetProperty" >
+  <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+</eStructuralFeatures>
+<eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.messageTypeProperty" name="messageTypeProperty" >
+  <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+</eStructuralFeatures>
+<eStructuralFeatures xmi:type="ecore:EAttribute" xmi:id="Property.messageFormatProperty" name="messageFormatProperty" >
+  <eType xmi:type="ecore:EDataType" href="http://www.eclipse.org/emf/2002/Ecore#//EString"/>
+</eStructuralFeatures>
+<translation xmi:type="utility:TranslatableString" key="MQRequest" bundleName="au/iag/wmb/common/mq/MQRequest" pluginId="flowAPIgenerated"/>
+<colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/flowAPIgenerated/icons/full/obj16/MQRequest.gif"/>
+<colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/flowAPIgenerated/icons/full/obj30/MQRequest.gif"/>
+<version xmi:type="utility:ConstantString" string="$MQSI$ $Id$ $MQSI$"/>
+<composition>
+<nodes xmi:type="eflow:FCMSource" xmi:id="InTerminal.Input" location="100,203">
+<translation xmi:type="utility:TranslatableString" key="InTerminal.Input" bundleName="au/iag/wmb/common/mq/MQRequest" pluginId="flowAPIgenerated"/>
+</nodes>
+<nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="324,203" transactionMode="no" request="true">
+<translation xmi:type="utility:ConstantString" string="MQ Output"/>
+</nodes>
+<nodes xmi:type="ComIbmMQGet.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="664,203" getWithCorrelID="true">
+<translation xmi:type="utility:ConstantString" string="MQ Get"/>
+</nodes>
+<nodes xmi:type="eflow:FCMSink" xmi:id="OutTerminal.Output" location="831,119">
+<translation xmi:type="utility:TranslatableString" key="OutTerminal.Failure" bundleName="au/iag/wmb/common/mq/MQRequest" pluginId="flowAPIgenerated"/>
+</nodes>
+<nodes xmi:type="eflow:FCMSink" xmi:id="OutTerminal.Output1" location="831,203">
+<translation xmi:type="utility:TranslatableString" key="OutTerminal.Output" bundleName="au/iag/wmb/common/mq/MQRequest" pluginId="flowAPIgenerated"/>
+</nodes>
+<nodes xmi:type="eflow:FCMSink" xmi:id="OutTerminal.Output2" location="831,289">
+<translation xmi:type="utility:TranslatableString" key="OutTerminal.TimeOut" bundleName="au/iag/wmb/common/mq/MQRequest" pluginId="flowAPIgenerated"/>
+</nodes>
+<nodes xmi:type="ComIbmMQHeader.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="485,203" mqmdAAAOptions="Add header" mqmdCodedCharSetId="MQCCSI_Q_MGR" mqmdFormat="MQFMT_NONE" mqmdVersion="MQMD_VERSION_1" mqmdMsgType="MQMT_DATAGRAM" mqmdExpiry="MQEI_UNLIMITED" mqmdFeedback="MQFB_NONE" mqmdPriority="MQPRI_PRIORITY_AS_Q_DEF" mqmdPersistence="MQPER_PERSISTENCE_AS_Q_DEF" mqmdMsgId="MQMI_NONE" mqmdCorrelId="$LocalEnvironment/WrittenDestination/MQ/DestinationData[1]/msgId">
+<translation xmi:type="utility:ConstantString" string="MQ Header"/>
+</nodes>
+<nodes xmi:type="ComIbmPassthru.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="204,203" label="$MQSI $URL$=$Rev$ MQSI$">
+<translation xmi:type="utility:ConstantString" string="SubFlow Version Tag"/>
+</nodes>
+<connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="OutTerminal.Output" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.in"/>
+<connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="OutTerminal.Output2" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.noMessage" targetTerminalName="InTerminal.in"/>
+<connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+<connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+<connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="OutTerminal.Output1" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+<connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="OutTerminal.Output" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.warning" targetTerminalName="InTerminal.in"/>
+<connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_3" sourceNode="InTerminal.Input" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+<connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_1" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+</composition>
+<propertyOrganizer>
+<propertyDescriptor groupName="Group.QueueNames" propertyEditor="com.ibm.etools.mft.ibmnodes.editors.mq.MQQueueNameEditor" configurable="true" describedAttribute="Property.OutputQueue">
+<propertyName xmi:type="utility:TranslatableString" key="Property.OutputQueue" bundleName="sfMQRequest" pluginId="sfMQRequest"/>
+<propertyDescriptor groupName="Group.QueueNames" propertyEditor="com.ibm.etools.mft.ibmnodes.editors.RequestListenerPropertyEditor" configurable="true" describedAttribute="Property.Reply-To-Queue">
+<propertyName xmi:type="utility:TranslatableString" key="Property.Reply-To-Queue" bundleName="sfMQRequest" pluginId="sfMQRequest"/>
+<propertyDescriptor groupName="Group.QueueNames" describedAttribute="Property.waitInterval">
+<propertyName xmi:type="utility:TranslatableString" key="Property.waitInterval" bundleName="ComIbmMQGet" pluginId="com.ibm.etools.mft.ibmnodes.definitions"/>
+<propertyDescriptor groupName="Group.Input-Msg-Parsing" propertyEditor="com.ibm.etools.mft.ibmnodes.editors.MRMessageDomainPropertyEditor" describedAttribute="Property.messageDomainProperty">
+<propertyName xmi:type="utility:TranslatableString" key="Property.messageDomainProperty" bundleName="ComIbmMQGet" pluginId="com.ibm.etools.mft.ibmnodes.definitions"/>
+<propertyDescriptor groupName="Group.Input-Msg-Parsing" propertyEditor="com.ibm.etools.mft.ibmnodes.editors.MRMessageSetNamePropertyEditor" describedAttribute="Property.messageSetProperty">
+<propertyName xmi:type="utility:TranslatableString" key="Property.messageSetProperty" bundleName="ComIbmMQGet" pluginId="com.ibm.etools.mft.ibmnodes.definitions"/>
+<propertyDescriptor groupName="Group.Input-Msg-Parsing" propertyEditor="com.ibm.etools.mft.ibmnodes.editors.MRMessageTypePropertyEditor" describedAttribute="Property.messageTypeProperty">
+<propertyName xmi:type="utility:TranslatableString" key="Property.messageTypeProperty" bundleName="ComIbmMQGet" pluginId="com.ibm.etools.mft.ibmnodes.definitions"/>
+<propertyDescriptor groupName="Group.Input-Msg-Parsing" propertyEditor="com.ibm.etools.mft.ibmnodes.editors.MRMessageFormatPropertyEditor" describedAttribute="Property.messageFormatProperty">
+<propertyName xmi:type="utility:TranslatableString" key="Property.messageFormatProperty" bundleName="ComIbmMQGet" pluginId="com.ibm.etools.mft.ibmnodes.definitions"/>
+</propertyDescriptor>
+</propertyDescriptor>
+</propertyDescriptor>
+</propertyDescriptor>
+</propertyDescriptor>
+</propertyDescriptor>
+</propertyDescriptor>
+</propertyOrganizer>
+<attributeLinks promotedAttribute="Property.OutputQueue" overriddenNodes="FCMComposite_1_1">
+<overriddenAttribute href="ComIbmMQOutput.msgnode#Property.queueName"/>
+</attributeLinks>
+<attributeLinks promotedAttribute="Property.Reply-To-Queue" overriddenNodes="FCMComposite_1_2">
+<overriddenAttribute href="ComIbmMQGet.msgnode#Property.queueName"/>
+</attributeLinks>
+<attributeLinks promotedAttribute="Property.waitInterval" overriddenNodes="FCMComposite_1_2">
+<overriddenAttribute href="ComIbmMQGet.msgnode#Property.waitInterval"/>
+</attributeLinks>
+<attributeLinks promotedAttribute="Property.messageDomainProperty" overriddenNodes="FCMComposite_1_2">
+<overriddenAttribute href="ComIbmMQGet.msgnode#Property.messageDomainProperty"/>
+</attributeLinks>
+<attributeLinks promotedAttribute="Property.messageSetProperty" overriddenNodes="FCMComposite_1_2">
+<overriddenAttribute href="ComIbmMQGet.msgnode#Property.messageSetProperty"/>
+</attributeLinks>
+<attributeLinks promotedAttribute="Property.messageTypeProperty" overriddenNodes="FCMComposite_1_2">
+<overriddenAttribute href="ComIbmMQGet.msgnode#Property.messageTypeProperty"/>
+</attributeLinks>
+<attributeLinks promotedAttribute="Property.messageFormatProperty" overriddenNodes="FCMComposite_1_2">
+<overriddenAttribute href="ComIbmMQGet.msgnode#Property.messageFormatProperty"/>
+</attributeLinks>
+<attributeLinks promotedAttribute="Property.Reply-To-Queue" overriddenNodes="FCMComposite_1_1">
+<overriddenAttribute href="ComIbmMQOutput.msgnode#Property.replyToQ"/>
+</attributeLinks>
+<stickyBoard>
+<stickyNote location="64,34" >
+<body xmi:type="utility:ConstantString" string="A basic replacement for the putGetWait node,.Setup for easy synchronous request-reply services.&#xD;&#xA; - No dependency on environment or LocalEnvironment vars.&#xD;&#xA; - Gets Reply Message by CorrelId ( The MsgId of the input msg )"/>
+</stickyNote>
+</stickyBoard>
+</eClassifiers>
+</ecore:EPackage>

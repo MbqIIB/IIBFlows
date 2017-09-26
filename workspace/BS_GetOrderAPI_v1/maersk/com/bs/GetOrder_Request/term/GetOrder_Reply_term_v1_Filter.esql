@@ -1,0 +1,10 @@
+BROKER SCHEMA maersk.com.bs.GetOrder_Request.term
+
+
+CREATE FILTER MODULE GetOrder_Reply_term_v1_Filter
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		RETURN TRUE;
+	END;
+
+END MODULE;

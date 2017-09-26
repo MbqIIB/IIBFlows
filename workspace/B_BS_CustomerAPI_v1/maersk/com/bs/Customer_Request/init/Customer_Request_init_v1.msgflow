@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmMQHeader.msgnode="ComIbmMQHeader.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:maersk_iib_common_state_v1_sfSaveStateMessage_v1.subflow="maersk/iib/common/state/v1/sfSaveStateMessage_v1.subflow" xmlns:maersk_iib_errorhandler_v1_sfErrorHandler_v1.subflow="maersk/iib/errorhandler/v1/sfErrorHandler_v1.subflow"
+    xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="maersk/com/bs/Customer_Request/init/Customer_Request_init_v1.msgflow" nsPrefix="maersk_com_bs_Customer_Request_init_Customer_Request_init_v1.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="Customer_Request_init_v1" bundleName="maersk/com/bs/Customer_Request/init/Customer_Request_init_v1" pluginId="B_BS_CustomerAPI_v1"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/B_BS_CustomerAPI_v1/icons/full/obj16/Customer_Request_init_v1.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/B_BS_CustomerAPI_v1/icons/full/obj30/Customer_Request_init_v1.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="123,262" queueName="BS.GET_CUSTOMER.INIT" messageDomainProperty="XMLNSC">
+        <translation xmi:type="utility:ConstantString" string="BS.GET_CUSTOMER.INIT"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQHeader.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="614,262" mqmdAAAOptions="Modify header" mqmdCodedCharSetId="Inherit" mqmdFormat="Inherit" mqmdMsgType="Inherit" mqmdExpiry="1800" mqmdFeedback="Inherit" mqmdMsgId="$Environment/StateMQMD/CorrelId" mqmdCorrelId="Inherit" mqmdReplyToQ="BS.CUSTOMER_GETORDERS_INTER01.REQ" mqmdReplyToQMgr="Inherit">
+        <translation xmi:type="utility:ConstantString" string="MQ Header"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="871,267" queueName="EAI.GET_CUSTOMER_PA.REQ">
+        <translation xmi:type="utility:ConstantString" string="EAI.GET_CUSTOMER_PA.REQ"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_common_state_v1_sfSaveStateMessage_v1.subflow:FCMComposite_1" xmi:id="FCMComposite_1_5" location="332,194" queueName="STATE.BS.QUEUE">
+        <translation xmi:type="utility:ConstantString" string="sfSaveStateMessage_v1"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_errorhandler_v1_sfErrorHandler_v1.subflow:FCMComposite_1" xmi:id="FCMComposite_1_2" location="299,399" Format="CUSTOM" ResponseName="GetCustomerResponse">
+        <translation xmi:type="utility:ConstantString" string="sfErrorHandler_v1"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="520,399" queueName="EA.GET_CUSTOMER_ERROR.IN" newMsgId="true" validateMaster="none">
+        <translation xmi:type="utility:ConstantString" string="EA.GET_CUSTOMER_ERROR.IN"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard/>
+  </eClassifiers>
+</ecore:EPackage>

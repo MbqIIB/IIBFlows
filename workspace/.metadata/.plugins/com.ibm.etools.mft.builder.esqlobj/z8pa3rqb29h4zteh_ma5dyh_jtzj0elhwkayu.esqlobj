@@ -1,0 +1,1861 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		DECLARE inRef 			REFERENCE TO InputRoot.XMLNSC.ser:RecordInsurancePolicySoapIn.Payload.RecordInsurancePolicy;
+		DECLARE POLICY_HOLDER	REFERENCE TO inRef.ns:insurancePolicy.ns:contractComponents;
+		DECLARE AUTOMOBILE		REFERENCE TO POLICY_HOLDER;	
+		DECLARE DRIVER			REFERENCE TO POLICY_HOLDER;	
+		DECLARE Customer_Idx 	INTEGER 0;
+		DECLARE Update_Reqd		BOOLEAN;
+		
+-- Navigate to Policy Holders
+		MOVE POLICY_HOLDER TO inRef.ns:insurancePolicy;
+		CALL getXTreeMany(POLICY_HOLDER, 'Policyholder');				
+
+-- Create or Update Policy Holders
+		MOVE POLICY_HOLDER TO POLICY_HOLDER.Policyholder;
+		WHILE LASTMOVE(POLICY_HOLDER) DO
+-- 		check Customer ID (client number), if zero then create new customer, else update existing	
+			IF POLICY_HOLDER.ns:rolePlayer.ns:objectReference.ns:objectId = 0 THEN
+				CALL CreatePersonRequest(POLICY_HOLDER,Customer_Idx);
+			ELSE
+-- 				Only update the primary policyholder
+				IF POLICY_HOLDER.ns:objectReference.ns:objectId = 1 THEN				
+					CALL RetrievePersonRequest(POLICY_HOLDER,Customer_Idx);
+					CALL ComparePersonDetails(POLICY_HOLDER,Update_Reqd);
+					IF Update_Reqd = true THEN
+						CALL AmendPersonRequest(POLICY_HOLDER,inRef,Customer_Idx);
+					END IF;	
+				ELSE
+					SET Customer_Idx = Customer_Idx + 1;
+					SET Environment.HUONClientNo[Customer_Idx] = COALESCE(POLICY_HOLDER.ns:rolePlayer.ns:objectReference.ns:objectId,0);
+				END IF;
+			END IF;	
+			MOVE POLICY_HOLDER NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+		
+		DELETE FIELD Environment.getXTreeMany;	
+
+-- Navigate to AutomobileCoverage	
+		MOVE AUTOMOBILE TO POLICY_HOLDER.ns:contractComponents;
+		CALL getXTree(AUTOMOBILE, 'AutomobileCoverage');	
+
+-- Navigate to Drivers					
+		MOVE DRIVER TO AUTOMOBILE;
+		CALL getXTreeMany(DRIVER, 'NamedDriver');			
+		
+-- Create or Update Drivers 
+		MOVE DRIVER TO DRIVER.NamedDriver;
+		WHILE LASTMOVE(DRIVER) DO
+-- 		Customer ID (client number), if zero then create new customer
+			IF DRIVER.ns:rolePlayer.ns:objectReference.ns:objectId = 0 THEN
+				CALL CreatePersonRequest(DRIVER,Customer_Idx);
+			ELSE
+--			Removed - Don't update details of additional drivers
+--				CALL RetrievePersonRequest(DRIVER,Customer_Idx);
+--				CALL ComparePersonDetails(DRIVER,Update_Reqd);
+--				IF Update_Reqd = true THEN
+--					CALL AmendPersonRequest(DRIVER,inRef,Customer_Idx);
+--				END IF;	
+				SET Customer_Idx = Customer_Idx + 1;
+				SET Environment.HUONClientNo[Customer_Idx] = COALESCE(DRIVER.ns:rolePlayer.ns:objectReference.ns:objectId,0);
+			END IF;
+			MOVE DRIVER NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+
+		DELETE FIELD Environment.getXTreeMany;	
+		
+		CALL RecordInsurancePolicyRequest();
+		
+		RETURN TRUE;
+	END;
+/***********************************************************************************************************************************************************************/
+CREATE PROCEDURE CreatePersonRequest(IN DRIVER REFERENCE,INOUT Customer_Idx INT) BEGIN
+
+			SET OutputRoot.Properties = InputRoot.Properties;
+			SET OutputRoot.MQMD = InputRoot.MQMD;
+			
+			CALL BuildCreatePersonRequestHdr();
+			CALL BuildCreatePersonRequestBody(DRIVER);
+			PROPAGATE TO TERMINAL 'out1';
+			SET Customer_Idx = Customer_Idx + 1;
+			SET Environment.HUONClientNo[Customer_Idx] = Environment.clientNo;
+
+END;	
+/***********************************************************************************************************************************************************************/ 
+CREATE PROCEDURE BuildCreatePersonRequestHdr() BEGIN
+	
+-- Setup output request headers 
+		SET OutputRoot.Properties.MessageSet 		= 'mspParty';
+ 		SET OutputRoot.MQMD.SourceQueue 			= 'ESB.CUS.CREATE_INDIVIDUAL.REQ';
+ 		SET OutputRoot.MQMD.ReplyToQ 				= 'ESB.CUS.CREATE_INDIVIDUAL.REPLY';
+  		
+-- Build XMLNSC Header
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'XMLNSC';
+		SET OutputRoot.XMLNSC.party:"CreatePersonRequestV1_0".Header = InputRoot.XMLNSC.ser:RecordInsurancePolicySoapIn.Header; 
+		SET OutputRoot.XMLNSC.party:"CreatePersonRequestV1_0".Header.operation.name = 'CreatePersonRequestV1_0'; 
+		
+END;
+/***********************************************************************************************************************************************************************/	
+CREATE PROCEDURE BuildCreatePersonRequestBody(IN DRIVER REFERENCE) BEGIN
+
+		DECLARE PERSON 			REFERENCE TO DRIVER;
+		DECLARE CONTACT_PREFS	REFERENCE TO DRIVER;
+		DECLARE MAILING_ADDR	REFERENCE TO DRIVER;
+		DECLARE HOME_PHONE		REFERENCE TO DRIVER;
+		DECLARE WORK_PHONE		REFERENCE TO DRIVER;
+		DECLARE MOBILE_PHONE	REFERENCE TO DRIVER;
+		DECLARE EMAIL_ADDR		REFERENCE TO DRIVER;
+		DECLARE FLYBUYS			REFERENCE TO DRIVER;
+
+		SET Environment.marketing_consent = false;
+
+-- Navigate to Person					
+		MOVE PERSON TO DRIVER;
+		CALL getXTree(PERSON, 'Person');
+
+-- Navigate to Person Details
+		MOVE CONTACT_PREFS TO PERSON.ns:contactPreferences;
+		WHILE LASTMOVE(CONTACT_PREFS) DO
+  			IF CONTACT_PREFS.ns:purpose = 'Mailing' THEN
+  				MOVE MAILING_ADDR TO CONTACT_PREFS.ns:contactPoints;
+			ELSE		
+ 				IF CONTACT_PREFS.ns:usage = 'Home' THEN
+   					MOVE HOME_PHONE TO CONTACT_PREFS;
+				ELSE		
+ 					IF CONTACT_PREFS.ns:usage = 'Work' THEN
+		  				MOVE WORK_PHONE TO CONTACT_PREFS;
+ 					ELSE
+ 						IF CONTACT_PREFS.ns:contactPoints.ns:mobile = true THEN
+		  					MOVE MOBILE_PHONE TO CONTACT_PREFS;
+ 						ELSE
+  							IF CONTACT_PREFS.ns:purpose = 'Marketing' THEN
+ 								SET Environment.marketing_consent = true;
+  							END IF;	
+			  				MOVE EMAIL_ADDR TO CONTACT_PREFS;
+ 						END IF;
+ 					END IF;	
+ 				END IF;
+  			END IF;		
+ 			MOVE CONTACT_PREFS NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC.party:"CreatePersonRequestV1_0" 			NAME 'Payload';
+		CREATE LASTCHILD OF OutputRoot.XMLNSC.party:"CreatePersonRequestV1_0".Payload 	NAME 'customerDetails';
+		
+		DECLARE RequestRef REFERENCE TO OutputRoot.XMLNSC.party:"CreatePersonRequestV1_0".Payload.customerDetails;
+		DECLARE RequestRef2 REFERENCE TO RequestRef;
+		
+		CREATE LASTCHILD OF RequestRef 													NAME 'partyRoles';
+		
+		MOVE RequestRef	 TO OutputRoot.XMLNSC.party:"CreatePersonRequestV1_0".Payload.customerDetails.partyRoles;
+		SET RequestRef.(XMLNSC.Attribute)xsi:type										='Customer';
+		
+		CREATE LASTCHILD OF RequestRef 													NAME 'zone' 				VALUE 'STATE';
+		
+		CREATE LASTCHILD OF RequestRef 													NAME 'rolePlayer';
+		
+		DECLARE outRef REFERENCE TO OutputRoot.XMLNSC.party:"CreatePersonRequestV1_0".Payload.customerDetails.partyRoles.rolePlayer;
+
+		MOVE RequestRef	 TO outRef;
+		SET RequestRef.(XMLNSC.Attribute)xsi:type										='Person';
+		
+		CREATE LASTCHILD OF RequestRef 													NAME 'contactPreferences'; 
+
+		MOVE RequestRef	 TO outRef.contactPreferences;
+		
+		CREATE LASTCHILD OF RequestRef 													NAME 'contactPoints';
+
+		MOVE RequestRef	 TO outRef.contactPreferences.contactPoints;
+		SET RequestRef.(XMLNSC.Attribute)xsi:type										='Address';
+		
+		CREATE LASTCHILD OF RequestRef NAME 'objectReference'; 
+
+		MOVE RequestRef	 TO outRef.contactPreferences.contactPoints.objectReference;
+		
+		CREATE LASTCHILD OF RequestRef													NAME 'componentId'			VALUE 'DPID'; 
+--		CREATE LASTCHILD OF RequestRef													NAME 'objectId' 			VALUE COALESCE(MAILING_ADDR.ns:objectReference.ns:objectId,0); 
+--		The DPID is not required when creating a new client
+		CREATE LASTCHILD OF RequestRef													NAME 'objectId' 			VALUE 0; 
+		
+		MOVE RequestRef	 TO outRef.contactPreferences.contactPoints;
+
+		CREATE LASTCHILD OF RequestRef 													NAME 'country' 				VALUE 'NZL';
+		CREATE LASTCHILD OF RequestRef 													NAME 'region' 				VALUE MAILING_ADDR.ns:region;
+		CREATE LASTCHILD OF RequestRef 													NAME 'city'		 			VALUE MAILING_ADDR.ns:subregion;
+		CREATE LASTCHILD OF RequestRef 													NAME 'postalCode' 			VALUE MAILING_ADDR.ns:postalCode;
+		CREATE LASTCHILD OF RequestRef 													NAME 'street' 				VALUE MAILING_ADDR.ns:street;
+		CREATE LASTCHILD OF RequestRef 													NAME 'houseNumber' 			VALUE MAILING_ADDR.ns:streetNumber;
+		IF MAILING_ADDR.ns:streetNumberSuffix IS NOT NULL THEN 	
+			SET RequestRef.houseNumber 													= TRIM(RequestRef.houseNumber||MAILING_ADDR.ns:streetNumberSuffix);
+		END IF;	
+
+		CREATE LASTCHILD OF RequestRef 													NAME 'streetType' 			VALUE GetRefDataCodeVal('801769', MAILING_ADDR.ns:streetType);
+ 		IF LEFT(RequestRef.streetType, 18) = 'CODE_VAL NOT FOUND' THEN
+  			SET RequestRef.streetType = MAILING_ADDR.ns:streetType;
+  		END IF;	
+
+		CREATE LASTCHILD OF RequestRef 													NAME 'streetSuffix'			VALUE GetRefDataCodeVal('801281', MAILING_ADDR.ns:streetSuffix);
+ 		IF LEFT(RequestRef.streetSuffix, 18) = 'CODE_VAL NOT FOUND' THEN
+  			SET RequestRef.streetSuffix = MAILING_ADDR.ns:streetSuffix;
+  		END IF;	
+
+		CREATE LASTCHILD OF RequestRef 													NAME 'unitNumber' 			VALUE MAILING_ADDR.ns:unitNumber;
+		CREATE LASTCHILD OF RequestRef 													NAME 'unitType' 			VALUE GetRefDataCodeVal('801768', MAILING_ADDR.ns:unitType);
+	 	IF LEFT(RequestRef.unitType, 18) = 'CODE_VAL NOT FOUND' THEN
+	 		SET RequestRef.extraType = MAILING_ADDR.ns:unitType;
+			SET RequestRef.extraNumber = MAILING_ADDR.ns:unitNumber;
+	 		SET RequestRef.unitNumber = '';
+	 	END IF;	
+
+		CREATE LASTCHILD OF RequestRef 													NAME 'contactPointAsString'	VALUE MAILING_ADDR.ns:buildingName;
+		CREATE LASTCHILD OF RequestRef 													NAME 'level' 				VALUE MAILING_ADDR.ns:levelType;
+		
+		CREATE LASTCHILD OF RequestRef 													NAME 'floorNumber'	 		VALUE MAILING_ADDR.ns:floorNumber;
+		
+		IF MAILING_ADDR.(XMLNSC.Attribute)xsi:type ='POAddress' THEN
+			IF MAILING_ADDR.ns:boxType IS NOT NULL THEN
+				CREATE LASTCHILD OF RequestRef 											NAME 'postalType' 			VALUE MAILING_ADDR.ns:boxType;
+			END IF;	
+			IF MAILING_ADDR.ns:boxNumber IS NOT NULL THEN	
+				CREATE LASTCHILD OF RequestRef 											NAME 'postalNumber'			VALUE MAILING_ADDR.ns:boxNumber; 
+			END IF;	
+			IF MAILING_ADDR.ns:lobbyName IS NOT NULL THEN
+				CREATE LASTCHILD OF RequestRef 											NAME 'boxName' 				VALUE MAILING_ADDR.ns:lobbyName;
+			END IF;
+		END IF;	
+		
+		IF MAILING_ADDR.(XMLNSC.Attribute)xsi:type ='RuralAddress' THEN
+			IF MAILING_ADDR.ns:ruralDistrict IS NOT NULL THEN
+				CREATE LASTCHILD OF RequestRef 											NAME 'ruralDistrict'		VALUE MAILING_ADDR.ns:ruralDistrict;
+			END IF;	
+		END IF;	
+
+		MOVE RequestRef	 TO outRef;
+
+-- If there is a home phone number in the request then add it to the customer  
+		IF HOME_PHONE.ns:contactPoints.ns:localNumber <> ' ' OR HOME_PHONE.ns:contactPoints.ns:areaCode <> ' ' THEN
+
+			CREATE LASTCHILD OF RequestRef AS RequestRef									NAME 'contactPreferences';
+			MOVE RequestRef2 TO RequestRef;
+
+			SET RequestRef2.(XMLNSC.Attribute)mode											='Add';
+			CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'contactPoints';
+		
+			SET RequestRef2.(XMLNSC.Attribute)xsi:type										='TelephoneNumber';
+			SET RequestRef2.(XMLNSC.Attribute)informationState								='After';
+			
+			CREATE LASTCHILD OF RequestRef2 												NAME 'startDate'			VALUE GetCurrentDateDelimiter('-');
+			CREATE LASTCHILD OF RequestRef2 												NAME 'endDate'				VALUE '9999-12-31';
+			CREATE LASTCHILD OF RequestRef2 												NAME 'countryPhoneCode'		VALUE 'NZL';
+			CREATE LASTCHILD OF RequestRef2 												NAME 'areaCode'				VALUE HOME_PHONE.ns:contactPoints.ns:areaCode;
+			CREATE LASTCHILD OF RequestRef2 												NAME 'localNumber'			VALUE HOME_PHONE.ns:contactPoints.ns:localNumber;
+			CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'electronicType';
+			CREATE LASTCHILD OF RequestRef2 												NAME 'TelephoneElectronicType'	VALUE 'Home Phone';
+
+			MOVE RequestRef	 TO outRef;
+			
+		END IF;
+
+-- If there is a work phone number in the request then add it to the customer  
+		IF WORK_PHONE.ns:contactPoints.ns:localNumber <> ' ' OR WORK_PHONE.ns:contactPoints.ns:areaCode <> ' ' THEN
+
+			CREATE LASTCHILD OF RequestRef AS RequestRef									NAME 'contactPreferences';
+			MOVE RequestRef2 TO RequestRef;
+
+			SET RequestRef2.(XMLNSC.Attribute)mode											='Add';
+			CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'contactPoints';
+		
+			SET RequestRef2.(XMLNSC.Attribute)xsi:type										='TelephoneNumber';
+			SET RequestRef2.(XMLNSC.Attribute)informationState								='After';
+			
+			CREATE LASTCHILD OF RequestRef2 												NAME 'startDate'			VALUE GetCurrentDateDelimiter('-');
+			CREATE LASTCHILD OF RequestRef2 												NAME 'endDate'				VALUE '9999-12-31';
+			CREATE LASTCHILD OF RequestRef2 												NAME 'countryPhoneCode'		VALUE 'NZL';
+			CREATE LASTCHILD OF RequestRef2 												NAME 'areaCode'				VALUE WORK_PHONE.ns:contactPoints.ns:areaCode;
+			CREATE LASTCHILD OF RequestRef2 												NAME 'localNumber'			VALUE WORK_PHONE.ns:contactPoints.ns:localNumber;
+			CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'electronicType';
+			CREATE LASTCHILD OF RequestRef2 												NAME 'TelephoneElectronicType'	VALUE 'Work Phone';
+
+			MOVE RequestRef	 TO outRef;
+			
+		END IF;
+
+-- If there is a mobile phone number in the request then add it to the customer  
+		IF MOBILE_PHONE.ns:contactPoints.ns:localNumber <> ' ' OR MOBILE_PHONE.ns:contactPoints.ns:areaCode <> ' ' THEN
+
+			CREATE LASTCHILD OF RequestRef AS RequestRef									NAME 'contactPreferences';
+			MOVE RequestRef2 TO RequestRef;
+
+			SET RequestRef2.(XMLNSC.Attribute)mode											='Add';
+			CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'contactPoints';
+		
+			SET RequestRef2.(XMLNSC.Attribute)xsi:type										='TelephoneNumber';
+			SET RequestRef2.(XMLNSC.Attribute)informationState								='After';
+			
+			CREATE LASTCHILD OF RequestRef2 												NAME 'startDate'			VALUE GetCurrentDateDelimiter('-');
+			CREATE LASTCHILD OF RequestRef2 												NAME 'endDate'				VALUE '9999-12-31';
+			CREATE LASTCHILD OF RequestRef2 												NAME 'countryPhoneCode'		VALUE 'NZL';
+			CREATE LASTCHILD OF RequestRef2 												NAME 'localNumber'			VALUE TRIM(MOBILE_PHONE.ns:contactPoints.ns:areaCode||MOBILE_PHONE.ns:contactPoints.ns:localNumber);
+			CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'electronicType';
+			CREATE LASTCHILD OF RequestRef2 												NAME 'TelephoneElectronicType'	VALUE 'Mobile Phone';
+
+			MOVE RequestRef	 TO outRef;
+			
+		END IF;
+
+-- If there is an email address in the request then add it to the customer 
+		IF EMAIL_ADDR.ns:contactPoints.ns:contactPointAsString <> '' THEN
+
+			CREATE LASTCHILD OF RequestRef AS RequestRef									NAME 'contactPreferences';
+			MOVE RequestRef2 TO RequestRef;
+
+			SET RequestRef2.(XMLNSC.Attribute)mode											='Add';
+			CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'contactPoints';
+		
+			SET RequestRef2.(XMLNSC.Attribute)xsi:type										='ElectronicAddress';
+			SET RequestRef2.(XMLNSC.Attribute)informationState								='After';
+			
+			CREATE LASTCHILD OF RequestRef2 												NAME 'startDate'			VALUE GetCurrentDateDelimiter('-');
+			CREATE LASTCHILD OF RequestRef2 												NAME 'endDate'				VALUE '9999-12-31';
+			CREATE LASTCHILD OF RequestRef2 												NAME 'contactPointAsString'	VALUE EMAIL_ADDR.ns:contactPoints.ns:contactPointAsString;
+
+			MOVE RequestRef	 TO outRef;
+
+		END IF;
+
+-- Add customers' name and marketing consent 
+		CREATE LASTCHILD OF RequestRef 													NAME 'personName';
+		
+		MOVE RequestRef	 TO outRef.personName;
+
+		CREATE LASTCHILD OF RequestRef 													NAME 'firstName' 	VALUE PERSON.ns:defaultName.ns:firstName;
+		CREATE LASTCHILD OF RequestRef 													NAME 'lastName' 	VALUE  PERSON.ns:defaultName.ns:lastName;
+		CREATE LASTCHILD OF RequestRef 													NAME 'prefixTitles';
+
+		MOVE RequestRef	 TO outRef.personName.prefixTitles;
+
+		IF UCASE(PERSON.ns:gender) = 'MALE' THEN	 
+			CREATE LASTCHILD OF RequestRef 												NAME 'PrefixTitles' VALUE GetRefDataCodeVal('801224', UCASE(TRIM(PERSON.ns:defaultName.ns:prefixTitles)));
+		ELSE
+			CREATE LASTCHILD OF RequestRef 												NAME 'PrefixTitles' VALUE GetRefDataCodeVal('801225', UCASE(TRIM(PERSON.ns:defaultName.ns:prefixTitles)));
+		END IF;			
+  		IF LEFT(RequestRef.PrefixTitles, 18) = 'CODE_VAL NOT FOUND' THEN
+  			SET RequestRef.PrefixTitles = PERSON.ns:defaultName.ns:prefixTitles;
+  		END IF;	
+ 		
+		MOVE RequestRef	 TO outRef;
+
+-- 		Only add marketing consent for the primary policyholder
+		IF DRIVER.ns:objectReference.ns:objectId = 1 THEN				
+			IF Environment.marketing_consent = true THEN
+				CREATE LASTCHILD OF RequestRef 											NAME 'MarketingConsentIndicator' 	VALUE 'Y';
+			ELSE	
+				CREATE LASTCHILD OF RequestRef 											NAME 'MarketingConsentIndicator' 	VALUE 'Z';
+			END IF;	
+		END IF;	
+
+-- Add FlyBuys					
+		MOVE FLYBUYS TO PERSON;
+		CALL getXTree(FLYBUYS, 'LoyaltyRegistration');
+
+		IF FLYBUYS.ns:rootType.ns:name = 'FlyBuys' THEN
+			CREATE LASTCHILD OF RequestRef 												NAME 'FlyBuys' 		VALUE FLYBUYS.ns:cardNumber;
+		END IF;	
+			
+-- Add DOB & gender			
+		CREATE LASTCHILD OF RequestRef 													NAME 'birthDate' 	VALUE COALESCE(PERSON.ns:birthDate,'9999-12-31');
+
+		CREATE LASTCHILD OF RequestRef 													NAME 'gender';
+
+		MOVE RequestRef	 TO outRef.gender;
+
+		CREATE LASTCHILD OF RequestRef 													NAME 'Gender' 		VALUE PERSON.ns:gender;
+
+	END;
+/***********************************************************************************************************************************************************************/
+CREATE PROCEDURE RetrievePersonRequest(IN DRIVER REFERENCE,INOUT Customer_Idx INT) BEGIN
+	
+			SET OutputRoot.Properties = InputRoot.Properties;
+			SET OutputRoot.MQMD = InputRoot.MQMD;
+			
+			CALL BuildRetrievePersonRequestHdr();
+			CALL BuildRetrievePersonRequestBody(DRIVER);
+			PROPAGATE TO TERMINAL 'out2';
+			SET Customer_Idx = Customer_Idx + 1;
+			SET Environment.HUONClientNo[Customer_Idx] = Environment.clientNo;
+
+END;	
+/***********************************************************************************************************************************************************************/ 
+CREATE PROCEDURE BuildRetrievePersonRequestHdr() BEGIN
+	
+-- Setup output request headers 
+		SET OutputRoot.Properties.MessageSet 		= 'mspParty';
+ 		SET OutputRoot.MQMD.SourceQueue 			= 'ESB.CUS.RETRIEVE_INDIVIDUAL.REQ';
+ 		SET OutputRoot.MQMD.ReplyToQ 				= 'ESB.CUS.RETRIEVE_INDIVIDUAL.REPLY';
+  		
+-- Build XMLNSC Header
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'XMLNSC';
+		SET OutputRoot.XMLNSC.party:"RetrievePersonDetailsRequestV1_0".Header = InputRoot.XMLNSC.ser:RecordInsurancePolicySoapIn.Header; 
+		SET OutputRoot.XMLNSC.party:"RetrievePersonDetailsRequestV1_0".Header.operation.name = 'retrievePersonDetailsV1_0'; 
+		CREATE LASTCHILD OF OutputRoot.XMLNSC.party:"RetrievePersonDetailsRequestV1_0".Header NAME 'type' VALUE 'REQUEST'; 
+		
+END;
+/***********************************************************************************************************************************************************************/	
+CREATE PROCEDURE BuildRetrievePersonRequestBody(IN DRIVER REFERENCE) BEGIN
+
+		DECLARE PERSON 			REFERENCE TO DRIVER;
+
+-- Navigate to Person					
+		MOVE PERSON TO DRIVER;
+		CALL getXTree(PERSON, 'Person');
+		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC.party:"RetrievePersonDetailsRequestV1_0" 		NAME 'Payload';
+		
+		DECLARE RequestRef REFERENCE TO OutputRoot.XMLNSC.party:"RetrievePersonDetailsRequestV1_0".Payload;
+		
+		CREATE LASTCHILD OF RequestRef.objectReference									NAME 'componentId' 	VALUE PERSON.ns:objectReference.ns:objectId;
+END;
+/***********************************************************************************************************************************************************************/ 
+CREATE PROCEDURE ComparePersonDetails(IN DRIVER REFERENCE,INOUT Update_Reqd BOOLEAN) BEGIN
+
+		DECLARE PERSON 			REFERENCE TO DRIVER;
+		DECLARE CONTACT_PREFS	REFERENCE TO DRIVER;
+		DECLARE MAILING_ADDR	REFERENCE TO DRIVER;
+		DECLARE EMAIL_ADDR		REFERENCE TO DRIVER;
+		DECLARE FLYBUYS         REFERENCE TO DRIVER;
+		DECLARE DPID_Idx 		INTEGER 0;	
+
+		SET Environment.marketing_consent = false;
+
+-- Navigate to Person					
+		MOVE PERSON TO DRIVER;
+		CALL getXTree(PERSON, 'Person');
+
+-- Navigate to Person Details
+		MOVE CONTACT_PREFS TO PERSON.ns:contactPreferences;
+		WHILE LASTMOVE(CONTACT_PREFS) DO
+  			IF CONTACT_PREFS.ns:purpose = 'Mailing' THEN
+  				MOVE MAILING_ADDR TO CONTACT_PREFS.ns:contactPoints;
+			ELSE		
+ 				IF CONTACT_PREFS.ns:usage = 'Home' THEN
+   					SET Environment.new.homePhone.areaCode = CONTACT_PREFS.ns:contactPoints.ns:areaCode;
+   					SET Environment.new.homePhone.localNumber = CONTACT_PREFS.ns:contactPoints.ns:localNumber;
+				ELSE		
+ 					IF CONTACT_PREFS.ns:usage = 'Work' THEN
+   						SET Environment.new.workPhone.areaCode = CONTACT_PREFS.ns:contactPoints.ns:areaCode;
+   						SET Environment.new.workPhone.localNumber = CONTACT_PREFS.ns:contactPoints.ns:localNumber;
+ 					ELSE
+ 						IF CONTACT_PREFS.ns:contactPoints.ns:mobile = true THEN
+   							SET Environment.new.mobilePhone.areaCode = CONTACT_PREFS.ns:contactPoints.ns:areaCode;
+   							SET Environment.new.mobilePhone.localNumber = CONTACT_PREFS.ns:contactPoints.ns:localNumber;
+ 						ELSE
+  							IF CONTACT_PREFS.ns:purpose = 'Marketing' THEN
+ 								SET Environment.marketing_consent = true;
+  							END IF;	
+			  				MOVE EMAIL_ADDR TO CONTACT_PREFS;
+ 						END IF;
+ 					END IF;	
+ 				END IF;
+  			END IF;		
+ 			MOVE CONTACT_PREFS NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+
+-- Remove any null values to make field comparisons more straightforward	
+		IF Environment.multipleUpdates = false THEN
+			IF PERSON.ns:defaultName.ns:prefixTitles IS NULL THEN
+				SET PERSON.ns:defaultName.ns:prefixTitles = Environment.title;
+			END IF;
+			IF Environment.new.homePhone.areaCode IS NULL THEN
+				SET Environment.new.homePhone.areaCode = Environment.homePhone[1].areaCode;
+			END IF;
+			IF Environment.new.homePhone.localNumber IS NULL THEN
+				SET	Environment.new.homePhone.localNumber = Environment.homePhone[1].localNumber;
+			END IF;
+			IF Environment.new.workPhone.areaCode IS NULL THEN
+				SET	Environment.new.workPhone.areaCode = Environment.workPhone[1].areaCode;
+			END IF;
+			IF Environment.new.workPhone.localNumber IS NULL THEN
+				SET Environment.new.workPhone.localNumber = Environment.workPhone[1].localNumber;
+			END IF;
+			IF Environment.new.mobilePhone.areaCode IS NULL THEN
+				SET Environment.new.mobilePhone.areaCode = Environment.mobilePhone[1].areaCode;
+			END IF;
+			IF Environment.new.mobilePhone.localNumber IS NULL THEN
+				SET Environment.new.mobilePhone.localNumber = Environment.mobilePhone[1].localNumber;
+			END IF;
+			IF EMAIL_ADDR.ns:contactPoints.ns:contactPointAsString IS NULL THEN
+				SET EMAIL_ADDR.ns:contactPoints.ns:contactPointAsString = Environment.emailAddress[1].contactPointAsString;
+			END IF;
+		END IF;
+				
+-- Determine if the customer has specified a new mailing address
+		SET Environment.newAddress = true;
+		WHILE DPID_Idx < Environment.addressIdx DO
+			SET DPID_Idx = DPID_Idx + 1;
+			IF Environment.address.DPID[DPID_Idx] = MAILING_ADDR.ns:objectReference.ns:objectId THEN
+				 SET Environment.newAddress = false;
+			END IF;
+		END WHILE; 
+
+-- Navigate to the flybuys number
+		MOVE FLYBUYS TO PERSON;
+		CALL getXTree(FLYBUYS, 'LoyaltyRegistration');
+		IF FLYBUYS.ns:cardNumber IS NOT NULL THEN
+			SET Environment.newFlyBuys = FLYBUYS.ns:cardNumber;
+		ELSE	
+			SET Environment.newFlyBuys = ' ';
+		END IF;	
+-- Determine if Flybuys number should be added to customer (only if existing flybuys is blank)
+		IF Environment.FlyBuys = ' ' AND Environment.newFlyBuys <> ' ' THEN
+			SET Environment.update_FlyBuys = true;
+		ELSE						
+			SET Environment.update_FlyBuys = false;
+		END IF;	
+		  				
+-- Compare values from request with values from retrieved customer details	
+		IF Environment.multipleUpdates = true THEN
+			SET Update_Reqd = true;
+		ELSE
+--			update customers marketing consent indicator (set to 'Y' if the customer has agreed to receive marketing and the
+--			current consent indicator is space or 'Z'(no to email marketing), set to 'Z' if the customer has opted to not 
+--			receive marketing and their current consent indicator = 'Y')
+--			If the customers current consent indicator = 'N' (no to all marketing) then don't update it (even if marketing
+--			consent= 'Y' in the payload)
+			IF (Environment.marketingConsentInd IN (' ', 'Z') AND Environment.marketing_consent = true) OR
+			   (Environment.marketingConsentInd = 'Y' AND Environment.marketing_consent = false) THEN
+				SET Update_Reqd = true;
+			ELSE
+				IF UCASE(PERSON.ns:defaultName.ns:prefixTitles) 				= UCASE(Environment.title) AND
+				   UCASE(Environment.new.homePhone.areaCode) 					= UCASE(Environment.homePhone.areaCode) AND
+			 	   UCASE(Environment.new.homePhone.localNumber)					= UCASE(Environment.homePhone.localNumber) AND
+			       UCASE(Environment.new.workPhone.areaCode)					= UCASE(Environment.workPhone.areaCode) AND					
+			       UCASE(Environment.new.workPhone.localNumber)					= UCASE(Environment.workPhone.localNumber) AND
+			       UCASE(Environment.new.mobilePhone.areaCode)					= UCASE(Environment.mobilePhone.areaCode) AND
+			       UCASE(Environment.new.mobilePhone.localNumber)		   		= UCASE(Environment.mobilePhone.localNumber) AND
+			       UCASE(EMAIL_ADDR.ns:contactPoints.ns:contactPointAsString)	= UCASE(Environment.emailAddress.contactPointAsString) AND
+			       Environment.newAddress = false AND 
+			       Environment.update_FlyBuys = false THEN
+		   		   SET Update_Reqd = false;
+			    ELSE
+		   		   SET Update_Reqd = true;
+				END IF;
+			END IF;
+		END IF;
+		
+		DELETE FIELD Environment.new;
+END;
+/***********************************************************************************************************************************************************************/ 
+CREATE PROCEDURE AmendPersonRequest(IN DRIVER REFERENCE,IN inRef REFERENCE,IN Customer_Idx INT) BEGIN
+			
+			SET OutputRoot.Properties = InputRoot.Properties;
+			SET OutputRoot.MQMD = InputRoot.MQMD;
+			
+			CALL BuildAmendPersonRequestHdr();
+			CALL BuildAmendPersonRequestBody(DRIVER, inRef, Customer_Idx);
+			PROPAGATE TO TERMINAL 'out3';
+
+END;
+/***********************************************************************************************************************************************************************/ 
+CREATE PROCEDURE BuildAmendPersonRequestHdr() BEGIN
+
+-- Setup output request headers 
+		SET OutputRoot.Properties.MessageSet 		= 'mspParty';
+ 		SET OutputRoot.MQMD.SourceQueue 			= 'ESB.CUS.AMEND_INDIVIDUAL.REQ';
+ 		SET OutputRoot.MQMD.ReplyToQ 				= 'ESB.CUS.AMEND_INDIVIDUAL.REPLY';
+ 		
+-- Build XMLNSC Header
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'XMLNSC';
+		SET OutputRoot.XMLNSC.party:"AmendPersonDetailsRequestV1_0".Header = InputRoot.XMLNSC.ser:RecordInsurancePolicySoapIn.Header; 
+		SET OutputRoot.XMLNSC.party:"AmendPersonDetailsRequestV1_0".Header.operation.name = 'amendPersonDetailsV1_0'; 
+		CREATE LASTCHILD OF OutputRoot.XMLNSC.party:"AmendPersonDetailsRequestV1_0".Header NAME 'type' VALUE 'REQUEST'; 
+		
+END;
+/***********************************************************************************************************************************************************************/	
+CREATE PROCEDURE BuildAmendPersonRequestBody(IN DRIVER REFERENCE, IN inRef REFERENCE,IN Customer_Idx INT) BEGIN
+	
+		DECLARE PERSON 			REFERENCE TO DRIVER;
+		DECLARE CONTACT_PREFS	REFERENCE TO DRIVER;
+		DECLARE MAILING_ADDR	REFERENCE TO DRIVER;
+		DECLARE EMAIL_ADDR		REFERENCE TO DRIVER;
+		DECLARE homePhone_Idx 	INTEGER 0;
+		DECLARE workPhone_Idx 	INTEGER 0;
+		DECLARE mobilePhone_Idx INTEGER 0;
+		DECLARE emailAddr_Idx 	INTEGER 0;
+
+-- Navigate to Person					
+		MOVE PERSON TO DRIVER;
+		CALL getXTree(PERSON, 'Person');
+
+-- extract Person's contact details 
+		MOVE CONTACT_PREFS TO PERSON.ns:contactPreferences;
+		SET Environment.marketing_consent = false;
+		WHILE LASTMOVE(CONTACT_PREFS) DO
+  			IF CONTACT_PREFS.ns:purpose = 'Mailing' THEN
+  				MOVE MAILING_ADDR TO CONTACT_PREFS.ns:contactPoints;
+			ELSE		
+  				IF CONTACT_PREFS.ns:usage = 'Home' THEN
+   					SET Environment.new.homePhone.areaCode = CONTACT_PREFS.ns:contactPoints.ns:areaCode;
+   					SET Environment.new.homePhone.localNumber = CONTACT_PREFS.ns:contactPoints.ns:localNumber;
+				ELSE		
+ 					IF CONTACT_PREFS.ns:usage = 'Work' THEN
+   						SET Environment.new.workPhone.areaCode = CONTACT_PREFS.ns:contactPoints.ns:areaCode;
+   						SET Environment.new.workPhone.localNumber = CONTACT_PREFS.ns:contactPoints.ns:localNumber;
+ 					ELSE
+ 						IF CONTACT_PREFS.ns:contactPoints.ns:mobile = true THEN
+   							SET Environment.new.mobilePhone.areaCode = CONTACT_PREFS.ns:contactPoints.ns:areaCode;
+   							SET Environment.new.mobilePhone.localNumber = CONTACT_PREFS.ns:contactPoints.ns:localNumber;
+ 						ELSE
+  							IF CONTACT_PREFS.ns:purpose = 'Marketing' THEN
+ 								SET Environment.marketing_consent = true;
+  							END IF;	
+			  				MOVE EMAIL_ADDR TO CONTACT_PREFS;
+ 						END IF;
+ 					END IF;	
+ 				END IF;
+  			END IF;		
+ 			MOVE CONTACT_PREFS NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+		
+-- Remove any null values to ease comparison with existing contact details easier 		
+		IF PERSON.ns:defaultName.ns:prefixTitles IS NULL THEN
+			SET PERSON.ns:defaultName.ns:prefixTitles = ' ';
+		END IF;
+		IF Environment.new.homePhone.areaCode IS NULL THEN
+			SET Environment.new.homePhone.areaCode = ' ';
+		END IF;
+		IF Environment.new.homePhone.localNumber IS NULL THEN
+			SET	Environment.new.homePhone.localNumber = ' ';
+		END IF;
+		IF Environment.new.workPhone.areaCode IS NULL THEN
+			SET	Environment.new.workPhone.areaCode = ' ';
+		END IF;
+		IF Environment.new.workPhone.localNumber IS NULL THEN
+			SET Environment.new.workPhone.localNumber = ' ';
+		END IF;
+		IF Environment.new.mobilePhone.areaCode IS NULL THEN
+			SET Environment.new.mobilePhone.areaCode = ' ';
+		END IF;
+		IF Environment.new.mobilePhone.localNumber IS NULL THEN
+			SET Environment.new.mobilePhone.localNumber = ' ';
+		END IF;
+		IF EMAIL_ADDR.ns:contactPoints.ns:contactPointAsString IS NULL THEN
+			SET EMAIL_ADDR.ns:contactPoints.ns:contactPointAsString = ' ';
+		END IF;
+		
+-- Build amend person request		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC.party:"AmendPersonDetailsRequestV1_0" 			NAME 'Payload';
+		CREATE LASTCHILD OF OutputRoot.XMLNSC.party:"AmendPersonDetailsRequestV1_0".Payload 	NAME 'AmendPersonInfo';
+		
+		DECLARE RequestRef REFERENCE TO OutputRoot.XMLNSC.party:"AmendPersonDetailsRequestV1_0".Payload.AmendPersonInfo;
+		DECLARE RequestRef2 REFERENCE TO RequestRef;
+		
+		CREATE LASTCHILD OF RequestRef AS RequestRef										NAME 'partyRoles';
+		
+		SET RequestRef.(XMLNSC.Attribute)xsi:type											='Customer';
+
+		CREATE LASTCHILD OF RequestRef 														NAME 'objectReference';
+		
+		CREATE LASTCHILD OF RequestRef.objectReference										NAME 'componentId'			VALUE 'PartyGroupID';
+
+		CREATE LASTCHILD OF RequestRef.objectReference										NAME 'objectId'				VALUE Environment.CRODSClientNo;
+		
+		CREATE LASTCHILD OF RequestRef 														NAME 'zone' 				VALUE 'STATE';
+		
+		CREATE LASTCHILD OF RequestRef AS RequestRef										NAME 'rolePlayer';
+		
+		DECLARE outRef REFERENCE TO OutputRoot.XMLNSC.party:"AmendPersonDetailsRequestV1_0".Payload.AmendPersonInfo.partyRoles.rolePlayer;
+
+		SET RequestRef.(XMLNSC.Attribute)xsi:type											='Person';
+		
+		CREATE LASTCHILD OF RequestRef 														NAME 'externalReference'	VALUE Environment.externalReference;
+		
+		CREATE LASTCHILD OF RequestRef AS RequestRef										NAME 'objectReference'; 
+
+		CREATE LASTCHILD OF RequestRef 														NAME 'componentId'			VALUE 'HUON';
+		CREATE LASTCHILD OF RequestRef 														NAME 'objectId'				VALUE Environment.HUONClientNo[Customer_Idx];
+		
+		MOVE RequestRef	 TO outRef;
+
+		CREATE LASTCHILD OF RequestRef 														NAME 'systemUpdateDateTime'	VALUE GetCurrentTimeStampXML();
+
+--		Update marketing consent indicator, Flybuys and title if amended
+		IF (Environment.marketingConsentInd IN (' ', 'Z') AND Environment.marketing_consent = true) OR
+		   (Environment.marketingConsentInd = 'Y' AND Environment.marketing_consent = false) OR
+	       (Environment.title <> ' ' AND UCASE(Environment.title) <> UCASE(PERSON.ns:defaultName.ns:prefixTitles)) OR
+	        Environment.update_FlyBuys = true THEN
+		
+			CREATE LASTCHILD OF RequestRef AS RequestRef									NAME 'individualCustomerInfo';
+			MOVE RequestRef2 TO RequestRef;
+
+			SET RequestRef2.(XMLNSC.Attribute)mode											='Update';
+			
+--		update customers marketing consent indicator (set to 'Y' if the customer has agreed to receive marketing and the
+--		current consent indicator is space or 'Z'(no to email marketing), set to 'Z' if the customer has opted to not 
+--		receive marketing and their current consent indicator = 'Y')
+--		If the customers current consent indicator = 'N' (no to all marketing) then don't update it (even if marketing
+--		consent= 'Y' in the payload)
+			IF (Environment.marketingConsentInd IN (' ', 'Z') AND Environment.marketing_consent = true) OR
+			   (Environment.marketingConsentInd = 'Y' AND Environment.marketing_consent = false) THEN
+				CREATE LASTCHILD OF RequestRef2 AS RequestRef2								NAME 'marketingConsentIndicator' VALUE UCASE(Environment.marketingConsentInd);
+				SET RequestRef2.(XMLNSC.Attribute)informationState							='Before';
+				MOVE RequestRef2 TO RequestRef;
+				IF Environment.marketingConsentInd IN (' ', 'Z') AND Environment.marketing_consent = true THEN
+					CREATE LASTCHILD OF RequestRef2 AS RequestRef2							NAME 'marketingConsentIndicator'	VALUE 'Y';
+				ELSE	
+					IF Environment.marketingConsentInd = 'Y' AND Environment.marketing_consent = false THEN
+						CREATE LASTCHILD OF RequestRef2 AS RequestRef2						NAME 'marketingConsentIndicator'	VALUE 'Z';
+					END IF;
+				END IF;
+				SET RequestRef2.(XMLNSC.Attribute)informationState							='After';
+				MOVE RequestRef2 TO RequestRef;
+			END IF;	
+
+-- Update flybuys if currently blank and flybuys number is included in payload, or set before and after = current so that it's not 'blanked out' during update	
+				IF Environment.update_FlyBuys = true OR
+				   Environment.FlyBuys IS NOT NULL THEN
+					CREATE LASTCHILD OF RequestRef2 AS RequestRef2							NAME 'FlyBuys' 	VALUE UCASE(Environment.FlyBuys);
+					SET RequestRef2.(XMLNSC.Attribute)informationState						='Before';
+					MOVE RequestRef2 TO RequestRef;
+					IF Environment.update_FlyBuys = true THEN
+						CREATE LASTCHILD OF RequestRef2 AS RequestRef2						NAME 'FlyBuys'	VALUE UCASE(Environment.newFlyBuys);
+					ELSE	
+						CREATE LASTCHILD OF RequestRef2 AS RequestRef2						NAME 'FlyBuys'	VALUE UCASE(Environment.FlyBuys);
+					END IF;
+					SET RequestRef2.(XMLNSC.Attribute)informationState							='After';
+					MOVE RequestRef2 TO RequestRef;
+				END IF;
+
+-- Staffind and life referral need to be included in the amend request if they're populated, otherwise they'll be 'blanked out'
+			IF Environment.StaffMemberInd IS NOT NULL THEN
+				CREATE LASTCHILD OF RequestRef												NAME 'StaffMemberIndicator' 	VALUE UCASE(Environment.StaffMemberInd);
+			END IF;	
+			IF Environment.LifeReferral IS NOT NULL THEN
+				CREATE LASTCHILD OF RequestRef												NAME 'LifeReferral' 			VALUE UCASE(Environment.LifeReferral);
+			END IF;	
+
+--	update title if different and/or send details to enable update of marketing ind/flybuys (CRODS requires these values to update marketing ind/flybuys) 
+			CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'individual';
+			SET RequestRef2.(XMLNSC.Attribute)informationState							 	='Before';
+			CREATE LASTCHILD OF RequestRef2 												NAME 'prefixTitles' VALUE GetRefDataCodeVal('801224', UCASE(Environment.title));
+  			IF LEFT(RequestRef2.prefixTitles, 18) = 'CODE_VAL NOT FOUND' THEN
+  				SET RequestRef2.prefixTitles = UCASE(Environment.title);
+  			END IF;	
+			CREATE LASTCHILD OF RequestRef2													NAME 'firstName' 	VALUE UCASE(Environment.firstName);
+			CREATE LASTCHILD OF RequestRef2													NAME 'lastName' 	VALUE UCASE(Environment.lastName);
+			CREATE LASTCHILD OF RequestRef2													NAME 'gender' 		VALUE UCASE(LEFT(Environment.gender,1));
+			CREATE LASTCHILD OF RequestRef2													NAME 'birthDate' 	VALUE UCASE(Environment.birthDate);
+			MOVE RequestRef2 TO RequestRef;
+			CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'individual';
+			SET RequestRef2.(XMLNSC.Attribute)informationState							 	='After';
+			CREATE LASTCHILD OF RequestRef2 												NAME 'prefixTitles' VALUE GetRefDataCodeVal('801224', UCASE(PERSON.ns:defaultName.ns:prefixTitles));
+  			IF LEFT(RequestRef2.prefixTitles, 18) = 'CODE_VAL NOT FOUND' THEN
+  				SET RequestRef2.prefixTitles = UCASE(PERSON.ns:defaultName.ns:prefixTitles);
+  			END IF;	
+			
+		END IF;	
+		
+		MOVE RequestRef	 TO outRef;
+			
+-- If there is a home phone number in the request and this customer already has more than 1 recorded home phone number then they all need to be deleted before adding this latest one 
+		IF (Environment.new.homePhone.localNumber <> ' ' OR Environment.new.homePhone.areaCode <> ' ') AND 
+		   Environment.homePhoneIdx > 1 THEN
+			WHILE homePhone_Idx < Environment.homePhoneIdx DO
+				SET homePhone_Idx = homePhone_Idx + 1;
+				
+				CREATE LASTCHILD OF RequestRef AS RequestRef								NAME 'contactPreferences';
+				MOVE RequestRef2 TO RequestRef;
+
+				SET RequestRef2.(XMLNSC.Attribute)mode										='Delete';
+				CREATE LASTCHILD OF RequestRef2 AS RequestRef2								NAME 'contactPoints';
+
+				SET RequestRef2.(XMLNSC.Attribute)xsi:type									='TelephoneNumber';
+				SET RequestRef2.(XMLNSC.Attribute)informationState							='Before';
+		
+				CREATE LASTCHILD OF RequestRef2 											NAME 'startDate'			VALUE Environment.homePhone[homePhone_Idx].startDate;
+				CREATE LASTCHILD OF RequestRef2 											NAME 'endDate'				VALUE Environment.homePhone[homePhone_Idx].endDate;
+				CREATE LASTCHILD OF RequestRef2 											NAME 'countryPhoneCode'		VALUE Environment.homePhone[homePhone_Idx].countryPhoneCode;
+				CREATE LASTCHILD OF RequestRef2 											NAME 'areaCode'				VALUE Environment.homePhone[homePhone_Idx].areaCode;
+				CREATE LASTCHILD OF RequestRef2 											NAME 'localNumber'			VALUE Environment.homePhone[homePhone_Idx].localNumber;
+				CREATE LASTCHILD OF RequestRef2 	AS RequestRef2							NAME 'electronicType';
+
+				CREATE LASTCHILD OF RequestRef2 											NAME 'TelephoneElectronicType'	VALUE 'Home Phone';
+
+				MOVE RequestRef	 TO outRef;
+			END WHILE;	
+			
+			SET Environment.homePhone.areaCode = ' ';
+			SET Environment.homePhone.localNumber = ' ';
+			SET Environment.homePhone.countryPhoneCode = 'NZL';
+			
+		END IF;	
+
+-- If there is a home phone number in the request either add it to the customer or amend the customers existing home phone number 
+		IF Environment.new.homePhone.localNumber <> ' ' OR Environment.new.homePhone.areaCode <> ' ' THEN
+			IF UCASE(Environment.new.homePhone.areaCode) <> UCASE(Environment.homePhone.areaCode) OR
+			   UCASE(Environment.new.homePhone.localNumber) <> UCASE(Environment.homePhone.localNumber) THEN 																																	
+
+				CREATE LASTCHILD OF RequestRef AS RequestRef									NAME 'contactPreferences';
+				MOVE RequestRef2 TO RequestRef;
+
+-- If the customer doesn't have a home phone number currently then add this new one, otherwise update the existing 
+				IF Environment.homePhone.areaCode = ' ' AND Environment.homePhone.localNumber = ' ' THEN 
+					SET RequestRef2.(XMLNSC.Attribute)mode										='Add';
+				ELSE	
+					SET RequestRef2.(XMLNSC.Attribute)mode										='Update';
+					CREATE LASTCHILD OF RequestRef2 AS RequestRef2								NAME 'contactPoints';
+
+					SET RequestRef2.(XMLNSC.Attribute)xsi:type									='TelephoneNumber';
+					SET RequestRef2.(XMLNSC.Attribute)informationState							='Before';
+			
+					CREATE LASTCHILD OF RequestRef2 											NAME 'startDate'			VALUE Environment.homePhone.startDate;
+					CREATE LASTCHILD OF RequestRef2 											NAME 'endDate'				VALUE Environment.homePhone.endDate;
+					CREATE LASTCHILD OF RequestRef2 											NAME 'countryPhoneCode'		VALUE Environment.homePhone.countryPhoneCode;
+					CREATE LASTCHILD OF RequestRef2 											NAME 'areaCode'				VALUE Environment.homePhone.areaCode;
+					CREATE LASTCHILD OF RequestRef2 											NAME 'localNumber'			VALUE Environment.homePhone.localNumber;
+					CREATE LASTCHILD OF RequestRef2 	AS RequestRef2							NAME 'electronicType';
+
+					CREATE LASTCHILD OF RequestRef2 											NAME 'TelephoneElectronicType'	VALUE 'Home Phone';
+
+					MOVE RequestRef2	 TO RequestRef;
+				END IF;
+
+				CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'contactPoints';
+		
+				SET RequestRef2.(XMLNSC.Attribute)xsi:type										='TelephoneNumber';
+				SET RequestRef2.(XMLNSC.Attribute)informationState								='After';
+			
+				CREATE LASTCHILD OF RequestRef2 												NAME 'startDate'			VALUE GetCurrentDateDelimiter('-');
+				CREATE LASTCHILD OF RequestRef2 												NAME 'endDate'				VALUE '9999-12-31';
+				IF Environment.homePhone.countryPhoneCode IS NOT NULL THEN
+					CREATE LASTCHILD OF RequestRef2 											NAME 'countryPhoneCode'		VALUE Environment.homePhone.countryPhoneCode;
+				ELSE
+					CREATE LASTCHILD OF RequestRef2 											NAME 'countryPhoneCode'		VALUE 'NZL';
+				END IF;	
+				CREATE LASTCHILD OF RequestRef2 												NAME 'areaCode'				VALUE Environment.new.homePhone.areaCode;
+				CREATE LASTCHILD OF RequestRef2 												NAME 'localNumber'			VALUE Environment.new.homePhone.localNumber;
+				CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'electronicType';
+			
+				CREATE LASTCHILD OF RequestRef2 												NAME 'TelephoneElectronicType'	VALUE 'Home Phone';
+
+			END IF;
+
+			MOVE RequestRef	 TO outRef;
+
+		END IF;
+
+-- If there is a work phone number in the request and this customer already has more than 1 recorded work phone number then they all need to be deleted before adding this latest one 
+		IF (Environment.new.workPhone.localNumber <> ' ' OR Environment.new.workPhone.areaCode <> ' ') AND 
+		   Environment.workPhoneIdx > 1 THEN
+			WHILE workPhone_Idx < Environment.workPhoneIdx DO
+				SET workPhone_Idx = workPhone_Idx + 1;
+				
+				CREATE LASTCHILD OF RequestRef AS RequestRef								NAME 'contactPreferences';
+				MOVE RequestRef2 TO RequestRef;
+
+				SET RequestRef2.(XMLNSC.Attribute)mode										='Delete';
+				CREATE LASTCHILD OF RequestRef2 AS RequestRef2								NAME 'contactPoints';
+
+				SET RequestRef2.(XMLNSC.Attribute)xsi:type									='TelephoneNumber';
+				SET RequestRef2.(XMLNSC.Attribute)informationState							='Before';
+		
+				CREATE LASTCHILD OF RequestRef2 											NAME 'startDate'			VALUE Environment.workPhone[workPhone_Idx].startDate;
+				CREATE LASTCHILD OF RequestRef2 											NAME 'endDate'				VALUE Environment.workPhone[workPhone_Idx].endDate;
+				CREATE LASTCHILD OF RequestRef2 											NAME 'countryPhoneCode'		VALUE Environment.workPhone[workPhone_Idx].countryPhoneCode;
+				CREATE LASTCHILD OF RequestRef2 											NAME 'areaCode'				VALUE Environment.workPhone[workPhone_Idx].areaCode;
+				CREATE LASTCHILD OF RequestRef2 											NAME 'localNumber'			VALUE Environment.workPhone[workPhone_Idx].localNumber;
+				CREATE LASTCHILD OF RequestRef2 	AS RequestRef2							NAME 'electronicType';
+
+				CREATE LASTCHILD OF RequestRef2 											NAME 'TelephoneElectronicType'	VALUE 'Work Phone';
+
+				MOVE RequestRef	 TO outRef;
+			END WHILE;	
+			
+			SET Environment.workPhone.areaCode = ' ';
+			SET Environment.workPhone.localNumber = ' ';
+			SET Environment.workPhone.countryPhoneCode = 'NZL';
+			
+		END IF;	
+
+-- If there is a work phone number in the request either add it to the customer or amend the customers existing work phone number 
+		IF Environment.new.workPhone.localNumber <> ' ' OR 
+		   Environment.new.workPhone.areaCode <> ' ' THEN
+			IF UCASE(Environment.new.workPhone.areaCode) <> UCASE(Environment.workPhone.areaCode) OR
+			   UCASE(Environment.new.workPhone.localNumber) <> UCASE(Environment.workPhone.localNumber) THEN 																																	
+
+				CREATE LASTCHILD OF RequestRef AS RequestRef									NAME 'contactPreferences';
+				MOVE RequestRef2 TO RequestRef;
+				
+-- If the customer doesn't have a work phone number currently then add this new one, otherwise update the existing 
+				IF Environment.workPhone.areaCode = ' ' AND Environment.workPhone.localNumber = ' ' THEN 
+					SET RequestRef2.(XMLNSC.Attribute)mode										='Add';
+				ELSE	
+					SET RequestRef2.(XMLNSC.Attribute)mode										='Update';
+					CREATE LASTCHILD OF RequestRef2 AS RequestRef2								NAME 'contactPoints';
+
+					SET RequestRef2.(XMLNSC.Attribute)xsi:type									='TelephoneNumber';
+					SET RequestRef2.(XMLNSC.Attribute)informationState							='Before';
+			
+					CREATE LASTCHILD OF RequestRef2 											NAME 'startDate'			VALUE Environment.workPhone.startDate;
+					CREATE LASTCHILD OF RequestRef2 											NAME 'endDate'				VALUE Environment.workPhone.endDate;
+					CREATE LASTCHILD OF RequestRef2 											NAME 'countryPhoneCode'		VALUE Environment.workPhone.countryPhoneCode;
+					CREATE LASTCHILD OF RequestRef2 											NAME 'areaCode'				VALUE Environment.workPhone.areaCode;
+					CREATE LASTCHILD OF RequestRef2 											NAME 'localNumber'			VALUE Environment.workPhone.localNumber;
+					CREATE LASTCHILD OF RequestRef2 	AS RequestRef2							NAME 'electronicType';
+
+					CREATE LASTCHILD OF RequestRef2 											NAME 'TelephoneElectronicType'	VALUE 'Work Phone';
+
+					MOVE RequestRef2 TO RequestRef;
+				END IF;
+				
+				CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'contactPoints';
+		
+				SET RequestRef2.(XMLNSC.Attribute)xsi:type										='TelephoneNumber';
+				SET RequestRef2.(XMLNSC.Attribute)informationState								='After';
+			
+				CREATE LASTCHILD OF RequestRef2 												NAME 'startDate'			VALUE GetCurrentDateDelimiter('-');
+				CREATE LASTCHILD OF RequestRef2 												NAME 'endDate'				VALUE '9999-12-31';
+				IF Environment.workPhone.countryPhoneCode IS NOT NULL THEN
+					CREATE LASTCHILD OF RequestRef2 											NAME 'countryPhoneCode'		VALUE Environment.workPhone.countryPhoneCode;
+				ELSE
+					CREATE LASTCHILD OF RequestRef2 											NAME 'countryPhoneCode'		VALUE 'NZL';
+				END IF;	
+				CREATE LASTCHILD OF RequestRef2 												NAME 'areaCode'				VALUE Environment.new.workPhone.areaCode;
+				CREATE LASTCHILD OF RequestRef2 												NAME 'localNumber'			VALUE Environment.new.workPhone.localNumber;
+				CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'electronicType';
+			
+				CREATE LASTCHILD OF RequestRef2 												NAME 'TelephoneElectronicType'	VALUE 'Work Phone';
+
+			END IF;
+
+			MOVE RequestRef	 TO outRef;
+
+		END IF;
+
+-- If there is a mobile phone number in the request and this customer already has more than 1 recorded mobile phone number then they all need to be deleted before adding this latest one 
+		IF (Environment.new.mobilePhone.localNumber <> ' ' OR Environment.new.mobilePhone.areaCode <> ' ') AND 
+		   Environment.mobilePhoneIdx > 1 THEN
+			WHILE mobilePhone_Idx < Environment.mobilePhoneIdx DO
+				SET mobilePhone_Idx = mobilePhone_Idx + 1;
+				
+				CREATE LASTCHILD OF RequestRef AS RequestRef								NAME 'contactPreferences';
+				MOVE RequestRef2 TO RequestRef;
+
+				SET RequestRef2.(XMLNSC.Attribute)mode										='Delete';
+				CREATE LASTCHILD OF RequestRef2 AS RequestRef2								NAME 'contactPoints';
+
+				SET RequestRef2.(XMLNSC.Attribute)xsi:type									='TelephoneNumber';
+				SET RequestRef2.(XMLNSC.Attribute)informationState							='Before';
+		
+				CREATE LASTCHILD OF RequestRef2 											NAME 'startDate'			VALUE Environment.mobilePhone[mobilePhone_Idx].startDate;
+				CREATE LASTCHILD OF RequestRef2 											NAME 'endDate'				VALUE Environment.mobilePhone[mobilePhone_Idx].endDate;
+				CREATE LASTCHILD OF RequestRef2 											NAME 'countryPhoneCode'		VALUE Environment.mobilePhone[mobilePhone_Idx].countryPhoneCode;
+				--CREATE LASTCHILD OF RequestRef2 											NAME 'areaCode'				VALUE Environment.mobilePhone[mobilePhone_Idx].areaCode;
+				--CREATE LASTCHILD OF RequestRef2 											NAME 'localNumber'			VALUE Environment.mobilePhone[mobilePhone_Idx].localNumber;
+				CREATE LASTCHILD OF RequestRef2 											NAME 'localNumber'			VALUE TRIM(Environment.mobilePhone.areaCode||Environment.mobilePhone.localNumber);
+
+				CREATE LASTCHILD OF RequestRef2 	AS RequestRef2							NAME 'electronicType';
+
+				CREATE LASTCHILD OF RequestRef2 											NAME 'TelephoneElectronicType'	VALUE 'Mobile Phone';
+
+				MOVE RequestRef	 TO outRef;
+			END WHILE;	
+			
+			SET Environment.mobilePhone.areaCode = ' ';
+			SET Environment.mobilePhone.localNumber = ' ';
+			SET Environment.mobilePhone.countryPhoneCode = 'NZL';
+			
+		END IF;	
+
+-- If there is a mobile phone number in the request either add it to the customer or amend the customers existing mobile phone number 
+		IF Environment.new.mobilePhone.localNumber <> ' ' OR 
+		   Environment.new.mobilePhone.areaCode <> ' ' THEN
+			IF UCASE(Environment.new.mobilePhone.areaCode) <> UCASE(Environment.mobilePhone.areaCode) OR
+			   UCASE(Environment.new.mobilePhone.localNumber) <> UCASE(Environment.mobilePhone.localNumber) THEN 																																	
+
+				CREATE LASTCHILD OF RequestRef AS RequestRef									NAME 'contactPreferences';
+				MOVE RequestRef2 TO RequestRef;
+
+-- If the customer doesn't have a mobile phone number currently then add this new one, otherwise update the existing 
+				IF Environment.mobilePhone.areaCode = ' ' AND Environment.mobilePhone.localNumber = ' ' THEN 
+					SET RequestRef2.(XMLNSC.Attribute)mode										='Add';
+				ELSE	
+					SET RequestRef2.(XMLNSC.Attribute)mode										='Update';
+					CREATE LASTCHILD OF RequestRef2 AS RequestRef2								NAME 'contactPoints';
+
+					SET RequestRef2.(XMLNSC.Attribute)xsi:type									='TelephoneNumber';
+					SET RequestRef2.(XMLNSC.Attribute)informationState							='Before';
+			
+					CREATE LASTCHILD OF RequestRef2 											NAME 'startDate'			VALUE Environment.mobilePhone.startDate;
+					CREATE LASTCHILD OF RequestRef2 											NAME 'endDate'				VALUE Environment.mobilePhone.endDate;
+					CREATE LASTCHILD OF RequestRef2 											NAME 'countryPhoneCode'		VALUE Environment.mobilePhone.countryPhoneCode;
+					--CREATE LASTCHILD OF RequestRef2 											NAME 'areaCode'				VALUE Environment.mobilePhone.areaCode;				
+					--CREATE LASTCHILD OF RequestRef2 											NAME 'localNumber'			VALUE Environment.mobilePhone.localNumber;
+					CREATE LASTCHILD OF RequestRef2 											NAME 'localNumber'			VALUE TRIM(Environment.mobilePhone.areaCode||Environment.mobilePhone.localNumber);
+					CREATE LASTCHILD OF RequestRef2 AS RequestRef2								NAME 'electronicType';
+
+					CREATE LASTCHILD OF RequestRef2												NAME 'TelephoneElectronicType'	VALUE 'Mobile Phone';
+
+					MOVE RequestRef2 TO RequestRef;
+				END IF;
+
+				CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'contactPoints';
+		
+				SET RequestRef2.(XMLNSC.Attribute)xsi:type										='TelephoneNumber';
+				SET RequestRef2.(XMLNSC.Attribute)informationState								='After';
+			
+				CREATE LASTCHILD OF RequestRef2 												NAME 'startDate'			VALUE GetCurrentDateDelimiter('-');
+				CREATE LASTCHILD OF RequestRef2 												NAME 'endDate'				VALUE '9999-12-31';
+				IF Environment.mobilePhone.countryPhoneCode IS NOT NULL THEN
+					CREATE LASTCHILD OF RequestRef2 											NAME 'countryPhoneCode'		VALUE Environment.mobilePhone.countryPhoneCode;
+				ELSE
+					CREATE LASTCHILD OF RequestRef2 											NAME 'countryPhoneCode'		VALUE 'NZL';
+				END IF;	
+				--CREATE LASTCHILD OF RequestRef2 												NAME 'areaCode'				VALUE Environment.new.mobilePhone.areaCode;
+				--CREATE LASTCHILD OF RequestRef2 												NAME 'localNumber'			VALUE Environment.new.mobilePhone.localNumber;
+				CREATE LASTCHILD OF RequestRef2 											    NAME 'localNumber'			VALUE TRIM(Environment.new.mobilePhone.areaCode||Environment.new.mobilePhone.localNumber);
+
+				CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'electronicType';
+			
+				CREATE LASTCHILD OF RequestRef2													NAME 'TelephoneElectronicType'	VALUE 'Mobile Phone';
+				
+			END IF;
+
+			MOVE RequestRef	 TO outRef;
+			
+		END IF;
+
+-- If there is an email address in the request and this customer already has more than 1 recorded email address then they all need to be deleted before adding this latest one 
+		IF EMAIL_ADDR.ns:contactPoints.ns:contactPointAsString <> ' ' AND 
+		   Environment.emailAddressIdx > 1 THEN
+			WHILE emailAddr_Idx < Environment.emailAddressIdx DO
+				SET emailAddr_Idx = emailAddr_Idx + 1;
+				
+				CREATE LASTCHILD OF RequestRef AS RequestRef								NAME 'contactPreferences';
+				MOVE RequestRef2 TO RequestRef;
+
+				SET RequestRef2.(XMLNSC.Attribute)mode										='Delete';
+				CREATE LASTCHILD OF RequestRef2 AS RequestRef2								NAME 'contactPoints';
+
+				SET RequestRef2.(XMLNSC.Attribute)xsi:type									='ElectronicAddress';
+				SET RequestRef2.(XMLNSC.Attribute)informationState							='Before';
+		
+				CREATE LASTCHILD OF RequestRef2 											NAME 'startDate'			VALUE Environment.emailAddress[emailAddr_Idx].startDate;
+				CREATE LASTCHILD OF RequestRef2 											NAME 'endDate'				VALUE Environment.emailAddress[emailAddr_Idx].endDate;
+				CREATE LASTCHILD OF RequestRef2 											NAME 'contactPointAsString'	VALUE Environment.emailAddress[emailAddr_Idx].contactPointAsString;
+
+				MOVE RequestRef	 TO outRef;
+			END WHILE;	
+			
+			SET Environment.emailAddress.contactPointAsString = ' ';
+			
+		END IF;	
+
+-- If there is an email address in the request either add it to the customer or amend the customers existing email address 
+		IF EMAIL_ADDR.ns:contactPoints.ns:contactPointAsString <> ' ' THEN
+			IF UCASE(EMAIL_ADDR.ns:contactPoints.ns:contactPointAsString) <> UCASE(Environment.emailAddress.contactPointAsString) THEN
+
+				CREATE LASTCHILD OF RequestRef AS RequestRef									NAME 'contactPreferences';
+				MOVE RequestRef2 TO RequestRef;
+
+-- If the customer doesn't have an email address currently then add this new one, otherwise update the existing 
+				IF Environment.emailAddress.contactPointAsString = ' ' THEN 
+					SET RequestRef2.(XMLNSC.Attribute)mode										='Add';
+				ELSE	
+					SET RequestRef2.(XMLNSC.Attribute)mode										='Update';
+					CREATE LASTCHILD OF RequestRef2 AS RequestRef2								NAME 'contactPoints';
+
+					SET RequestRef2.(XMLNSC.Attribute)xsi:type									='ElectronicAddress';
+					SET RequestRef2.(XMLNSC.Attribute)informationState							='Before';
+			
+					CREATE LASTCHILD OF RequestRef2 											NAME 'startDate'			VALUE Environment.emailAddress.startDate;
+					CREATE LASTCHILD OF RequestRef2 											NAME 'endDate'				VALUE Environment.emailAddress.endDate;
+					CREATE LASTCHILD OF RequestRef2 											NAME 'contactPointAsString'	VALUE Environment.emailAddress.contactPointAsString;
+
+					MOVE RequestRef2 TO RequestRef;
+				END IF;
+
+				CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'contactPoints';
+		
+				SET RequestRef2.(XMLNSC.Attribute)xsi:type										='ElectronicAddress';
+				SET RequestRef2.(XMLNSC.Attribute)informationState								='After';
+			
+				CREATE LASTCHILD OF RequestRef2 												NAME 'startDate'			VALUE GetCurrentDateDelimiter('-');
+				CREATE LASTCHILD OF RequestRef2 												NAME 'endDate'				VALUE '9999-12-31';
+				CREATE LASTCHILD OF RequestRef2 												NAME 'contactPointAsString'	VALUE EMAIL_ADDR.ns:contactPoints.ns:contactPointAsString;
+
+			END IF;
+			
+			MOVE RequestRef	 TO outRef;
+			
+		END IF;
+		
+-- If there is a mailing address in the request and it doesn't match any addresses already linked to this customer then add the new address  
+		IF Environment.newAddress = true THEN
+				
+				CREATE LASTCHILD OF RequestRef AS RequestRef									NAME 'contactPreferences';
+				MOVE RequestRef2 TO RequestRef;
+
+				SET RequestRef2.(XMLNSC.Attribute)mode											='Add';
+				CREATE LASTCHILD OF RequestRef2 AS RequestRef2									NAME 'contactPoints';
+
+				SET RequestRef2.(XMLNSC.Attribute)xsi:type										='Address';
+				SET RequestRef2.(XMLNSC.Attribute)informationState								='After';
+			
+				CREATE LASTCHILD OF RequestRef2 												NAME 'DPID'			  		VALUE MAILING_ADDR.ns:objectReference.ns:objectId;
+-- store the mailing address DPID for use later when sending the record insurance policy request to HUON
+				SET Environment.newAddressDPID = MAILING_ADDR.ns:objectReference.ns:objectId;	
+				CREATE LASTCHILD OF RequestRef2 												NAME 'country'				VALUE 'NZL';
+				CREATE LASTCHILD OF RequestRef2 												NAME 'region'				VALUE MAILING_ADDR.ns:region;
+				CREATE LASTCHILD OF RequestRef2 												NAME 'city'					VALUE MAILING_ADDR.ns:subregion;
+				CREATE LASTCHILD OF RequestRef2 												NAME 'postalCode'			VALUE MAILING_ADDR.ns:postalCode;
+				CREATE LASTCHILD OF RequestRef2 												NAME 'street'				VALUE MAILING_ADDR.ns:street;
+
+				CREATE LASTCHILD OF RequestRef2													NAME 'streetType' 			VALUE GetRefDataCodeVal('801769', MAILING_ADDR.ns:streetType);
+		 		IF LEFT(RequestRef2.streetType, 18) = 'CODE_VAL NOT FOUND' THEN
+  					SET RequestRef2.streetType = MAILING_ADDR.ns:streetType;
+  				END IF;	
+
+				CREATE LASTCHILD OF RequestRef2 												NAME 'houseNumber'			VALUE MAILING_ADDR.ns:streetNumber;
+				IF MAILING_ADDR.ns:streetNumberSuffix IS NOT NULL THEN 	
+					SET RequestRef2.houseNumber 												= TRIM(RequestRef2.houseNumber||MAILING_ADDR.ns:streetNumberSuffix);
+				END IF;
+
+				IF MAILING_ADDR.ns:streetSuffix IS NOT NULL THEN  	
+					CREATE LASTCHILD OF RequestRef2												NAME 'streetSuffix'			VALUE GetRefDataCodeVal('801281', MAILING_ADDR.ns:streetSuffix);
+ 					IF LEFT(RequestRef2.streetSuffix, 18) = 'CODE_VAL NOT FOUND' THEN
+  						SET RequestRef2.streetSuffix = MAILING_ADDR.ns:streetSuffix;
+  					END IF;	
+				END IF;	
+
+				IF MAILING_ADDR.ns:unitNumber IS NOT NULL THEN  	
+					CREATE LASTCHILD OF RequestRef2												NAME 'unitNumber' 			VALUE MAILING_ADDR.ns:unitNumber;
+				END IF;	
+
+				IF MAILING_ADDR.ns:unitType IS NOT NULL THEN  	
+					CREATE LASTCHILD OF RequestRef2												NAME 'unitType' 			VALUE GetRefDataCodeVal('801768', MAILING_ADDR.ns:unitType);
+	 				IF LEFT(RequestRef2.unitType, 18) = 'CODE_VAL NOT FOUND' THEN
+	 					SET RequestRef2.extraType = MAILING_ADDR.ns:unitType;
+						SET RequestRef2.extraNumber = MAILING_ADDR.ns:unitNumber;
+	 					SET RequestRef2.unitNumber = '';
+	 				END IF;	
+				END IF;	
+
+				IF MAILING_ADDR.ns:buildingName IS NOT NULL THEN  	
+					CREATE LASTCHILD OF RequestRef2												NAME 'contactPointAsString'	VALUE MAILING_ADDR.ns:buildingName;
+				END IF;	
+
+				IF MAILING_ADDR.ns:levelType IS NOT NULL THEN  	
+					CREATE LASTCHILD OF RequestRef2												NAME 'level' 				VALUE MAILING_ADDR.ns:levelType;
+				END IF;	
+
+				IF MAILING_ADDR.ns:floorNumber IS NOT NULL THEN  	
+					CREATE LASTCHILD OF RequestRef2												NAME 'floorNumber'	 		VALUE MAILING_ADDR.ns:floorNumber;
+				END IF;	
+		
+				IF MAILING_ADDR.(XMLNSC.Attribute)xsi:type ='POAddress' THEN
+					IF MAILING_ADDR.ns:boxType IS NOT NULL THEN
+						CREATE LASTCHILD OF RequestRef2											NAME 'postalType' 			VALUE MAILING_ADDR.ns:boxType;
+					END IF;	
+					IF MAILING_ADDR.ns:boxNumber IS NOT NULL THEN	
+						CREATE LASTCHILD OF RequestRef2											NAME 'postalNumber'			VALUE MAILING_ADDR.ns:boxNumber; 
+					END IF;	
+					IF MAILING_ADDR.ns:lobbyName IS NOT NULL THEN
+						CREATE LASTCHILD OF RequestRef2											NAME 'boxName' 				VALUE MAILING_ADDR.ns:lobbyName;
+					END IF;
+				END IF;	
+		
+				IF MAILING_ADDR.(XMLNSC.Attribute)xsi:type ='RuralAddress' THEN
+					IF MAILING_ADDR.ns:ruralDistrict IS NOT NULL THEN
+						CREATE LASTCHILD OF RequestRef2											NAME 'ruralDistrict'		VALUE MAILING_ADDR.ns:ruralDistrict;
+					END IF;	
+				END IF;	
+			END IF;
+		
+		DELETE FIELD Environment.new;
+		
+	END;
+/***********************************************************************************************************************************************************************/ 
+CREATE PROCEDURE RecordInsurancePolicyRequest() BEGIN
+
+		CALL BuildRecordInsurancePolicyRequestHdr();
+		CALL BuildRecordInsurancePolicyRequestBody();
+		
+END;	
+/***********************************************************************************************************************************************************************/ 
+CREATE PROCEDURE BuildRecordInsurancePolicyRequestHdr() BEGIN
+
+-- Copy ESB headers to Environment.
+		CREATE LASTCHILD OF Environment 		DOMAIN 'XMLNSC' NAME 'Header';	
+		SET Environment.Header 					= InputRoot.XMLNSC.ser:RecordInsurancePolicySoapIn.Header;								
+		SET Environment.Msgid 					= InputRoot.MQMD.MsgId;			
+-- Save Reply to Queue for the response		
+	 	SET Environment.REPLY_TO_QUEUE 			= InputRoot.MQMD.ReplyToQ;	
+   		SET Environment.REPLY_TO_QUEUE_MANAGER	= InputRoot.MQMD.ReplyToQMgr;	
+-- Setup output request headers                     
+		SET OutputRoot.Properties.MessageSet 	= 'F0H2ASG002001';
+		SET OutputRoot.Properties.MessageType 	= 'msg_WQL080RQ';
+		SET OutputRoot.Properties.MessageFormat = 'Binary1';
+-- Build MQMD					
+ 		CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN 'MQMD';
+ 		DECLARE refOut REFERENCE TO OutputRoot.MQMD;		
+ 		CALL Build_MQMD_Header (refOut, InputRoot.MQMD.CorrelId,' ',' ');			
+-- Build MRM Header
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'MRM';
+		MOVE refOut	 TO OutputRoot.MRM;
+		DECLARE refInput			   REFERENCE TO InputRoot.XMLNSC.ser:"RecordInsurancePolicySoapIn";				
+		CALL Build_MRM_Header (refOut, 'WQL080RQ', refInput);	
+		SET OutputRoot.MRM.RQ_HEADER.RQ_AGENT	= 'INZ';
+
+END;
+/***********************************************************************************************************************************************************************/	
+CREATE PROCEDURE BuildRecordInsurancePolicyRequestBody() BEGIN
+	
+		DECLARE Adx 			INTEGER 0;	
+		DECLARE Cdx 			INTEGER 0;			
+		DECLARE Ddx 			INTEGER 1;	
+		DECLARE Idx 			INTEGER 1;
+		DECLARE Odx 			INTEGER 1;
+		DECLARE Pdx 			INTEGER 0;
+		DECLARE Mdx 			INTEGER 0;
+		DECLARE Qdx 			INTEGER 0;
+		DECLARE Driver	 		CHAR 'D';
+		DECLARE Owner	 		CHAR 'O';							
+		DECLARE inRef 			REFERENCE TO InputRoot.XMLNSC.ser:RecordInsurancePolicySoapIn.Payload.RecordInsurancePolicy.ns:insurancePolicy;		
+		DECLARE COVERAGE		REFERENCE TO inRef.ns:contractComponents;
+		DECLARE RISKTYPE        REFERENCE TO inRef.ns:contractComponents.ns:contractSpecification;				
+		DECLARE AUTOMOBILE 		REFERENCE TO COVERAGE;			
+		DECLARE DRIVERS			REFERENCE TO COVERAGE;	
+		DECLARE POLICY_HOLDER 	REFERENCE TO COVERAGE;				
+		DECLARE ROLE_IN_FSA 	REFERENCE TO COVERAGE;
+		DECLARE VEHICLE 		REFERENCE TO COVERAGE;
+		DECLARE VEHICLE_MODEL 	REFERENCE TO COVERAGE;
+		DECLARE VEHICLE_REGO 	REFERENCE TO COVERAGE;
+		DECLARE VEHICLE_FINANCE	REFERENCE TO COVERAGE;
+		DECLARE RISK_LOCATION  	REFERENCE TO COVERAGE;
+		DECLARE PLACES		  	REFERENCE TO COVERAGE;	
+		DECLARE SUBURB		  	REFERENCE TO COVERAGE;
+		DECLARE SUM_INSURED	  	REFERENCE TO COVERAGE;		
+		DECLARE DISCOUNTS	  	REFERENCE TO COVERAGE;
+		DECLARE EXTENSIONS	  	REFERENCE TO COVERAGE;
+		DECLARE VEHICLE_MODS  	REFERENCE TO COVERAGE;	
+		DECLARE VEHICLE_DAMAGE 	REFERENCE TO COVERAGE;	
+		DECLARE BILLPLAN 	 	REFERENCE TO COVERAGE;	
+		DECLARE STREETNO 	 	REFERENCE TO COVERAGE;	
+		DECLARE BUILDING 	 	REFERENCE TO COVERAGE;	
+		DECLARE LEVEL	 	 	REFERENCE TO COVERAGE;	
+		DECLARE UNIT	 	 	REFERENCE TO COVERAGE;	
+		
+		-- WRK125949
+		declare PREMIUMS        reference to COVERAGE;
+											
+		SET Environment.Customer_Idx = 0;
+		
+-- Navigate to Coverages 
+		CALL getXTree(COVERAGE, 'CoverageComponent');
+		
+		SET OutputRoot.MRM.RQ_BODY.RQ_OPERATION							= 'NEWBUS';
+		SET OutputRoot.MRM.RQ_BODY.RQ_DISTRIBUTOR						= 'STATE';	
+
+  		SET OutputRoot.MRM.RQ_BODY.RQ_RISKTYPE							= RISKTYPE.ns:objectReference.ns:objectId;
+
+		SET OutputRoot.MRM.RQ_BODY.RQ_EFFECTDTE							= CAST((DateFunc.ConvertDateToCCYYMMDD(CAST(inRef.ns:inceptionDate AS CHAR))) AS INT);															
+
+-- Navigate to Billplan
+		DELETE FIELD Environment.getXTreeMany;							
+		CALL getXTreeMany(BILLPLAN, 'MoneyProvisionInvolvedInContract');
+		MOVE BILLPLAN TO BILLPLAN.MoneyProvisionInvolvedInContract;
+		
+--> WRK125949
+        declare iCount integer 0;
+--< WRK125949
+
+		WHILE LASTMOVE(BILLPLAN) DO
+			IF BILLPLAN.ns:rootType.ns:name = 'Annual Premium' THEN
+				IF BILLPLAN.ns:moneyProvision.ns:moneyScheduler.ns:frequency = 'Yearly' THEN
+					SET OutputRoot.MRM.RQ_BODY.RQ_BILLPLAN = 'NANN';
+					set iCount = iCount + 1;                -- WRK125949
+				ELSE
+					IF BILLPLAN.ns:moneyProvision.ns:moneyScheduler.ns:frequency = 'Monthly' THEN
+						SET OutputRoot.MRM.RQ_BODY.RQ_BILLPLAN = 'NMTH';
+						set iCount = iCount + 1;            -- WRK125949
+					ELSE
+						IF BILLPLAN.ns:moneyProvision.ns:moneyScheduler.ns:frequency = 'Fortnightly' THEN
+							SET OutputRoot.MRM.RQ_BODY.RQ_BILLPLAN = 'NFOR';
+							set iCount = iCount + 1;        -- WRK125949
+						END IF;
+					END IF;
+				END IF;	
+			END IF;		
+			MOVE BILLPLAN NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+
+--> WRK125949
+        -- Check the count and throw an error if more than 1
+        -- 3012 - 'Record Insurance Policy - Multiple Payment Frequencys found'
+        if (iCount > 1) then
+        	throw user exception message 3012;
+        end if;
+--< WRK125949
+		
+		
+-- Navigate to AutomobileCoverage	
+		MOVE AUTOMOBILE TO COVERAGE;
+
+		CALL getXTree(AUTOMOBILE, 'AutomobileCoverage');	
+
+-- Navigate to FSA		
+		MOVE ROLE_IN_FSA TO AUTOMOBILE;
+		CALL getXTree(ROLE_IN_FSA, 'ObjectCoveredRoleInFsa');		
+
+-- Navigate to Vehicle		
+		MOVE VEHICLE TO ROLE_IN_FSA.ns:coveredPhysicalObjects;
+		CALL getXTree(VEHICLE, 'Vehicle');	
+
+-- Navigate to Vehicle Finance		
+		MOVE VEHICLE_FINANCE TO VEHICLE.ns:rolesInPhysicalObject;
+		CALL getXTree(VEHICLE_FINANCE, 'PhysicalObjectFinance');	
+
+		SET OutputRoot.MRM.RQ_BODY.RQ_FIN_SEQCLTNO = COALESCE(VEHICLE_FINANCE.ns:financeRolePlayer.ns:objectReference.ns:objectId,0);
+		
+		SET OutputRoot.MRM.RQ_BODY.RQ_EXT_POLICY_NO = inRef.ns:externalReference;
+		
+		SET OutputRoot.MRM.RQ_BODY.RQ_MA_ADDRREF = 0;
+		
+-- Initialise Risk Address elements - if this isn't done then elements won't always be populated correctly		
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND1 	  = '';
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRNO1	  = '';
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND2    = '';
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRNO2     = '';
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE    = '';
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREETNO    = '';
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREET      = '';
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREET_TYPE = '';
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREETDIR   = '';
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREETNO2   = '';
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_SUBURB      = '';
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_POSTCODE    = '';
+
+-- Navigate to Risk Address
+		CALL getXTree(RISK_LOCATION, 'PlaceInvolvedInContract');
+
+		MOVE PLACES TO RISK_LOCATION.ns:place;
+-- Populate ADDRREF if new mailing address was added to customer and it differs from the risk address - the technical service will then 
+-- link this new mailing address to the customer/policy
+		IF Environment.newAddressDPID <> PLACES.ns:objectReference.ns:objectId THEN
+			SET OutputRoot.MRM.RQ_BODY.RQ_MA_ADDRREF = Environment.newAddressRef;
+		END IF;	 		
+		
+		MOVE PLACES TO PLACES.ns:relatedPlaces;
+		WHILE LASTMOVE(PLACES) DO
+  			IF PLACES.ns:administrativeLevel = 'Street' THEN
+  				SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREET = LEFT(PLACES.ns:names[1], 40);
+  				
+           		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREET_TYPE = GetRefDataCodeVal('801769', PLACES.ns:names[2]);
+  				IF LEFT(OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREET_TYPE, 18) = 'CODE_VAL NOT FOUND' THEN
+  					SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREET_TYPE = '';
+  				END IF;	
+
+				IF UCASE(PLACES.ns:names[3]) = 'NO 1' OR UCASE(PLACES.ns:names[3]) = 'NO 2' THEN
+  					SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREETDIR = 'N'||SUBSTRING(PLACES.ns:names[3] FROM 4 FOR 1);
+  				ELSE					 				
+	  				SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREETDIR = GetRefDataCodeVal('801281', PLACES.ns:names[3]);
+  					IF LEFT(OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREETDIR, 18) = 'CODE_VAL NOT FOUND' THEN
+  						SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREETDIR = '';
+  					END IF;
+  				END IF;	
+ 				
+  				MOVE STREETNO TO PLACES.ns:relatedPlaces; 
+  				
+  				SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREETNO = LEFT(STREETNO.ns:names[1], 10);
+  				IF STREETNO.ns:names[2] IS NOT NULL THEN
+  					SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREETNO = LEFT((OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STREETNO||STREETNO.ns:names[2]), 10);
+  				END IF;
+
+  				MOVE BUILDING TO STREETNO.ns:relatedPlaces; 
+  				
+  				SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE = LEFT(BUILDING.ns:names, 30);
+
+  				MOVE LEVEL TO BUILDING.ns:relatedPlaces; 
+ 				
+  				SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND1 = GetRefDataCodeVal('801280', LEVEL.ns:names[1]);
+  				IF LEFT(OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND1, 18) = 'CODE_VAL NOT FOUND' THEN
+  					SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND1 	  = '';
+  					IF OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE = '' THEN
+  						IF LEVEL.ns:names[1] IS NOT NULL THEN
+   							SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE = LEFT(LEVEL.ns:names[1], 30);
+  						END IF;	
+  						IF LEVEL.ns:names[2] IS NOT NULL THEN
+  							SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE = LEFT((OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE||' '||'Level'||' '||LEVEL.ns:names[2]), 30);
+  						END IF;	
+  					ELSE
+  						IF LEVEL.ns:names[1] IS NOT NULL THEN
+  						    SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE = LEFT((OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE||', '||LEVEL.ns:names[1]), 30); 
+  						END IF;    
+  						IF LEVEL.ns:names[2] IS NOT NULL THEN
+  							SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE = LEFT((OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE||' '||'Level'||' '||LEVEL.ns:names[2]), 30);
+  						END IF;
+  					END IF; 
+  				ELSE	   
+  					SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRNO1 = COALESCE(LEFT(LEVEL.ns:names[2], 8),'');
+  				END IF;	
+
+  				MOVE UNIT TO LEVEL.ns:relatedPlaces; 
+ 				
+				IF OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND1 <> '' AND UNIT.ns:names[1] IS NOT NULL THEN
+					SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND2 = OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND1;
+					SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRNO2  = OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRNO1;
+					SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND1 	  = '';
+					SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRNO1	  = '';
+				END IF;	
+	  			SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND1 = GetRefDataCodeVal('801280', UNIT.ns:names[1]);
+ 	 			IF LEFT(OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND1, 18) = 'CODE_VAL NOT FOUND' THEN
+	  				SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND1 	  = '';
+  					IF OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE = '' THEN
+  						SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE = LEFT((UNIT.ns:names[1]||' '||UNIT.ns:names[2]), 30);
+  					ELSE	
+  					    SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE = LEFT((OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE||', '||UNIT.ns:names[1]||' '||UNIT.ns:names[2]), 30); 
+  					END IF; 
+  				ELSE	   
+  					SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRNO1 = COALESCE(LEFT(UNIT.ns:names[2], 8),'');
+  				END IF;	
+	
+			ELSE	
+  				IF PLACES.ns:administrativeLevel = 'Region' THEN
+					SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_SUBURB			= LEFT(PLACES.ns:names, 40);
+  					MOVE SUBURB TO PLACES.ns:relatedPlaces;
+  					IF SUBURB.ns:names <> '' THEN
+						SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_SUBURB		= LEFT(SUBURB.ns:names, 40);
+  					END IF;	
+  					
+				ELSE	
+  					IF PLACES.ns:administrativeLevel = 'Postal' THEN 
+  						SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_POSTCODE		= LEFT(PLACES.ns:names, 10);
+  						
+ 					ELSE		
+  						IF PLACES.ns:administrativeLevel = 'Rural Delivery' AND PLACES.ns:names <> '' THEN 
+	  						IF OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND1 = '' THEN
+				  				SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND1 = '}';
+				  				SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRNO1 = LEFT(PLACES.ns:names, 8);
+	  						ELSE	
+								IF OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND2 = '' THEN
+					  				SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRIND2 = '}';
+	  								SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRNO2 = LEFT(PLACES.ns:names, 8);
+								ELSE
+				  					IF OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE = '' THEN
+  										SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE = LEFT(('RD'||PLACES.ns:names), 30);
+  									ELSE	
+										SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE = LEFT((OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_ADDRFREE||', RD'||PLACES.ns:names), 30);
+				  					END IF;	
+								END IF;		
+	  						END IF;	
+						END IF;	
+   					END IF;	
+  				END IF;	
+  			END IF;		
+			MOVE PLACES NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+		
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_COUNTRY		= 'NZL';	
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STATE			= 'NZL';																											
+
+-- Navigate to Policy Holder / Owners
+		DELETE FIELD Environment.getXTreeMany;							
+		MOVE POLICY_HOLDER TO inRef;
+		CALL getXTreeMany(POLICY_HOLDER, 'Policyholder');				
+
+-- Map Policy Holders Owners. NOTE: variables Ddx,Odx,Cdx,Pdx,Idx and Adx are shared between Policy Holder Drivers and Additional Drivers
+		SET Adx 															= CARDINALITY(POLICY_HOLDER.*[]);	
+		MOVE POLICY_HOLDER TO POLICY_HOLDER.Policyholder;
+		WHILE LASTMOVE(POLICY_HOLDER) DO
+			CALL Drivers(POLICY_HOLDER,Ddx,Odx,Cdx,Pdx,Qdx,Idx,Adx,Owner);
+			SET Idx = Idx + 1;					
+			MOVE POLICY_HOLDER NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+		
+-- Navigate to NamedDriver					
+		DELETE FIELD Environment.getXTreeMany;
+		MOVE DRIVERS TO AUTOMOBILE;
+		CALL getXTreeMany(DRIVERS, 'NamedDriver');			
+
+-- Map Additional Drivers (Risks). NOTE: variables Ddx,Odx,Cdx,Pdx,Idx and Adx are shared between Policy Holder Drivers and Additional Drivers
+		SET Adx 															= Adx + CARDINALITY(DRIVERS.*[]);	
+		MOVE DRIVERS TO DRIVERS.NamedDriver;
+		WHILE LASTMOVE(DRIVERS) DO
+			CALL Drivers(DRIVERS,Ddx,Odx,Cdx,Pdx,Qdx,Idx,Adx,Driver);	
+			SET Idx = Idx + 1;					
+			MOVE DRIVERS NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+		
+-- Populate Vehicle ID								
+		MOVE VEHICLE_MODEL TO VEHICLE.ns:vehicleModelSpecification;
+		SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_VMSID			= COALESCE(VEHICLE_MODEL.ns:objectReference.ns:objectId,0);		
+
+-- Populate Vehicle Regno	
+		MOVE VEHICLE_REGO TO VEHICLE.ns:vehicleRegistration;
+		SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_MVREGNO			= VEHICLE_REGO.ns:registration;		
+
+-- Set usage = private
+		SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_MVUSE			= 'PR';		
+
+-- Navigate to Sum Insured		
+		MOVE SUM_INSURED TO AUTOMOBILE;
+		CALL getXTree(SUM_INSURED, 'MoneyProvisionInvolvedInContract');	
+		
+		IF SUM_INSURED.ns:rootType.ns:name = 'Sum Insured' THEN
+			SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_AGRVALUE = SUM_INSURED.ns:moneyProvision.ns:moneyProvisionElements.ns:baseAmount.ns:theAmount;	
+		END IF;
+
+-- Set RATMOD1 if Immobiliser exists
+		IF VEHICLE.ns:antiTheftDevice IS TRUE THEN
+			SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_RATMOD1 = 'SIMA';				
+		END IF;				
+-- Set Other Party Type
+		SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_FINTYPE 		= COALESCE(VEHICLE_FINANCE.ns:rootType.ns:name, '');		  
+-- Initialise MPD Indicator	
+ 		SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_MPDIND			= 'N';
+ 		
+-- Set MPD Indicator if exists 	
+		DELETE FIELD Environment.getXTreeMany;	
+		MOVE DISCOUNTS TO COVERAGE;
+		CALL getXTreeMany(DISCOUNTS, 'MoneyProvisionInvolvedInContract');	
+		
+		MOVE DISCOUNTS TO DISCOUNTS.MoneyProvisionInvolvedInContract;
+		WHILE LASTMOVE(DISCOUNTS) DO
+  			IF DISCOUNTS.ns:moneyProvision.ns:adjustments.ns:reason = 'Multi Policy' THEN
+ 				SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_MPDIND			= '1';
+  			END IF;		
+			MOVE DISCOUNTS NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+
+-- Initialise Options Indicator	
+ 		SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_HIRECAROPT				= 'N';
+		IF RISKTYPE.ns:objectReference.ns:objectId = 'CRCP' THEN					
+ 			SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_WSCRNOPT			= 'N';
+		ELSE
+ 			SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_WSCRNOPT			= 'X';
+		END IF;	
+ 		SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_RDRESCUE				= 'N';
+ 							
+-- Navigate to Extensions for CRCP only
+		IF RISKTYPE.ns:objectReference.ns:objectId = 'CRCP' THEN					
+			DELETE FIELD Environment.getXTreeMany;
+			MOVE EXTENSIONS TO AUTOMOBILE;
+			CALL getXTreeMany(EXTENSIONS, 'Extension');				
+		
+			MOVE EXTENSIONS to EXTENSIONS.Extension;	
+			WHILE LASTMOVE(EXTENSIONS) DO
+  				IF EXTENSIONS.ns:contractSpecification.ns:name = 'Windscreen' THEN 
+  					SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_WSCRNOPT			= 'Y';
+   				END IF;	
+  				IF EXTENSIONS.ns:contractSpecification.ns:name = 'Hire Car' THEN
+					SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_HIRECAROPT			= 'Y';	
+  				END IF;	
+  				IF EXTENSIONS.ns:contractSpecification.ns:name = 'Roadside Rescue' THEN 
+					SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_RDRESCUE			= 'Y';	
+  				END IF;		
+				MOVE EXTENSIONS NEXTSIBLING REPEAT NAME;			
+			END WHILE; 
+		END IF;	
+																					 				
+-- Add Immobiliser to MODS if true
+		IF VEHICLE.ns:antiTheftDevice IS TRUE THEN
+			SET Mdx = 1;
+			SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_CNT = Mdx;
+			SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_DTL[Mdx].RQ_MODCODE = 'SIMA';
+			SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_DTL[Mdx].RQ_RATED = 'Y';
+			SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_DTL[Mdx].RQ_PURFIT = 'P';	
+			SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_DTL[Mdx].RQ_MODVALUE = 1;
+		END IF;				
+
+-- Navigate to Modifications
+		MOVE VEHICLE_MODS TO VEHICLE.ns:modifications;
+		WHILE LASTMOVE(VEHICLE_MODS) DO
+  			IF VEHICLE_MODS.ns:rootType.ns:name = 'Non-Standard Wheels' THEN
+				SET Mdx = Mdx + 1;			
+				SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_CNT = Mdx;
+				SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_DTL[Mdx].RQ_MODCODE = 'WHEL';
+				SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_DTL[Mdx].RQ_MODSCODE = '0000';
+				SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_DTL[Mdx].RQ_RATED = 'N';
+				SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_DTL[Mdx].RQ_PURFIT = 'P';
+				SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_DTL[Mdx].RQ_MODVALUE = VEHICLE_MODS.ns:value.ns:theAmount;				
+			END IF;	
+  			IF VEHICLE_MODS.ns:rootType.ns:name = 'Other' THEN
+				SET OutputRoot.MRM.RQ_BODY.RQ_KNOCK_OUTS.RQ_OTHER_MODS = 'Y';
+			END IF;				
+ 			MOVE VEHICLE_MODS NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+		
+-- Navigate to Damages
+		MOVE VEHICLE_DAMAGE TO VEHICLE.ns:physicalConditions;
+ 		IF VEHICLE_DAMAGE.ns:conditionComponents.ns:description is not null THEN 					
+			SET OutputRoot.MRM.RQ_BODY.RQ_KNOCK_OUTS.RQ_DAMAGES = 'Y';
+ 		END IF;		
+ 				
+-- Premium Guarentee - WRK125949
+		declare refBody reference to OutputRoot.MRM.RQ_BODY;
+
+		create lastchild of refBody name 'RQ_PREMIUMS';
+		declare refPrem reference to refBody.RQ_PREMIUMS;
+		set refPrem.RQ_PREMIUMS_CNT = 0;
+		set refPrem.RQ_PREMIUMS_REASONCODE = coalesce(inRef.ns:status.ns:reason,' ');
+		
+		-- Clear the Preiums table and make sure that there are 3 entries for;
+		--  Yearly, Monthly and Fortnightly
+		set iCount = 0;
+		x : while (iCount < 3) do
+			
+			create lastchild of refPrem name 'RQ_PREMIUMS_DTL';
+			declare refPDet reference to refPrem.RQ_PREMIUMS_DTL[<];
+			set refPDet.RQ_PREMIUMS_BILLPLAN = ' ';
+			set refPDet.RQ_PREMIUMS_BASIC = 0;
+			set refPDet.RQ_PREMIUMS_FSL = 0;
+			set refPDet.RQ_PREMIUMS_GST = 0;						
+			set refPDet.RQ_PREMIUMS_GROSS = 0;						
+			set refPDet.RQ_PREMIUMS_FIRST_INSTLMNT = 0;						
+			set refPDet.RQ_PREMIUMS_REGLR_INSTLMNT = 0;						
+				
+			set iCount = iCount + 1;
+			
+		end while;
+
+		-- Extract the elements for the Premiums details, if the ReasonCode allows us to ...
+		if (refPrem.RQ_PREMIUMS_REASONCODE = 'AA') then
+			delete field Environment.getXTreeMany;	
+			move PREMIUMS to COVERAGE;
+			call getXTreeMany(PREMIUMS, 'MoneyProvisionInvolvedInContract');	
+			move PREMIUMS to PREMIUMS.MoneyProvisionInvolvedInContract;	
+			call FormatPremiums(PREMIUMS, refPrem);
+		end if;
+ 				
+END; 
+
+/*
+ Format the Premiums
+*/
+create procedure FormatPremiums(in PREMIUMS reference, inout refPrem reference)
+	begin
+
+		declare iCurrentCount integer 0;
+		
+		while lastmove(PREMIUMS) do
+	
+			if (PREMIUMS.ns:moneyProvision.ns:moneyScheduler.ns:frequency = 'Yearly') then
+				declare refYearly reference to refPrem.RQ_PREMIUMS_DTL[1];
+				set refYearly.RQ_PREMIUMS_BILLPLAN = 'NANN';
+				call FormatPremiumAmounts(PREMIUMS, refYearly);
+				set iCurrentCount = iCurrentCount + 1;				
+			end if;
+
+			if (PREMIUMS.ns:moneyProvision.ns:moneyScheduler.ns:frequency = 'Monthly') then
+				declare refMonthly reference to refPrem.RQ_PREMIUMS_DTL[2];
+				set refMonthly.RQ_PREMIUMS_BILLPLAN = 'NMTH';
+				call FormatPremiumAmounts(PREMIUMS, refMonthly);
+				set iCurrentCount = iCurrentCount + 1;
+			end if;
+
+			if (PREMIUMS.ns:moneyProvision.ns:moneyScheduler.ns:frequency = 'Fortnightly') then
+				declare refFort reference to refPrem.RQ_PREMIUMS_DTL[3];
+				set refFort.RQ_PREMIUMS_BILLPLAN = 'NFOR';
+				call FormatPremiumAmounts(PREMIUMS, refFort);
+				set iCurrentCount = iCurrentCount + 1;
+			end if;
+
+			move PREMIUMS nextsibling repeat name;
+			
+		end while; 
+
+		-- make sure the count is correct
+		set refPrem.RQ_PREMIUMS_CNT = iCurrentCount;
+
+end;
+	
+/*
+ Format the Premium Amounts
+*/
+create procedure FormatPremiumAmounts(in refPrem reference, inout refPeriod reference)
+	begin
+		
+		declare refElements reference to refPrem.ns:moneyProvision.ns:moneyProvisionElements;	
+		set refPeriod.RQ_PREMIUMS_BASIC = refElements.ns:baseAmount.ns:theAmount;
+
+		declare refEP reference to refElements.ns:moneyProvisionElementParts[>];
+		declare strType character '';
+		
+		x: while lastmove(refEP) do
+		
+			set strType = coalesce(refEP.ns:rootType.ns:name,'');
+			case strType
+				when 'Company Written Premium' then
+					set refPeriod.RQ_PREMIUMS_GROSS = coalesce(refEP.ns:amount.ns:theAmount,0);
+				when 'Fire Service Levy' then
+					set refPeriod.RQ_PREMIUMS_FSL = coalesce(refEP.ns:amount.ns:theAmount,0);
+				when 'GST' then
+					set refPeriod.RQ_PREMIUMS_GST = coalesce(refEP.ns:amount.ns:theAmount,0);
+				
+				-- Only for Mothly or Fortnightly
+				when 'Initial Instalment' then
+					if (refPrem.ns:moneyProvision.ns:moneyScheduler.ns:frequency <> 'Yearly') then
+						set refPeriod.RQ_PREMIUMS_FIRST_INSTLMNT = coalesce(refEP.ns:amount.ns:theAmount,0);
+					end if;
+				when 'Premium Instalment'  then
+					if (refPrem.ns:moneyProvision.ns:moneyScheduler.ns:frequency <> 'Yearly') then
+						set refPeriod.RQ_PREMIUMS_REGLR_INSTLMNT = coalesce(refEP.ns:amount.ns:theAmount,0);
+					end if;					
+			end case;
+			
+			move refEP nextsibling repeat name;
+		end while;
+
+
+end;
+
+/***********************************************************************************************************************************************************************/ 
+CREATE PROCEDURE Drivers(IN DRIVERS REFERENCE, INOUT Ddx INT, INOUT Odx INT, INOUT Cdx INT, INOUT Pdx INT, INOUT Qdx INT, INOUT Idx INT, IN Adx INT, IN DriverType CHAR) BEGIN
+-- Common procedure to map policy owners who are drivers, and additional drivers (risks)							
+		DECLARE DRIVING_EXP 	REFERENCE TO DRIVERS;
+		DECLARE DRIVING_LIC 	REFERENCE TO DRIVERS;	
+		DECLARE INCIDENTS 		REFERENCE TO DRIVERS;	
+		DECLARE OFFENCES 		REFERENCE TO DRIVERS;	
+		DECLARE PERSON 			REFERENCE TO DRIVERS;
+		DECLARE REFUSALS 		REFERENCE TO DRIVERS;
+		DECLARE Owner	 		CHAR 'O';											
+		
+
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_CNT										= Adx;				
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_DRIVERSEQ					= COALESCE(DRIVERS.ns:objectReference.ns:objectId,0);
+-- Customer ID (client number)
+		SET Environment.Customer_Idx = Environment.Customer_Idx + 1;
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_SEQCLTNO = Environment.HUONClientNo[Environment.Customer_Idx];
+		
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_TYPEOFCLT					= 'I';	
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_OWNER_DRIVER				= DriverType;
+			 											
+-- Navigate to Person					
+		MOVE PERSON TO DRIVERS;
+		CALL getXTree(PERSON, 'Person');
+-- Gender	
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_GENDER = 
+		    CASE PERSON.ns:gender
+		    	WHEN 'Male'  THEN 'M'
+		    	WHEN 'Female'  THEN 'F'
+		    END;		
+-- Date of Birth
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_BIRTHDTE					= DateFunc.ConvertDateToCCYYMMDD(COALESCE(PERSON.ns:birthDate,'9999-12-31'));										
+-- Navigate to Driving experience					
+		MOVE DRIVING_EXP TO PERSON;
+		CALL getXTree(DRIVING_EXP, 'Driving');			
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_DRIVEXP						= COALESCE(DRIVING_EXP.ns:yearsDriving,0);
+-- Navigate to Driving License				
+		MOVE DRIVING_LIC TO PERSON;
+		CALL getXTree(DRIVING_LIC, 'DrivingLicense');						
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_LICTYPE						= COALESCE(DRIVING_LIC.ns:drivingLicenseType,' ');		
+-- Navigate to Incidents	
+		MOVE INCIDENTS TO PERSON;
+		CALL getXTreeManyChild(INCIDENTS, 'RoadEvent');
+		
+		SET Cdx																					= Cdx + CARDINALITY(INCIDENTS.*[]);	
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_INCIDENTS.RQ_INCDNT_CNT							= Cdx;	
+-- Read through incidents							
+		MOVE INCIDENTS TO INCIDENTS.RoadEvent;
+		WHILE LASTMOVE(INCIDENTS) DO			
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_INCIDENTS.RQ_INCDNT_DTL[Ddx].RQ_DRIVERSEQ		= COALESCE(DRIVERS.ns:objectReference.ns:objectId,0);	
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_INCIDENTS.RQ_INCDNT_DTL[Ddx].RQ_SEQCLTNO 		= Environment.HUONClientNo[Environment.Customer_Idx];
+-- Format start date
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_INCIDENTS.RQ_INCDNT_DTL[Ddx].RQ_LOSSDTE		= DateFunc.ConvertDateToCCYYMMDD(COALESCE(INCIDENTS.ns:startDate,'9999-12-31'));										
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_INCIDENTS.RQ_INCDNT_DTL[Ddx].RQ_LOSSCDE		= COALESCE(INCIDENTS.ns:rootType.ns:name,0);	
+			IF INCIDENTS.(XMLNSC.Attribute)mode = 'Add' THEN
+				SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_INCIDENTS.RQ_INCDNT_DTL[Ddx].RQ_SOURCE = 'N';
+			ELSE 
+				SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_INCIDENTS.RQ_INCDNT_DTL[Ddx].RQ_SOURCE = 'E';
+			END IF;					
+			SET Ddx = Ddx + 1;	
+			MOVE INCIDENTS NEXTSIBLING REPEAT NAME;			
+		END WHILE;
+-- Navigate to Offences	
+		MOVE OFFENCES TO PERSON;
+		CALL getXTreeManyChild(OFFENCES, 'OffenceEvent');
+		
+		SET Pdx																					= Pdx + CARDINALITY(OFFENCES.*[]);	
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_OFFENCES.RQ_OFFENCE_CNT							= Pdx;	
+-- Read through Offences							
+		MOVE OFFENCES TO OFFENCES.OffenceEvent;
+		WHILE LASTMOVE(OFFENCES) DO			
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_OFFENCES.RQ_OFFENCE_DTL[Odx].RQ_DRIVERSEQ		= COALESCE(DRIVERS.ns:objectReference.ns:objectId,0);	
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_OFFENCES.RQ_OFFENCE_DTL[Odx].RQ_SEQCLTNO 		= Environment.HUONClientNo[Environment.Customer_Idx];
+-- Format start date
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_OFFENCES.RQ_OFFENCE_DTL[Odx].RQ_CONVCTDTE		= DateFunc.ConvertDateToCCYYMMDD(COALESCE(OFFENCES.ns:startDate,'9999-12-31'));										
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_OFFENCES.RQ_OFFENCE_DTL[Odx].RQ_CONVCTCDE		= COALESCE(OFFENCES.ns:rootType.ns:name,'');
+			IF OFFENCES.(XMLNSC.Attribute)mode = 'Add' THEN
+				SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_OFFENCES.RQ_OFFENCE_DTL[Odx].RQ_SOURCE = 'N';
+			ELSE 
+				SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_OFFENCES.RQ_OFFENCE_DTL[Odx].RQ_SOURCE = 'E';
+			END IF;					
+			SET Odx = Odx + 1;	
+			MOVE OFFENCES NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+		
+-- Check for criminal offence
+		IF DriverType = Owner THEN
+			MOVE OFFENCES TO PERSON;
+			CALL getXTreeManyChild(OFFENCES, 'CriminalOffence');
+			IF EXISTS (OFFENCES.CriminalOffence[]) THEN 
+				SET OutputRoot.MRM.RQ_BODY.RQ_KNOCK_OUTS.RQ_OFFENCES = 'Y';	
+			END IF;	
+		END IF;
+		
+-- Navigate to Refusals	
+		IF DriverType = Owner THEN
+			MOVE REFUSALS TO PERSON;
+			CALL getXTreeManyChild(REFUSALS, 'InsuranceEvent');
+-- Refusal exists, if it contains no other details(for example 'start date') then it is an existence check and the respective knock-out flag needs to be set
+			IF EXISTS (REFUSALS.InsuranceEvent[]) THEN
+				IF EXISTS (REFUSALS.InsuranceEvent.ns:startDate[]) THEN 
+		 		ELSE		
+					SET OutputRoot.MRM.RQ_BODY.RQ_KNOCK_OUTS.RQ_REFCANS = 'Y';	
+				END IF;	
+			END IF;
+		END IF;		
+   
+END;	
+/***********************************************************************************************************************************************************************/ 
+CREATE PROCEDURE getXTree(
+		INOUT ref REFERENCE,
+		IN attribName CHAR
+		) BEGIN
+		
+		CREATE LASTCHILD OF Environment.getXTree DOMAIN 'XMLNSC' NAME attribName;
+		
+		SET Environment.getXTree.{attribName} = THE (SELECT ITEM X
+			FROM ref.[] AS X
+			WHERE X.(XMLNSC.Attribute)xsi:type = attribName);
+		MOVE ref TO Environment.getXTree.{attribName};
+		END;
+/***********************************************************************************************************************************************************************/ 
+CREATE PROCEDURE getXTreeMany(
+		INOUT ref REFERENCE,
+		IN attribName CHAR
+		) BEGIN
+
+		CREATE LASTCHILD OF Environment.getXTreeMany DOMAIN 'XMLNSC' NAME attribName;
+		
+		SET Environment.getXTreeMany.{attribName}[] = SELECT ITEM X
+			FROM ref.[] AS X
+			WHERE X.(XMLNSC.Attribute)xsi:type = attribName;
+		MOVE ref TO Environment.getXTreeMany;
+		END;
+/***********************************************************************************************************************************************************************/ 
+CREATE PROCEDURE getXTreeManyChild(
+		INOUT ref REFERENCE,
+		IN attribName CHAR
+		) BEGIN
+			
+		DELETE FIELD Environment.getXTreeManyChild;
+		CREATE LASTCHILD OF Environment.getXTreeManyChild DOMAIN 'XMLNSC' NAME attribName;
+		
+		SET Environment.getXTreeManyChild.{attribName}[] = SELECT ITEM X
+			FROM ref.[] AS X
+			WHERE X.(XMLNSC.Attribute)xsi:type = attribName;
+		MOVE ref TO Environment.getXTreeManyChild;
+		END;			
+

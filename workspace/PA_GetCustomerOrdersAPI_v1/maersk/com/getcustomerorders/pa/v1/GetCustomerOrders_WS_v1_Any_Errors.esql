@@ -1,0 +1,17 @@
+BROKER SCHEMA maersk.com.getcustomerorders.pa.v1
+
+
+CREATE FILTER MODULE GetCustomerOrders_WS_v1_Any_Errors
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		DECLARE refErr REFERENCE TO Root.JSON.Data.ordersResponse.Error;
+		IF LASTMOVE(refErr) THEN
+			RETURN TRUE;
+		ELSE
+			RETURN FALSE;
+		END IF;
+
+	END;
+
+END MODULE;

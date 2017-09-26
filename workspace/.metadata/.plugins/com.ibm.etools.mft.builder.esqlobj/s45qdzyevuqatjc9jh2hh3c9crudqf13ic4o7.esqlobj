@@ -1,0 +1,14 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		IF (Environment.Variables.UpdateState = 'Y') THEN
+			SET OutputRoot.*[] = Environment.RequestState.*[];
+		ELSE
+			SET OutputRoot = InputRoot;
+		END IF;
+		
+       	SET OutputRoot.MQMD.Expiry = setExpiry;
+		RETURN TRUE;
+		
+    END;
+

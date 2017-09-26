@@ -1,0 +1,13 @@
+CREATE COMPUTE MODULE RetrieveInsurancePolicyDetails_HUON_Reply_v2_SetThe_MQMD
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		set OutputRoot = InputRoot;
+ 		set OutputRoot.MQMD = Environment.RequestState.MQMD;
+ 		
+ 		if exists(Environment.RequestState.XMLNSC.esbenv:Envelope[]) then
+ 			set OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.*[] = Environment.RequestState.XMLNSC.esbenv:Envelope.esbhdr:Header.*[];
+ 		end if;
+	end;
+	
+END MODULE;

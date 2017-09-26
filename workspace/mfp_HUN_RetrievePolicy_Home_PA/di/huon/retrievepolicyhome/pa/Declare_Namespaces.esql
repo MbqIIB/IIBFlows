@@ -1,0 +1,24 @@
+BROKER SCHEMA di.huon.retrievepolicyhome.pa
+
+
+
+-- Declare Namespace Prefixes
+
+DECLARE agreement NAMESPACE 'http://iag.com.au/di/Agreement/v1/';
+DECLARE event NAMESPACE 'http://iag.com.au/di/Event/v1/';
+DECLARE location NAMESPACE 'http://iag.com.au/di/Location/v1/';
+DECLARE moneyprov NAMESPACE 'http://iag.com.au/di/MoneyProvision/v1/';
+DECLARE party NAMESPACE 'http://iag.com.au/di/Party/v1/';
+DECLARE physicalobjects NAMESPACE 'http://iag.com.au/di/PhysicalObject/v1/';
+DECLARE registration NAMESPACE 'http://iag.com.au/di/Registration/v1/';
+
+DECLARE coverage NAMESPACE 'http://iag.com.au/di/Coverage/v1/';
+DECLARE identifiers NAMESPACE 'http://iag.com.au/di/Identifiers/v1/';
+
+
+DECLARE ret NAMESPACE 'http://iag.com.au/di/PolicyInquiry/RetrieveInsurancePolicyDetails/v1/';	
+DECLARE esbenv NAMESPACE 'http://iag.com.au/di/esb/envelope/v1/';
+DECLARE esbhdr NAMESPACE 'http://iag.com.au/di/esb/header/v1/';
+DECLARE esberr NAMESPACE 'http://iag.com.au/di/esb/error/v1/';
+DECLARE xsi NAMESPACE 'http://www.w3.org/2001/XMLSchema-instance';	
+DECLARE xsd NAMESPACE 'http://www.w3.org/2001/XMLSchema';

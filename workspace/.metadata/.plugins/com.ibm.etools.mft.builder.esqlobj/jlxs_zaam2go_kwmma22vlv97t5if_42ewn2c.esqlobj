@@ -1,0 +1,43 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.(XMLNSC.NamespaceDecl)xmlns:esbenv = esbenv;
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.(XMLNSC.NamespaceDecl)xmlns:esbhdr = esbhdr;
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.(XMLNSC.NamespaceDecl)xmlns:esberr = esberr;
+		
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+			END IF;
+		END IF;
+
+		DECLARE inref REFERENCE TO InputRoot.JSON.Data.CustomerResponse;
+		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'GetCustomerResponse';
+		DECLARE refMsg REFERENCE TO OutputRoot.XMLNSC."GetCustomerResponse";
+			
+		SET refMsg.CustomerId = inref.CustomerId;
+		SET refMsg.Name = inref.Name;
+		SET refMsg.Contact = inref.ContactName;
+		SET refMsg.Title = inref.ContactTitle;
+		
+		CREATE LASTCHILD OF refMsg NAME 'Address';
+		DECLARE refAddr REFERENCE TO refMsg.Address;
+		CREATE LASTCHILD OF refAddr NAME 'AddressLine' VALUE inref.Address.AddressLine1;
+		CREATE LASTCHILD OF refAddr NAME 'AddressLine' VALUE inref.Address.AddressLine2;
+		CREATE LASTCHILD OF refAddr NAME 'AddressLine' VALUE inref.Address.AddressLine3;
+		
+		SET refAddr.PostCode = inref.Address.PostalCode;
+		SET refAddr.City = inref.Address.City;
+		SET refAddr.Country = inref.Address.Country;
+		
+		
+		
+
+		RETURN TRUE;
+
+	END;

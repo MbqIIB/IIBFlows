@@ -1,0 +1,91 @@
+CREATE PROCEDURE RetrieveMostInnerChild(IN refRoot REFERENCE, INOUT chrFile CHAR, INOUT intLine INTEGER, INOUT chrFunction CHAR,
+	INOUT chrType CHAR, INOUT chrName CHAR, INOUT chrLabel CHAR, INOUT chrText CHAR, INOUT chrCatalog CHAR, INOUT intSeverity INTEGER, INOUT intNumber INTEGER)
+	BEGIN
+		
+		DECLARE cursor REFERENCE TO refRoot;
+		DECLARE lastException REFERENCE TO refRoot;
+		DECLARE field CHARACTER '';
+		
+		X: WHILE LASTMOVE(cursor) 
+			DO
+			
+			SET field = FIELDNAME(cursor);
+			IF FIELDNAME(cursor) IN (
+				'RecoverableException',
+				'DatabaseException',
+				'ParserException',
+				'ConversionException',
+				'UserException',	
+				'MessageException',
+				'FatalException',
+				'ConfigurationException',
+				'SecurityException',
+				'CastException',
+				'SqlException',
+				'SocketException',
+				'SocketTimeoutException',
+				'UnknownException'
+				) THEN
+				MOVE lastException TO cursor;
+			END IF;
+			
+			MOVE cursor LASTCHILD;
+			
+		END WHILE;
+		
+		IF FIELDNAME(lastException) IN (
+				'RecoverableException',
+				'DatabaseException',
+				'ParserException',
+				'ConversionException',
+				'UserException',	
+				'MessageException',
+				'FatalException',
+				'ConfigurationException',
+				'SecurityException',
+				'CastException',
+				'SqlException',
+				'SocketException',
+				'SocketTimeoutException',
+				'UnknownException') THEN
+				
+				SET chrFile = lastException.File;
+				SET intLine = lastException.Line;
+				SET chrFunction = lastException.Function;
+				SET chrType = lastException.Type;
+				SET chrName = lastException.Name;
+				SET chrLabel = lastException.Label;
+				SET chrText = lastException.Text;
+				SET chrCatalog = lastException.Catalog;
+				SET intSeverity = lastException.Severity;
+				SET intNumber = lastException.Number;
+
+				MOVE cursor TO lastException.Insert;
+				
+				WHILE LASTMOVE(cursor)
+					DO
+					SET chrText = chrText || ';' || cursor.Text;
+					MOVE cursor NEXTSIBLING;
+					WHILE LASTMOVE(cursor) and (FIELDNAME(cursor) <> 'Insert') DO
+						MOVE cursor NEXTSIBLING;
+					END WHILE;
+				END WHILE;	
+				
+		ELSE
+			
+				SET chrFile = '???';
+				SET intLine = -1;
+				SET chrFunction = '???';
+				SET chrType = '???';
+				SET chrName = '???';
+				SET chrLabel = '???';
+				SET chrText = 'Error while handling errors - Type of Exception is not in expected format';
+				SET chrCatalog = '???';
+				SET intSeverity = 3;
+				SET intNumber = -1;
+				
+				
+			
+		END IF;
+
+	END;

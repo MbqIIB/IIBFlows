@@ -1,0 +1,49 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.(XMLNSC.NamespaceDecl)xmlns:esbenv = esbenv;
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.(XMLNSC.NamespaceDecl)xmlns:esbhdr = esbhdr;
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.(XMLNSC.NamespaceDecl)xmlns:esberr = esberr;
+		
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+			END IF;
+		END IF;
+
+		DECLARE inref REFERENCE TO InputRoot.JSON.Data.ordersResponse;
+		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'GetOrdersResponse';
+		DECLARE refMsg REFERENCE TO OutputRoot.XMLNSC."GetOrdersResponse";
+			
+		SET refMsg.CustomerId = inref.customerId;
+		
+		DECLARE refInOrd REFERENCE TO inref.order[>];
+		
+	--	CREATE LASTCHILD OF refMsg NAME 'Orders';
+	--	CREATE FIELD refMsg.Orders IDENTITY(JSON.Array)Orders;
+	--	DECLARE refOrds REFERENCE TO refMsg.Orders; 
+		
+		O:WHILE LASTMOVE(refInOrd)
+		DO
+		--	CREATE FIELD refOrds.Order IDENTITY (JSON.Array)Order;
+			CREATE LASTCHILD OF refMsg NAME 'Orders';
+			DECLARE refMO REFERENCE TO refMsg.Orders[<];
+			SET refMO.OrderId = refInOrd.orderId;
+			SET refMO.Status = refInOrd.status;
+			SET refMO.Description = refInOrd.description;
+			SET refMO.Price = CAST(refInOrd.price AS CHARACTER FORMAT '####0.00');
+			
+				
+			MOVE refInOrd NEXTSIBLING REPEAT NAME;
+				
+		END WHILE; 
+		
+
+		RETURN TRUE;
+
+	END;

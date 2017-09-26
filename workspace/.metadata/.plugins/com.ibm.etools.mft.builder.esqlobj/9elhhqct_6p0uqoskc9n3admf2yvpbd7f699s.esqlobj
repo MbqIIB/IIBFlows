@@ -1,0 +1,90 @@
+CREATE COMPUTE MODULE NZ_AllocatePaymentToAgreement_Request
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		CALL BuildAllocatePaymentToAgreementRequestHdr();
+		CALL BuildAllocatePaymentToAgreementRequestBody();
+		
+		RETURN TRUE;
+	END;
+/***********************************************************************************************************************************************************************/
+CREATE PROCEDURE BuildAllocatePaymentToAgreementRequestHdr() BEGIN
+
+-- Copy ESB headers to Environment.
+		CREATE LASTCHILD OF Environment 		DOMAIN 'XMLNSC' NAME 'Header';	
+		SET Environment.Header 					= InputRoot.XMLNSC.ser:AllocatePaymentToAgreementSoapIn.Header;								
+		SET Environment.Msgid 					= InputRoot.MQMD.MsgId;			
+-- Save Reply to Queue for the response		
+	 	SET Environment.REPLY_TO_QUEUE 			= InputRoot.MQMD.ReplyToQ;	
+		SET Environment.REPLY_TO_QUEUE_MANAGER	= InputRoot.MQMD.ReplyToQMgr;	
+-- Setup output request headers 
+		SET OutputRoot.Properties.MessageSet 	= 'CMD0KPC002001'; 
+		SET OutputRoot.Properties.MessageType 	= 'msg_IMS_OREC_REQUEST';
+		SET OutputRoot.Properties.MessageFormat = 'Binary1';
+-- Build MQMD					
+ 		CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN 'MQMD';
+ 		DECLARE refOut REFERENCE TO OutputRoot.MQMD;		
+ 		CALL Build_MQMD_Header (refOut, InputRoot.MQMD.CorrelId,' ',' ');			
+ 		
+-- Build MRM 
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'MRM';
+
+END;
+/***********************************************************************************************************************************************************************/	
+CREATE PROCEDURE BuildAllocatePaymentToAgreementRequestBody() BEGIN
+	
+		DECLARE inRef 				REFERENCE TO InputRoot.XMLNSC.ser:AllocatePaymentToAgreementSoapIn.Payload.AllocatePaymentToAgreement;		
+		DECLARE chrCurrentTimeStamp CHAR;
+		DECLARE chrCCYY             CHAR;
+		DECLARE chrMM               CHAR;
+		DECLARE chrDD               CHAR;
+		DECLARE policy				CHAR;
+
+		SET chrCurrentTimeStamp = CAST(CURRENT_TIMESTAMP AS CHAR);
+		SET chrCCYY = SUBSTRING(chrCurrentTimeStamp FROM 12 FOR 4);
+		SET chrMM   = SUBSTRING(chrCurrentTimeStamp FROM 17 FOR 2);
+		SET chrDD   = SUBSTRING(chrCurrentTimeStamp FROM 20 FOR 2);	
+		
+		SET OutputRoot.MRM.RRQ_LL					= 272;
+		SET OutputRoot.MRM.RRQ_TRAN_CODE			= 'ITBOREC0';
+		SET OutputRoot.MRM.OREC_REQUEST_COMMON_AREA.RRQ_USER_ID = 'OLNZ';
+		SET OutputRoot.MRM.OREC_REQUEST_COMMON_AREA.RRQ_OREC_ID = inRef.ns:paymentToBeApplied.ns:authorisationId;
+		SET OutputRoot.MRM.OREC_REQUEST_COMMON_AREA.RRQ_CARD_DETAILS.RRQ_SETTLE_DATE = chrDD || '.' || chrMM || '.' || chrCCYY;
+		SET OutputRoot.MRM.OREC_REQUEST_COMMON_AREA.RRQ_EFTPOS_DETAILS.RRQ_TENDERED_EFTPOS = inRef.ns:paymentToBeApplied.ns:amount.ns:theAmount;
+		SET OutputRoot.MRM.OREC_REQUEST_COMMON_AREA.RRQ_EFTPOS_DETAILS.RRQ_EFTPOS_TERM_REF = inRef.ns:paymentToBeApplied.ns:authorisationId;
+		SET OutputRoot.MRM.OREC_REQUEST_COMMON_AREA.RRQ_PRINT_OVERRIDE = 'N';
+		SET OutputRoot.MRM.OREC_REQUEST_COMMON_AREA.RRQ_P_LMT = 01;
+		SET OutputRoot.MRM.OREC_REQUEST_VAR_AREA.RRQ_PAYMENT_DTLS.RRQ_REF_NUM = inRef.ns:insurancePolicy.ns:objectReference.ns:objectId;
+		SET OutputRoot.MRM.OREC_REQUEST_VAR_AREA.RRQ_PAYMENT_DTLS.RRQ_TRAN_AMT = inRef.ns:paymentToBeApplied.ns:amount.ns:theAmount;
+
+-- Online Payments - WRK125689
+		/*
+		Status is Renewal - set as '03 '
+		Status is neither 'Renewal', 'New Business', '' - reject
+		All other values, set as '02 '
+		*/
+
+		-- get the status, if we are not 'New Business' or 'Renewal' - then reject
+		declare refInSt reference to inRef.ns:insurancePolicy.ns:status;
+		declare strState character '';
+		if lastmove(refInSt) then
+			set strState = fieldvalue(refInSt.ns:state);
+			if strState not in ('', 'New Business', 'Renewal') then
+				propagate to terminal 'out1';
+			end if;
+		end if;
+
+		-- set Transaction Type for ORS to the default of '02 ' - New Business		
+		declare strTranType character '';
+		set strTranType = '02 ';
+		if (strState = 'Renewal') then
+			set strTranType = '03 ';
+		end if;
+
+		-- set the tran type value
+		set OutputRoot.MRM.OREC_REQUEST_VAR_AREA.RRQ_PAYMENT_DTLS.RRQ_TRAN_TYPE = strTranType;
+		
+	 
+END; 
+
+END MODULE;

@@ -1,0 +1,46 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+			END IF;
+		END IF;
+		
+		DECLARE refIn REFERENCE TO InputRoot.XMLNSC."GetCustomerRequest";
+		--
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'XMLNSC' NAME 'XMLNSC';
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'orderRequest'; 	  		
+		DECLARE refReq REFERENCE TO OutputRoot.XMLNSC."orderRequest";
+		
+		SET refReq.customerId = refIn.customerId;
+		
+	--	SET OutputRoot.XMLNSC = InputRoot.XMLNSC;
+		
+		CALL UpdateState();
+		
+		RETURN TRUE;
+
+	END;
+	
+	CREATE PROCEDURE UpdateState()
+	BEGIN
+	
+		SET Environment.Variables.UpdateState = 'Y';
+		DECLARE refState REFERENCE TO Environment.RequestState.XMLNSC.GetCustomer;
+		
+		CREATE LASTCHILD OF refState NAME 'GetCustomerResponse';
+		DECLARE refResp REFERENCE TO refState.GetCustomerResponse;
+		SET refResp.*[] = InputRoot.XMLNSC.GetCustomerResponse.*[];
+		
+--		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+--			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+--			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+--				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+--			END IF;
+--		END IF;
+	
+	
+	END;	

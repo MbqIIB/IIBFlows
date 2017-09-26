@@ -1,0 +1,64 @@
+/***********************************************************************************************************************************************************************/	
+CREATE PROCEDURE Build_MRM_Header (INOUT refOutMRM REFERENCE, IN chrLayout CHAR, IN refInput REFERENCE) BEGIN
+	
+	SET refOutMRM.RQ_HEADER.RQ_API_PROGRAM		= 'API';
+	SET refOutMRM.RQ_HEADER.RQ_LAYOUT 			= chrLayout;
+	SET refOutMRM.RQ_HEADER.RQ_INITIATOR 		= Left(BrokerName,8);			
+	SET refOutMRM.RQ_HEADER.RQ_USERID 			= COALESCE(refInput.Header.userId, '');	
+	SET refOutMRM.RQ_HEADER.RQ_SOURCE_SYSTEM 	= COALESCE(refInput.Header.sourceSystem,'');
+	SET refOutMRM.RQ_HEADER.RQ_TIMESTAMP 		= CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyyMMddHHmmssSSS');
+	
+END;
+/***********************************************************************************************************************************************************************/	
+CREATE PROCEDURE Build_MQMD_Header (INOUT refOutMRM REFERENCE, IN Correlid BLOB, IN ReplyQ CHAR, IN ReplyQM CHAR) BEGIN
+	
+	SET refOutMRM.Version             			= MQMD_CURRENT_VERSION; 
+	SET refOutMRM.MsgType             			= MQMT_REQUEST;  
+	SET refOutMRM.Format              			= MQFMT_STRING;
+	SET refOutMRM.CorrelId						= Correlid;			
+	--SET refOutMRM.Expiry              			= -1; 
+	-- SD2500355 
+	SET refOutMRM.Expiry              			= 600; -- 1 minute
+	SET refOutMRM.Encoding						= MQENC_NATIVE;
+	SET refOutMRM.CodedCharSetId				= 1208;
+	SET refOutMRM.ReplyToQ						= ReplyQ;	
+   	SET refOutMRM.ReplyToQMgr					= ReplyQM;		
+	
+END;  
+/***********************************************************************************************************************************************************************/	
+CREATE PROCEDURE Build_XML_Response_Header (INOUT refOut REFERENCE, IN Operation CHAR,IN Header REFERENCE,IN refIn REFERENCE) BEGIN
+
+		SET refOut.(XMLNSC.Attribute)xmlns:xsi 			= 	xsi;
+		SET refOut.(XMLNSC.Attribute)xmlns:xsd			=	xsd;
+		SET refOut.(XMLNSC.Attribute)xmlns:ns1			=	ser;
+		SET refOut.(XMLNSC.Attribute)xmlns:ns2			=	ns;				
+		SET refOut.(XMLNSC.Attribute)xmlns:esb			=	esb;
+			
+		SET refOut.ResponseHeader.Header 				= Header;			
+		-- Check Response
+	    IF refIn.RP_RC			= 04
+	    	OR refIn.RP_RC		= 08
+	    	OR refIn.RP_RC		= 16 THEN
+			-- Map Error code in ResponseHeader
+			SET refOut.ResponseHeader.maxReturnLevel = 
+		  	  CASE refIn.RP_RC
+		    	WHEN 04  THEN 'WARN'
+		    	WHEN 08  THEN 'ERROR'
+		    	WHEN 16  THEN 'FATAL'		    		
+		  	  END;	
+		  	  
+			SET refOut.ResponseHeader.errorList.errorInfo.level = 
+		  	  CASE refIn.RP_RC
+		    	WHEN 04  THEN 'WARN'
+		    	WHEN 08  THEN 'ERROR'
+		    	WHEN 16  THEN 'FATAL'		    		
+		  	  END;
+		  	  			
+			SET refOut.ResponseHeader.errorList.errorInfo.system 	= Operation;
+			SET refOut.ResponseHeader.errorList.errorInfo.code 		= refIn.RP_ERRNO;
+			SET refOut.ResponseHeader.errorList.errorInfo.message 	= refIn.RP_ERR_MSG;			
+		ELSE																
+			SET refOut.ResponseHeader.maxReturnLevel 				= 'OK';		
+		END IF; 
+END; 
+/***********************************************************************************************************************************************************************/			

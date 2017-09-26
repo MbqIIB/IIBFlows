@@ -1,0 +1,76 @@
+
+Request
+{
+"orderRequest":{
+	"customerId":"1234"
+	}
+}
+
+Response - valid error
+{
+"orderResponse":{
+	"customerId":"1234",
+	"orders":{
+		"id":"order1",
+		"orderdate":"20170901",
+		"item":{
+			"id":"1",
+			"description":"Car",
+			"price":"30100.00"
+			},
+		"item":{
+			"id":"2",
+			"description":"Laptop",
+			"price":"1500.00"
+			}
+		}
+	}
+}
+
+<Header>
+  <operationName>maersk.com.ordersapi.v1.OrdersAPI_Request_v1</operationName>
+  <timestamp>20170823-143547</timestamp>
+  <sourceSystem>ESB</sourceSystem>
+  <userId>IIB</userId>
+  <extensionList>
+   <extension>
+    <name>HTTPReplyIdentifier</name>
+    <value>4854545002000000000000006e444e0ff01c000000000000</value>
+   </extension>
+  </extensionList>
+  
+Response - valid
+
+{
+"orderResponse":{
+    "header":{
+    	"operationName":"maersk.com.ordersapi.v1.OrdersAPI_Request_v1",
+    	"timestamp":"20170823-143547",
+    	"sourceSystem":"ESB",
+    	"userId":"IIB",
+    	"extensionList":{
+    		"extension":{
+    			"name":"HTTPReplyIdentifier",
+    			"value":"4854545002000000000000006e444e0ff01c000000000000"
+    		}
+    	}
+    },
+    "body":{
+		"customerId":"1234",
+		"orders":{
+			"id":"order1",
+			"orderdate":"20170901",
+			"item":{
+				"id":"1",
+				"description":"Car",
+				"price":"30100.00"
+				},
+			"item":{
+				"id":"2",
+				"description":"Laptop",
+				"price":"1500.00"
+				}
+			}
+		}
+	}
+}

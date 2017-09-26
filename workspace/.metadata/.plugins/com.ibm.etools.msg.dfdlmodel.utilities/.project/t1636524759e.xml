@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?><MessageBroker name="libCustomerRequest_v0">
+  <XSDCollection href="platform:/resource/libCustomerRequest_v0/GetCustomer.xsd" prefix="" targetNamespace="">
+    <element href="platform:/resource/libCustomerRequest_v0/GetCustomer.xsd#//GetCustomer;XSDElementDeclaration" name="GetCustomer" type="mlib://libCustomerRequest_v0#/-/complexType{}GetCustomerType"/>
+    <complexType baseType="mlib://libCustomerRequest_v0#/-/complexType{http://www.w3.org/2001/XMLSchema}anyType" href="platform:/resource/libCustomerRequest_v0/GetCustomer.xsd#//GetCustomerType;XSDComplexTypeDefinition" name="GetCustomerType"/>
+  </XSDCollection>
+</MessageBroker>

@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="yes"?>
+<profile:monitoringProfile xmlns:profile="http://www.ibm.com/xmlns/prod/websphere/messagebroker/6.1.0.3/monitoring/profile" profile:version="2.0">
+<profile:eventSource profile:enabled="true" profile:eventSourceAddress="SOAP Input.transaction.Start">
+<profile:eventPointDataQuery>
+<profile:eventIdentity>
+<profile:eventName profile:literal="SOAP Input.TransactionStart"/>
+</profile:eventIdentity>
+<profile:eventCorrelation>
+<profile:localTransactionId profile:sourceOfId="query" profile:queryText="$LocalEnvironment/Destination/SOAP/Reply/ReplyIdentifier"/>
+<profile:parentTransactionId profile:sourceOfId="automatic"/>
+<profile:globalTransactionId profile:sourceOfId="query" profile:queryText="$Root//*[local-name()='conversationId']"/>
+</profile:eventCorrelation>
+<profile:eventFilter profile:queryText="true()"/>
+<profile:eventUOW profile:unitOfWork="none"/>
+</profile:eventPointDataQuery>
+<profile:applicationDataQuery>
+<profile:simpleContent profile:dataType="string" profile:name="Source">
+<profile:valueQuery profile:queryText="SOAP Input.transaction.Start"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Name">
+<profile:valueQuery profile:queryText="SOAP Input.TransactionStart"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="CorrelId">
+<profile:valueQuery profile:queryText="$Root//X-Message-Transaction-Correlation-Id"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="ConversationId">
+<profile:valueQuery profile:queryText="$Root//*[local-name()='conversationId']"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="MsgId">
+<profile:valueQuery profile:queryText="$LocalEnvironment/Destination/SOAP/Reply/ReplyIdentifier"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Operation">
+<profile:valueQuery profile:queryText="$Root/SOAP/Context/@operation"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="UserId">
+<profile:valueQuery profile:queryText="$Root//Header/userId"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Type">
+<profile:valueQuery profile:queryText="concat('REQUEST','')"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="CustomerId">
+<profile:valueQuery profile:queryText="$Root//Payload/UserID"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="ReplyId">
+<profile:valueQuery profile:queryText="$LocalEnvironment/Destination/SOAP/Reply/ReplyIdentifier"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="UrlPath">
+<profile:valueQuery profile:queryText="substring-before( substring-after($Root//X-Original-HTTP-Command, 'POST'), 'HTTP')"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Host">
+<profile:valueQuery profile:queryText="$Root/HTTPInputHeader/Host"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Client">
+<profile:valueQuery profile:queryText="$Root//X-Message-Origin-Application-Servername"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Status">
+<profile:valueQuery profile:queryText="$Root//maxReturnLevel"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Error">
+<profile:valueQuery profile:queryText="$Root//errorInfo/message"/>
+</profile:simpleContent>
+<profile:complexContent>
+<profile:payloadQuery profile:queryText="$Root"/>
+</profile:complexContent>
+<profile:complexContent>
+<profile:payloadQuery profile:queryText="$ExceptionList"/>
+</profile:complexContent>
+</profile:applicationDataQuery>
+</profile:eventSource>
+<profile:eventSource profile:enabled="true" profile:eventSourceAddress="SOAP Reply.terminal.in">
+<profile:eventPointDataQuery>
+<profile:eventIdentity>
+<profile:eventName profile:literal="SOAP Reply.InTerminal"/>
+</profile:eventIdentity>
+<profile:eventCorrelation>
+<profile:localTransactionId profile:sourceOfId="query" profile:queryText="$Root//X-Message-Transaction-Correlation-Id"/>
+<profile:parentTransactionId profile:sourceOfId="automatic"/>
+<profile:globalTransactionId profile:sourceOfId="query" profile:queryText="$Root//conversationId"/>
+</profile:eventCorrelation>
+<profile:eventFilter profile:queryText="true()"/>
+<profile:eventUOW profile:unitOfWork="none"/>
+</profile:eventPointDataQuery>
+<profile:applicationDataQuery>
+<profile:simpleContent profile:dataType="string" profile:name="Source">
+<profile:valueQuery profile:queryText="SOAP Reply.terminal.in"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Name">
+<profile:valueQuery profile:queryText="SOAP Reply.InTerminal"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="CorrelId">
+<profile:valueQuery profile:queryText="$Root//X-Message-Transaction-Correlation-Id"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="ConversationId">
+<profile:valueQuery profile:queryText="$Root//conversationId"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="MsgId">
+<profile:valueQuery profile:queryText="$Root//X-Message-Transaction-Correlation-Id"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Operation">
+<profile:valueQuery profile:queryText="local-name($Root/XMLNSC/*[1])"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="UserId">
+<profile:valueQuery profile:queryText="$Root//Header/userId"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Type">
+<profile:valueQuery profile:queryText="concat('REPLY','')"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="UrlPath">
+<profile:valueQuery profile:queryText="$Root//X-Original-HTTP-Command"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Host">
+<profile:valueQuery profile:queryText="$Root/HTTPReplyHeader/Host"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Client">
+<profile:valueQuery profile:queryText="$Root//X-Message-Origin-Application-Servername"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Status">
+<profile:valueQuery profile:queryText="$Root//maxReturnLevel"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Error">
+<profile:valueQuery profile:queryText="$Root//errorInfo/message"/>
+</profile:simpleContent>
+<profile:complexContent>
+<profile:payloadQuery profile:queryText="$Root"/>
+</profile:complexContent>
+<profile:complexContent>
+<profile:payloadQuery profile:queryText="$ExceptionList"/>
+</profile:complexContent>
+</profile:applicationDataQuery>
+</profile:eventSource>
+</profile:monitoringProfile>

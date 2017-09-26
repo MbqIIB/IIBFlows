@@ -1,0 +1,10 @@
+CREATE COMPUTE MODULE GetCustomerOrders_WS_v1_BuildRequest
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+
+
+
+
+	END;
+END MODULE;

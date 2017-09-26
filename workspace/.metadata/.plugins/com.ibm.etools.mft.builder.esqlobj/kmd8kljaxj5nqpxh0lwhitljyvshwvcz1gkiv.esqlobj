@@ -1,0 +1,16 @@
+CREATE FILTER MODULE ClaimEnquiryDetails_Request_v1_Filter
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+ 		declare refIn reference to Root.XMLNSC;
+		declare refRespRet reference to refIn.icl:findClaimDetailsResponse.icl:return;
+		declare refRespInfo reference to refRespRet.pogo:CCServiceResponseInfo;
+		
+		if refRespInfo.cc:ResponseCode = CED_OK then
+			return true;
+		else
+			return false;
+		end if;
+		
+	END;
+END MODULE;

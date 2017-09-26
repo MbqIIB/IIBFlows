@@ -1,0 +1,19 @@
+BROKER SCHEMA au.iag.wmb.common.state.v1
+
+CREATE COMPUTE MODULE saveStateMessage_Compute_TransformMQMD
+	
+	DECLARE setExpiry EXTERNAL INTEGER 180;
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		SET OutputRoot = InputRoot;
+       	SET OutputRoot.MQMD.Expiry = setExpiry;
+	END;		
+END MODULE;
+
+CREATE COMPUTE MODULE sfSaveStateMessage_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		SET Environment.StateMQMD.CorrelId = InputLocalEnvironment.WrittenDestination.MQ.DestinationData.correlId;
+		RETURN TRUE;
+	END;
+END MODULE;

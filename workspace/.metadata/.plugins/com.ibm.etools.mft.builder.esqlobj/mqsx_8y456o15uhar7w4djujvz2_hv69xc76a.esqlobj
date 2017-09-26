@@ -1,0 +1,8 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+		
+--Set the SOAP Reply and HTTP Header for the response		
+
+		SET OutputRoot.HTTPReplyHeader													= Environment.HTTP;													
+		SET OutputRoot.XMLNSC.*[<]														= InputRoot.XMLNSC.*[<];
+	END;		

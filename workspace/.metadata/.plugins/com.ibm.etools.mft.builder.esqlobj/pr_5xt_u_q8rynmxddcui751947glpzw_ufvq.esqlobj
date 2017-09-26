@@ -1,0 +1,17 @@
+CREATE FILTER MODULE RetrieveInsurancePolicyDetails_Request_v2_Which_Consumer
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		declare refIn reference to Root.XMLNSC;
+		declare refHeader reference to refIn.esbenv:Envelope.esbhdr:Header;
+		
+		/* If New Zealand */
+		if (refHeader.esbhdr:brand = 'STATE') then	
+			return true;
+		else
+			return false;
+		end if;
+		
+	END;
+
+END MODULE;

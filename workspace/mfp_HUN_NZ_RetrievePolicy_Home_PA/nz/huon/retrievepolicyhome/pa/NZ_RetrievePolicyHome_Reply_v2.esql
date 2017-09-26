@@ -1,0 +1,1220 @@
+/*********************************************************************************************************
+Date       Name            Comments
+13/11/2013 Mick Moriarty - Initial version
+						   New Enterprise Provider Adaptor for NZ - process response messsage from WQS070
+*********************************************************************************************************/
+
+BROKER SCHEMA nz.huon.retrievepolicyhome.pa
+
+
+CREATE COMPUTE MODULE NZ_RetrievePolicyHome_Reply_v2_TransForm_Reply
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+ 
+		-- Set Environment variables from the RequestState response, so the Envelope can be re-built
+		set Environment.MQMD.[] = Environment.RequestState.MQMD.[];
+		set Environment.Header.[] = Environment.RequestState.XMLNSC.*:Envelope.*:Header.[];
+
+		declare refInHead reference to InputRoot.MRM.RP_HEADER;
+		declare refInBody reference to InputRoot.MRM.RP_BODY;
+		
+		declare twoDecPlace character '########0.00';
+		declare zeroDecPlace character '############';
+		
+		-- Any errors from HUON ?
+				
+		if refInHead.RP_RC not in (00, 04) then
+			set OutputRoot.MRM = InputRoot.MRM;
+			propagate to terminal 'out1';
+			return false;
+		end if;
+		
+		-- Start creating the response		
+		create lastchild of OutputRoot.XMLNSC namespace retv2 name 'retrieveInsurancePolicyDetailsResp';
+		declare refResp reference to OutputRoot.XMLNSC.retv2:retrieveInsurancePolicyDetailsResp;
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:retv2 			= retv2;
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:xsi 			= xsi;    		
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:agreement		= agreement;    		
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:identifiers		= identifiers;    		
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:moneyprov		= moneyprov;
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:party			= party;
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:coverage 		= coverage;
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:location 		= location;
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:event 		    = event;		
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:registration 	= registration;		
+		
+		--declare refResp reference to refOutBody.retv2:retrieveInsurancePolicyDetailsResp;
+		create lastchild of refResp name 'insurancePolicy';
+		declare refIns reference to refResp.insurancePolicy;
+		
+		-- Policy Dates
+		set refIns.inceptionDate = DateFunc.StrToDate(cast(refInBody.RP_TERMINCEP as char));
+		set refIns.endDate = DateFunc.StrToDate(cast(refInBody.RP_DUEDATE as char));
+
+		create lastchild of refIns name 'basedOnAgreement';
+		declare refBO reference to refIns.basedOnAgreement;
+		set refBO.(XMLNSC.Attribute)xsi:type = 'agreement:Agreement';
+		--set refBO.agreementName = 'Comprehensive';
+		
+		--> Embargos
+		declare refInEmb reference to refInBody.RP_EMBARGO.RP_EMBARGO_DTL[>];	
+		x : while lastmove(refInEmb) DO
+		
+			create lastchild of refBO name 'includesClause';
+			declare refic reference to refBO.includesClause[<];
+			set refic.(XMLNSC.Attribute)xsi:type = 'agreement:AgreementClause';	
+
+			set refic.clauseCode = TRIM(refInEmb.RP_EMBARGO_TYPE);
+			set refic.clauseDescription	= coalesce(TRIM(refInEmb.RP_EMBARGO_DESC),'');
+			set refic.effectiveDate = DateFunc.StrToDate(cast(refInEmb.RP_EMBARGO_FRMDATE as char));
+	 		set refic.endDate = DateFunc.StrToDate(cast(refInEmb.RP_EMBARGO_TODATE as char));
+									
+			move refInEmb nextsibling repeat name;
+			
+		end while;		
+
+		--set refIns.noClaimBonusProtection 	= TRIM(refInBody.RP_HOME_RISK.RP_NCBTYPE);
+		set refIns.noClaimBonusProtection = 
+			case refInBody.RP_DISCOUNTS.RP_PNCBTYPE
+				when 'F' then 'Free'
+				when 'N' then 'No'
+				when 'P' then 'Paid'
+                when ' ' then 'No' 					
+			else 'Other'					
+		end;		
+
+		set refIns.paidStatus = TRIM(refInBody.RP_POLICY_PAID);
+		
+		-- Contract
+		call FormatContract(refIns, refInBody);
+		
+		set refIns.boundDate 	= DateFunc.StrToDate(CAST(refInBody.RP_EFFECTDTE AS CHAR));
+		
+		-- Status		
+		call FormatStatus(refIns, refInBody);	
+
+		delete field Environment.Excess;
+		create lastchild of Environment domain ('XMLNSC') name 'Excess';
+		
+		--> Number of Dwellings
+		call FormatNumberOfDwellings(refIns, refInBody);
+		--< End number of Dwellings
+
+		--> Garage information
+		declare igCount integer 1;
+		if (igCount > 0) then
+			call FormatGarage(refIns, refInBody);
+		end if;
+		--< Garage information
+		
+		-- Format Storage location
+		call FormatStorageUnits(refIns, refInBody);
+		
+		--> Start Dwelling information
+		if (refInBody.RP_RISKTYPE in ('BLDG', 'HPAC', 'LAND'))
+			or (refInBody.RP_HOME_SECURITY.RP_ALARM_FITTED <> ' ') then
+			call FormatPolicyForDwelling(refIns, refInBody);
+		end if;
+		--< End Home information
+
+		--> Start Contents information
+		if (refInBody.RP_RISKTYPE in ('CONT', 'HPAC', 'LAND')) then
+			call FormatPolicyForContents(refIns, refInBody);
+		end if;
+		--< End Home information
+
+		--> Start Moneytary Provision
+		call FormatMonetaryProvision(refIns, refInBody);
+		--< End Moneytary Provision
+
+		delete field Environment.Clients;
+		create lastchild of Environment domain ('XMLNSC') name 'Clients';
+		
+		--> Start rolesInContract - Organisation
+		call FormatRolesInContractByOrganisation(refIns, refInBody, 'Organisation'); 
+		--< End rolesInContract
+		
+		--> Start rolesInContract - Person
+		call FormatRolesInContractByPerson(refIns, refInBody, 'Person'); 
+		--< End rolesInContract
+		return true;
+		
+	end;
+		
+		
+	/* Format the status of a Policy
+	*/
+	create procedure FormatStatus(inout refOut reference, in refIn reference)
+	begin
+		
+		create lastchild of refOut name 'policyStatus';
+		declare refPol reference to refOut.policyStatus;
+
+		case refIn.RP_STATUS
+			when ' ' then
+				if refIn.RP_POLICY_PAID = 'Y' then 
+					set refPol.status = 'In Force';
+				else
+					if refIn.RP_PREMIUM_DTLS.RP_BILLPLAN in ('NMTH', 'NFOR') then 
+						set refPol.status = 'Arrears';
+					else
+						set refPol.status = 'Outstanding Payment';
+					end if;
+				end if;
+			when 'RENEWL ' then
+				set refPol.status = 'Renewal';
+			when 'LAPSE ' then
+				set refPol.status = 'Lapsed';	
+			when 'CANCEL ' then
+				set refPol.status = 'Cancelled';
+		end case;
+
+	end;
+		
+	/* Format Covers */
+	create procedure FormatContract(inout refIns reference, in refInBody reference)
+	begin
+	
+		declare refCo reference to refInBody.RP_COVERS.RP_COVER_DTL[>];	
+		x : while lastmove(refCo) do
+
+			create lastchild of refIns name 'includesComponent';
+			declare refIncComp reference to refIns.includesComponent[<];
+			set refIncComp.(XMLNSC.Attribute)xsi:type = 'coverage:CoverageComponent';
+
+			set refIncComp.name = refCo.RP_COVERAGE;
+			set refIncComp.riskType = refInBody.RP_RISKTYPE;
+			set refIncComp.sumInsured = refCo.RP_SUM_INSURED;
+			
+			move refCo nextsibling repeat name;
+			
+		end while;
+	
+	end;	
+		
+	/* Format Policy Details for Contents*/	
+	create procedure FormatPolicyForContents(inout refIns reference, in refInBody reference)
+	begin
+
+		create lastchild of refIns name 'policyFor'; 
+		declare refPf reference to refIns.policyFor[<];
+		set refPf.(XMLNSC.Attribute)xsi:type = 'physicalobjects:HouseHoldContent';
+		set refPf.(XMLNSC.NamespaceDecl)xmlns:physicalobjects = physicalobjects;
+		--set refPf.(XMLNSC.NamespaceDecl)xmlns:registration = registration;
+		
+		-- Policy Number
+		set refPf.externalReference = refInBody.RP_IDENTIFIER;
+
+		-- create an unstructured address for the Risk Address
+		call FormatStructuredPostalAddress(refPf, refInBody.RP_RISK_ADDRESS, 'RiskAddress');
+		
+		-- Special Contents
+		--call FormatSpecialContents(refPf, refInBody);
+
+		-- Home Covers
+		call FormatHomeCovers(refPf, refInBody, 'Contents');
+
+		-- Special Contents
+		--call FormatSpecialContents(refPf, refInBody);
+
+
+	end;
+
+
+	/* Format Number of Dwellings */	
+	create procedure FormatNumberOfDwellings(inout refIns reference, in refInBody reference)
+	begin
+		
+		create lastchild of refIns name 'policyFor'; 
+		declare refPf reference to refIns.policyFor[<];
+		set refPf.(XMLNSC.Attribute)xsi:type = 'physicalobjects:Structure';
+		set refPf.(XMLNSC.NamespaceDecl)xmlns:physicalobjects = physicalobjects;
+		
+		set refPf.noOfDwelling = 'TBC';
+		
+	end;
+	
+	/* Format Garages */	
+	create procedure FormatGarage(inout refIns reference, in refInBody reference)
+	begin
+		
+		create lastchild of refIns name 'policyFor'; 
+		declare refPf reference to refIns.policyFor[<];
+		set refPf.(XMLNSC.Attribute)xsi:type = 'physicalobjects:Garage';
+		set refPf.(XMLNSC.NamespaceDecl)xmlns:physicalobjects = physicalobjects;
+		
+		set refPf.size = 'TBC';
+		
+	end;
+
+	/* Format Storage Units */	
+	create procedure FormatStorageUnits(inout refIns reference, in refInBody reference)
+	begin
+		
+		delete field Environment.Storage;
+		set Environment.Storage.ClientDtl[] = 	
+			select X from refInBody.RP_CLIENTS.RP_CLIENT_DTL[] as X
+				where (X.RP_REFASSOC = 'ST');
+				
+		declare refStorage reference to Environment.Storage.ClientDtl[>];
+		
+		x :while lastmove (refStorage) do
+			
+			create lastchild of refIns name 'policyFor'; 
+			declare refSt reference to refIns.policyFor[<];
+			set refSt.(XMLNSC.Attribute)xsi:type = 'physicalobjects:Storage';
+			set refSt.(XMLNSC.NamespaceDecl)xmlns:physicalobjects = physicalobjects;
+		
+			create lastchild of refSt name 'isServicedBy';
+			declare refSer reference to refSt.isServicedBy[<];
+	
+			set refSer.isIdentifiedBy.componentId = 'HUON';
+			set refSer.isIdentifiedBy.partyId = refStorage.RP_SEQCLTNO;
+			
+			create lastchild of refSt name 'coverage';
+			declare refCov reference to refSt.coverage[<];
+			
+			set refCov.startDate = '2014-11-27';
+			set refCov.endDate = '2014-11-27';
+			set refCov.agreedValue = '1345.43';
+			
+			move refStorage nextsibling repeat name;
+				
+		end while;
+	end;
+
+		
+	/* Format Policy Details for Dwelling */	
+	create procedure FormatPolicyForDwelling(inout refIns reference, in refInBody reference)
+	begin
+
+		create lastchild of refIns name 'policyFor'; 
+		declare refPf reference to refIns.policyFor[<];
+		set refPf.(XMLNSC.Attribute)xsi:type = 'physicalobjects:Dwelling';
+		set refPf.(XMLNSC.NamespaceDecl)xmlns:physicalobjects = physicalobjects;
+		
+		-- Policy Number
+		set refPf.externalReference = refInBody.RP_IDENTIFIER;
+		
+		-- create an unstructured address for the Risk Address
+		call FormatStructuredPostalAddress(refPf, refInBody.RP_RISK_ADDRESS, 'RiskAddress');
+		
+		-- Dwelling details
+		call FormatDwellingDetails(refPf, refInBody);
+
+		-- Only format the Covers and ConstuctionDetails for all calls, other than for 'alarm'
+		if (refInBody.RP_RISKTYPE in ('BLDG', 'HPAC', 'LAND')) then
+			-- Home Covers
+			call FormatHomeCovers(refPf, refInBody, 'Structure');
+
+			-- Construction details
+			call FormatConstructionDetails(refPf, refInBody);
+		end if;
+		
+		
+	end;
+
+	-- Dwelling details
+	create procedure FormatDwellingDetails(inout refOut reference, in refInBody reference)
+	begin
+		
+		declare chrSeq character '';
+		
+		set refOut.occupationType = refInBody.RP_HOME_RISK.RP_HORESBUS;
+		set refOut.occupancy = refInBody.RP_HOME_RISK.RP_OCCUPY;
+		set refOut.alarm = refInBody.RP_HOME_SECURITY.RP_ALARM_FITTED;
+		
+		set refOut.size = 'TBC';
+		set refOut.unitOfMeasure = 'TBC';
+		
+	end;
+
+	-- Construction details
+	create procedure FormatConstructionDetails(inout refOut reference, in refInBody reference)
+	begin
+		
+		declare refConst reference to refInBody.RP_HOME_RISK; 
+		declare chrDate character '';
+
+		-- the YRBUILT field is an integer, the model is a date field - so, add a dummy month and day
+		if refConst.RP_YRBUILT > 0 then
+			set chrDate = (cast(refConst.RP_YRBUILT as character)) || '0101';
+			set refOut.constructionDate = DateFunc.StrToDate(CAST(chrDate AS CHAR));
+		end if;		
+		set refOut.roofType = refConst.RP_ROOFTYP;
+		set refOut.constructionType = refConst.RP_CONSTRUCTION;
+		
+		set refOut.numberOfFloors = refConst.RP_HONOSTORY;
+		set refOut.designStyle = refConst.RP_HODWELLTY;
+		
+	end;
+	
+	-- Special Contents
+	create procedure FormatSpecialContents(inout refOut reference, in refInBody reference, in strCover character)
+	begin
+		
+		declare refSpec reference to refInBody.RP_SPECIFIED_ITEMS.RP_SPEC_ITEMS_DTL[>]; 
+
+		x : while lastmove(refSpec) do
+			
+			if (strCover = refSpec.RP_SPEC_ITM_COV) then
+				create lastchild of refOut name 'itemCoverage';
+				declare refSC reference to refOut.itemCoverage[<];
+				set refSC.(XMLNSC.Attribute)xsi:type = 'coverage:HouseholdItemCoverage';
+				set refSC.description = refSpec.RP_MINORDESC;
+				set refSC.name = refSpec.RP_SPEC_ITM_COV;
+				set refSC.sumInsured = refSpec.RP_SPECITM_SUMINS;
+			end if;
+			
+			move refSpec nextsibling repeat name; 
+			
+		end while;
+		
+		
+	end;
+	
+	-- Home covers
+	create procedure FormatHomeCovers(inout refOut reference, in refInBody reference, in chrPolicyType character )
+	begin
+		
+		declare chrSeq character '';
+		declare refCovs reference to refInBody.RP_COVERS.RP_COVER_DTL[>];
+		declare iBuildingCount integer 0;
+		declare bProcessed boolean false;
+		
+		x : while lastmove(refCovs) do
+			
+			-- Buildings
+			if chrPolicyType = 'Structure' then
+				if (refInBody.RP_RISKTYPE in ('BLDG', 'HPAC', 'LAND')) then
+					if (refCovs.RP_COVERAGE in ('BLDG')) then				
+						create lastchild of refOut name 'coverage';
+						declare refCover reference to refOut.coverage[<];
+						set refCover.(XMLNSC.Attribute)xsi:type = 'coverage:BuildingCoverage';
+						set refCover.name = refCovs.RP_COVERAGE;
+						set refCover.riskType = 'BUILDINGS';
+						--
+						call FormatCoverageDeductibles(refCover, refCovs, refInBody.RP_EXCESSES);
+						--
+						set refCover.sumInsured = refCovs.RP_SUM_INSURED;
+						set bProcessed = true;
+					end if;
+				end if;
+			end if;
+					
+			-- General Contents			
+			if chrPolicyType = 'Contents' then											
+				if (refInBody.RP_RISKTYPE in ('CONT', 'HPAC', 'LAND')) then
+					if (refCovs.RP_COVERAGE in ('GNCT')) then											
+						create lastchild of refOut name 'coverage';
+						declare refCover reference to refOut.coverage[<];
+						set refCover.(XMLNSC.Attribute)xsi:type = 'coverage:ContentsCoverage';
+						set refCover.name = refCovs.RP_COVERAGE;				
+						set refCover.riskType = 'GENERAL CONTENTS';
+						--
+						call FormatCoverageDeductibles(refCover, refCovs, refInBody.RP_EXCESSES);
+						--
+						--set refCov.coverageDeductible.deductibleAmount = refInBody.RP_EXCESSES.RP_BASIC_EXCESS_GNCT;
+						set refCover.sumInsured = refCovs.RP_SUM_INSURED;
+						set bProcessed = true;
+					end if;
+				end if;
+			end if;			
+
+			-- Special
+			if chrPolicyType = 'Contents' then
+				if (refInBody.RP_RISKTYPE in ('HPAC', 'CONT')) then
+					if (refCovs.RP_COVERAGE not in ('LAND', 'GNCT', 'FLOD', 'BLDG')) then
+						create lastchild of refOut name 'coverage';
+						declare refCover reference to refOut.coverage[<];
+						set refCover.(XMLNSC.Attribute)xsi:type = 'coverage:ContentsCoverage';
+						set refCover.name = refCovs.RP_COVERAGE;				
+						set refCover.riskType = 'SPECIAL P/VAL';
+						--
+						--call FormatSpecialCoverageDeductibles(refCover, refCovs, refInBody);
+						--
+						set refCover.sumInsured = refCovs.RP_SUM_INSURED;
+						--						
+						call FormatSpecialContents(refCover, refInBody, refCovs.RP_COVERAGE);
+						--set refCov.coverageDeductible.deductibleAmount = refInBody.RP_EXCESSES.RP_SPECIAL1_EXCESS;
+					--	set bProcessed = true;
+					end if;
+				end if;				
+			end if;
+
+			
+			-- Landlord - as Contents
+			if (refInBody.RP_RISKTYPE in ('LAND')) then
+				if (refCovs.RP_COVERAGE in ('LAND')) then
+					create lastchild of refOut name 'coverage';
+					declare refCover reference to refOut.coverage[<];
+					set refCover.(XMLNSC.Attribute)xsi:type = 'coverage:ContentsCoverage';
+					set refCover.name = refCovs.RP_COVERAGE;				
+					set refCover.riskType = 'LANDLORD';
+					--
+					call FormatCoverageDeductibles(refCover, refCovs, refInBody.RP_EXCESSES);
+					--
+					--set refCov.coverageDeductible.deductibleAmount = refInBody.RP_EXCESSES.RP_BASIC_EXCESS_RENT;
+					set refCover.sumInsured = refCovs.RP_SUM_INSURED;
+				end if;
+			end if;
+					
+			set bProcessed = false;
+			move refCovs nextsibling repeat name;
+			
+		end while;
+		
+	end;			 
+
+	-- Format Deducibles
+	create procedure FormatCoverageDeductibles(inout refCover reference, in refCovs reference, in refInExcesses reference)
+	begin
+		
+		declare iExcessCount integer 0;
+
+		-- Buildings
+		if (refCovs.RP_COVERAGE in ('BLDG')) then
+			create lastchild of refCover name 'coverageDeductible';
+			declare refCovDed reference to refCover.coverageDeductible[<];
+			set refCovDed.applicableDeductible.description = 'BUILDING EXCESS';
+			set refCovDed.applicableDeductible.amount = refInExcesses.RP_BASIC_EXCESS_BLDG;
+	--		create lastchild of Environment.Covers name 'RP_COVERAGE' value refCovs.RP_COVERAGE;
+			
+			-- EarthQuake Excess
+			set iExcessCount = (select count(*) 
+					from Environment.Excess.*[] as c where c = 'EARTHQUAKE');
+
+			if (refInExcesses.RP_EQUAKE_EXCESS <> 0) then
+				if iExcessCount = 0 then
+					create lastchild of refCover name 'coverageDeductible';
+					declare refCovDed reference to refCover.coverageDeductible[<];
+					set refCovDed.applicableDeductible.description = 'EARTHQUAKE EXCESS';
+					set refCovDed.applicableDeductible.amount = refInExcesses.RP_EQUAKE_EXCESS;
+					create lastchild of Environment.Excess name 'EX_TYPE' value 'EARTHQUAKE';
+				
+				end if;					
+			end if;
+					
+		-- Flood Excess
+			set iExcessCount = (select count(*) 
+					from Environment.Excess.*[] as c where c = 'FLOOD');
+		
+			if (refInExcesses.RP_FLOOD_EXCESS <> 0) then
+				if iExcessCount = 0 then				
+					create lastchild of refCover name 'coverageDeductible';
+					declare refCovDed reference to refCover.coverageDeductible[<];
+					set refCovDed.applicableDeductible.description = 'FLOOD EXCESS';
+					set refCovDed.applicableDeductible.amount = refInExcesses.RP_FLOOD_EXCESS;
+					create lastchild of Environment.Excess name 'EX_TYPE' value 'FLOOD';
+				end if;
+			end if;					
+			
+		-- Accidental
+			set iExcessCount = (select count(*) 
+					from Environment.Excess.*[] as c where c = 'ACCDAM');
+				
+			if (refInExcesses.RP_ACCDMG_EXCESS <> 0) then
+				if iExcessCount = 0 then
+					create lastchild of refCover name 'coverageDeductible';
+					declare refCovDed reference to refCover.coverageDeductible[<];
+					set refCovDed.applicableDeductible.description = 'ACCIDENTIAL DAMAGE EXCESS';
+					set refCovDed.applicableDeductible.amount = refInExcesses.RP_ACCDAM_EXCESS;
+					create lastchild of Environment.Excess name 'EX_TYPE' value 'ACCDAM';
+				end if;
+			end if;					
+			
+		end if;
+		
+		-- General Contents
+		if (refCovs.RP_COVERAGE in ('GNCT')) then
+			create lastchild of refCover name 'coverageDeductible';
+			declare refCovDed reference to refCover.coverageDeductible[<];
+			set refCovDed.applicableDeductible.description = 'GENERAL CONTENTS EXCESS';
+			set refCovDed.applicableDeductible.amount = refInExcesses.RP_BASIC_EXCESS_GNCT;
+			
+			-- EarthQuake Excess
+			set iExcessCount = (select count(*) 
+					from Environment.Excess.*[] as c where c = 'EARTHQUAKE');
+							
+			if (refInExcesses.RP_EQUAKE_EXCESS <> 0) then
+				if iExcessCount = 0 then				
+					create lastchild of refCover name 'coverageDeductible';
+					declare refCovDed reference to refCover.coverageDeductible[<];
+					set refCovDed.applicableDeductible.description = 'EARTHQUAKE EXCESS';
+					set refCovDed.applicableDeductible.amount = refInExcesses.RP_EQUAKE_EXCESS;
+					create lastchild of Environment.Excess name 'EX_TYPE' value 'EARTHQUAKE';
+				end if;
+			end if;					
+			
+		-- Flood Excess
+			set iExcessCount = (select count(*) 
+					from Environment.Excess.*[] as c where c = 'FLOOD');
+					
+			if (refInExcesses.RP_FLOOD_EXCESS <> 0) then
+				if iExcessCount = 0 then				
+					create lastchild of refCover name 'coverageDeductible';
+					declare refCovDed reference to refCover.coverageDeductible[<];
+					set refCovDed.applicableDeductible.description = 'FLOOD EXCESS';
+					set refCovDed.applicableDeductible.amount = refInExcesses.RP_FLOOD_EXCESS;
+					create lastchild of Environment.Excess name 'EX_TYPE' value 'FLOOD';
+				end if;
+			end if;					
+			
+		-- Accidental
+			set iExcessCount = (select count(*) 
+					from Environment.Excess.*[] as c where c = 'ACCDAM');
+					 
+ 			if (refInExcesses.RP_ACCDMG_EXCESS <> 0) then
+				if iExcessCount = 0 then				
+					create lastchild of refCover name 'coverageDeductible';
+					declare refCovDed reference to refCover.coverageDeductible[<];
+					set refCovDed.applicableDeductible.description = 'ACCIDENTIAL DAMAGE EXCESS';
+					set refCovDed.applicableDeductible.amount = refInExcesses.RP_ACCDMG_EXCESS;
+					create lastchild of Environment.Excess name 'EX_TYPE' value 'ACCDAM';
+				end if;
+			end if;					
+			
+		end if;
+		
+		-- Special
+		if (refCovs.RP_COVERAGE in ('PBTM')) then
+			create lastchild of refCover name 'coverageDeductible';
+			declare refCovDed reference to refCover.coverageDeductible[<];
+			set refCovDed.applicableDeductible.description = 'SPECIAL EXCESS';
+			set refCovDed.applicableDeductible.amount = refInExcesses.RP_SPECIAL1_EXCESS;
+			create lastchild of Environment.Excess name 'EX_TYPE' value 'ACCDAM';
+			
+		end if;
+		
+		-- Landlord
+		if (refCovs.RP_COVERAGE in ('LAND')) then
+			create lastchild of refCover name 'coverageDeductible';
+			declare refCovDed reference to refCover.coverageDeductible[<];
+			set refCovDed.applicableDeductible.description = 'LANDLORD EXCESS';
+			set refCovDed.applicableDeductible.amount = refInExcesses.RP_BASIC_EXCESS_RENT;
+			create lastchild of Environment.Excess name 'EX_TYPE' value 'RENT';
+			
+		end if;		
+
+		
+	end;		 
+		 
+		 
+	/* Format an UnstrutcturedPostalAddress for the Risk Address
+	*/
+	create procedure FormatStructuredPostalAddress(inout refOut reference, in refInAddress reference, in refInPurpose character)
+	begin
+		
+		declare chrAddrType, chrAddrNum		character '';
+		declare chrAddrInd, chrPostalInd 	character ' ';
+		declare chrFloorType                character '';
+		declare chrUnitNum, chrFloorNum		character ' ';
+		
+		declare chrSeq character '';
+		
+		create lastchild of refOut name 'locatedAt';
+		declare refLa reference to refOut.locatedAt[<];
+		set refLa.(XMLNSC.Attribute)xsi:type = 'location:StructuredPostalAddress';
+		
+		--set chrSeq = right('0000000000' || cast(refInAddress.RP_ADDRREF as character format '##########'), 9);
+		--set refLa.isIdentifiedBy.componentId = chrSeq;
+
+		set refLa.purpose = refInPurpose;		
+		set refLa.suburb = coalesce(refInAddress.RP_COUNTY, '');		
+		set refLa.state = coalesce(refInAddress.RP_STATE, '');		
+		set refLa.postCode = coalesce(refInAddress.RP_POSTCODE, '');		
+		set refLa.country = coalesce(refInAddress.RP_COUNTRY, '');		
+		set refLa.addresseeLine = coalesce(trim(refInAddress.RP_ADDRFREE), '');
+		
+		if refInAddress.RP_ADDRIND1 <> ' ' then
+			if refInAddress.RP_ADDRIND1 = 'U' then
+				set chrUnitNum = TRIM(refInAddress.RP_ADDRNO1);
+			elseif refInAddress.RP_ADDRIND1 in ('F', 'L') then
+				set chrFloorNum = TRIM(refInAddress.RP_ADDRNO1);
+				case trim(refInAddress.RP_ADDRIND1)
+					when 'F' then
+						set chrFloorType = 'FLOOR';
+					when 'L' then
+						set chrFloorType = 'LEVEL';
+				end case; 
+			else
+				set chrAddrInd   =  trim(refInAddress.RP_ADDRIND1);
+				set chrAddrType  =  GetRefDataLongTx('118',TRIM(refInAddress.RP_ADDRIND1),'AddrType');
+			--	set chrAddrNum   =  trim(refInAddress.RP_ADDRNO1);							
+				set chrUnitNum   =  trim(refInAddress.RP_ADDRNO1);							
+			end if;
+		end if;
+		
+		
+		if refInAddress.RP_ADDRIND2 <> ' ' then
+			if refInAddress.RP_ADDRIND2 = 'U' then
+				set chrUnitNum = trim(refInAddress.RP_ADDRNO2);
+			elseif refInAddress.RP_ADDRIND2 IN ('F', 'L') then
+				set chrFloorNum = trim(refInAddress.RP_ADDRNO2);
+				case trim(refInAddress.RP_ADDRIND2)
+					when 'F' then
+						set chrFloorType = 'FLOOR';
+					when 'L' then
+						set chrFloorType = 'LEVEL';
+				end case;
+			else
+				set chrAddrInd   =  trim(refInAddress.RP_ADDRIND2);
+				set chrAddrType  =  GetRefDataLongTx('118',trim(refInAddress.RP_ADDRIND2),'AddrType');
+			--	set chrAddrNum   =  trim(refInAddress.RP_ADDRNO2);							
+				set chrUnitNum   =  trim(refInAddress.RP_ADDRNO2);							
+
+			end if;
+		end if;
+		
+		IF chrAddrType not in (' ', '') then
+			call Map_HUON_To_PAF_Indicators (chrAddrInd, chrAddrType, chrPostalInd);
+		else
+			set chrPostalInd = 'N';	
+		end if;
+		
+		if chrPostalInd = 'N' then
+			
+--			create lastchild of refla name 'addresseeline' 		value chraddrtype;
+--			create lastchild of refla name 'addresseeline' 		value chraddrnum;
+			
+			create lastchild of refLa name 'floorNumber' 		value coalesce(chrFloorNum, '');			
+			create lastchild of refLa name 'floorType' 			value chrFloorType;
+			create lastchild of refLa name 'unitNumber' 		value coalesce(chrUnitNum, '');
+			
+			create lastchild of refLa name 'streetNumber' 		value coalesce(TRIM(refInAddress.RP_STREETNO), '');
+			create lastchild of refLa name 'streetName' 		value coalesce(TRIM(refInAddress.RP_STREET), '');	
+			create lastchild of refLa name 'streetType' 		value coalesce(TRIM(refInAddress.RP_STREET_TYPE), '');
+		 		
+			create lastchild of refLa name 'buildingName' 		value coalesce(chrAddrType, '');
+			--create lastchild of refLa name 'buildingType' 		value coalesce(chrUnitNum, '');
+			create lastchild of refLa name 'streetDirection' 	value coalesce(TRIM(refInAddress.RP_STREETDIR), '');	
+			
+		else
+			create lastchild of refLa name 'streetNumber' 		value chrAddrNum;
+			create lastchild of refLa name 'streetType' 		value chrAddrType;
+		END IF;
+		
+		
+		
+	end;
+	
+	create procedure Map_HUON_To_PAF_Indicators (IN chrAddrInd CHAR, INOUT chrAddrType CHAR, INOUT chrPostalInd CHAR)
+	begin
+		
+		set chrPostalInd = 'Y';
+		
+		case chrAddrInd
+			when 'B' then
+				set chrAddrType = 'GPO BOX';
+			when 'M' then
+				set chrAddrType = 'LOCKED BAG';
+			when 'P' then
+				set chrAddrType = 'PO BOX';
+			when 'Q' then
+				set chrAddrType = 'RSD';
+			when 'T' then
+				set chrAddrType = 'MS';
+			when ';' then
+				set chrAddrType = 'PRIVATE BAG';
+			when 'X' then
+				set chrAddrType = 'CARE PO';
+			when 'Y' then
+				set chrAddrType = 'RMB';
+			when '8' then
+				set chrAddrType = 'CMB';
+			when 'V' then
+				set chrAddrType = 'PMB';	
+			else
+				set chrPostalInd = 'N';								
+		end case;	
+			
+	end;
+		
+	/* Format Money Provisions - Premiums */
+	create procedure FormatMonetaryProvision(inout refOut reference, in refInBody reference)
+	begin
+		
+		create lastchild of refOut name 'monetaryProvision';
+		declare refMP reference to refOut.monetaryProvision;
+		set refMP.(XMLNSC.Attribute)xsi:type = 'moneyprov:ParticularMoneyProvision';
+		
+		-- Current premiums
+		call FormatCurrentPremiums(refMP, refInBody.RP_PREMIUM_DTLS);
+		
+		-- Renewal premiums		
+		call FormatRenewalPremiums(refMP, refInBody.RP_PREMIUM_DTLS);
+		
+		-- Money schedular
+		call FormatMoneySchedular(refMP, refInBody);
+		 
+		-- Adjustments
+		call FormatAdjustments(refMP, refInBody);
+		
+		set refMP.noClaimDiscount = refInBody.RP_DISCOUNTS.RP_NCD;
+		
+		-- Next Occurance
+		call FormatNextOccurance(refMP, refInBody);
+				
+	end;
+		 
+	/* Format Current Premium */	
+	create procedure FormatCurrentPremiums(inout refInst reference, in refPrem reference)
+	begin
+		
+		declare twoDecPlace character '########0.00';
+		/* Current Premiums */
+		create lastchild of refInst name 'hasInstallmentElement';
+		declare refIE reference to refInst.hasInstallmentElement[<];
+		
+		set refIE.baseAmount = cast(refPrem.RP_POL_CBASICPRM as character format twoDecPlace);
+		set refIE.name = 'Current Premium';
+		
+		-- FSL
+		create lastchild of refIE name 'includes';
+		declare refInc reference to refIE.includes[<];
+		set refInc.(XMLNSC.Attribute)xsi:type = 'moneyprov:MoneyProvisionElementPart';
+		set refInc.amount = cast(refPrem.RP_POL_CCHARGES as character format twoDecPlace);
+		set refInc.description = 'FSL';		
+		
+		-- EarthQuake Levy - stored in Stamp Duty field !!
+		create lastchild of refIE name 'includes';
+		move refInc to refIE.includes[<];
+		set refInc.(XMLNSC.Attribute)xsi:type = 'moneyprov:MoneyProvisionElementPart';		
+		set refInc.amount = cast(refPrem.RP_POL_CSTMPDUTY as character format twoDecPlace);
+		set refInc.description = 'EQL';		
+		
+		-- GST
+		create lastchild of refIE name 'includes';
+		move refInc to refIE.includes[<];
+		set refInc.(XMLNSC.Attribute)xsi:type = 'moneyprov:MoneyProvisionElementPart';		
+		set refInc.amount = cast(refPrem.RP_POL_CGST as character format twoDecPlace);
+		set refInc.description = 'GST';		
+		
+		-- Gross
+		create lastchild of refIE name 'includes';
+		move refInc to refIE.includes[<];
+		set refInc.(XMLNSC.Attribute)xsi:type = 'moneyprov:MoneyProvisionElementPart';		
+		set refInc.amount = cast(refPrem.RP_POL_CGROSS as character format twoDecPlace);
+		set refInc.description = 'Gross';		
+		
+		-- Commision
+		create lastchild of refIE name 'includes';
+		move refInc to refIE.includes[<];
+		set refInc.(XMLNSC.Attribute)xsi:type = 'moneyprov:MoneyProvisionElementPart';		
+		set refInc.amount = cast(refPrem.RP_POL_CCOMMISSION as character format twoDecPlace);
+		set refInc.description = 'Commission';		
+
+		-- Net
+		create lastchild of refIE name 'includes';
+		move refInc to refIE.includes[<];
+		set refInc.(XMLNSC.Attribute)xsi:type = 'moneyprov:MoneyProvisionElementPart';		
+		set refInc.amount = cast(refPrem.RP_POL_CNET as character format twoDecPlace);
+		set refInc.description = 'Net';		
+		
+	end;
+
+
+	/* Format Renewal Premium */	
+	create procedure FormatRenewalPremiums(inout refInst reference, in refPrem reference)
+	begin
+		
+		declare twoDecPlace character '########0.00';
+		
+		/* Renewal Premiums */
+		create lastchild of refInst name 'hasInstallmentElement';
+		declare refIE reference to refInst.hasInstallmentElement[<];
+		
+		set refIE.baseAmount = cast(refPrem.RP_POL_RBASICPRM as character format twoDecPlace);
+		set refIE.name = 'Renewal Premium';
+		
+		-- FSL
+		create lastchild of refIE name 'includes';
+		declare refInc reference to refIE.includes[<];
+		set refInc.(XMLNSC.Attribute)xsi:type = 'moneyprov:MoneyProvisionElementPart';		
+		set refInc.amount = cast(refPrem.RP_POL_RCHARGES as character format twoDecPlace);
+		set refInc.description = 'FSL';		
+
+		-- EarthQuake Levy - stored in Stamp Duty field !!
+		create lastchild of refIE name 'includes';
+		move refInc to refIE.includes[<];
+		set refInc.(XMLNSC.Attribute)xsi:type = 'moneyprov:MoneyProvisionElementPart';		
+		set refInc.amount = cast(refPrem.RP_POL_RSTMPDUTY as character format twoDecPlace);
+		set refInc.description = 'EQL';		
+		
+		-- GST
+		create lastchild of refIE name 'includes';
+		move refInc to refIE.includes[<];
+		set refInc.(XMLNSC.Attribute)xsi:type = 'moneyprov:MoneyProvisionElementPart';		
+		set refInc.amount = cast(refPrem.RP_POL_RGST as character format twoDecPlace);
+		set refInc.description = 'GST';		
+
+		-- Gross
+		create lastchild of refIE name 'includes';
+		move refInc to refIE.includes[<];
+		set refInc.(XMLNSC.Attribute)xsi:type = 'moneyprov:MoneyProvisionElementPart';		
+		set refInc.amount = cast(refPrem.RP_POL_RGROSS as character format twoDecPlace);
+		set refInc.description = 'Gross';		
+		
+		-- Commision
+		create lastchild of refIE name 'includes';
+		move refInc to refIE.includes[<];
+		set refInc.(XMLNSC.Attribute)xsi:type = 'moneyprov:MoneyProvisionElementPart';				
+		set refInc.amount = cast(refPrem.RP_POL_RCOMMISSION as character format twoDecPlace);
+		set refInc.description = 'Commission';		
+
+		-- Net
+		create lastchild of refIE name 'includes';
+		move refInc to refIE.includes[<];
+		set refInc.(XMLNSC.Attribute)xsi:type = 'moneyprov:MoneyProvisionElementPart';		
+		set refInc.amount = cast(refPrem.RP_POL_RNET as character format twoDecPlace);
+		set refInc.description = 'Net';		
+		
+	end;
+
+	/* Format Adjustments */	
+	create procedure FormatAdjustments(inout refMonProv reference, in refInBody reference)
+	begin
+		
+		declare twoDecPlace character '########0.00';
+		
+		/* Current Premiums */
+		declare iCount integer 0;
+		
+		declare refInAdjDet reference to refInBody.RP_DISCOUNT_BREAKDOWN.RP_DISCOUNT_BREAKDOWN_DTL[>];
+		declare refisA reference to InputRoot;
+		declare chrType character '';
+		
+		-- Loop through any adjustments
+		x : while lastmove(refInAdjDet) do
+		
+            if refInAdjDet.RP_DISCOUNT_BREAKDOWN_NAME = 'NCD' then
+				set chrType = 'NoClaimDiscount';
+			else
+				set chrType = 'LoyaltyDiscount';
+			end if;
+
+			create lastchild of refMonProv name 'isAdjustedBy';
+			move refisA to refMonProv.isAdjustedBy[<];
+			set refisA.(XMLNSC.Attribute)xsi:type = 'moneyprov:' || chrType;
+			
+			set refisA.percentage = refInAdjDet.RP_DISCOUNT_BREAKDOWN_PERCENT;
+			set refisA.description = refInAdjDet.RP_DISCOUNT_BREAKDOWN_NAME;
+			set refisA.amount = cast(refInAdjDet.RP_DISCOUNT_BREAKDOWN_AMOUNT as character format twoDecPlace);
+		
+			move refInAdjDet nextsibling repeat name;
+			
+		end while;
+	 
+		
+	end;
+
+	/* Format MoneyScedular */	
+	create procedure FormatMoneySchedular(inout refMonP reference, in refInBody reference)
+	begin
+		
+		/* Money Scheduler */
+		create lastchild of refMonP name 'moneySchedular';
+		declare refMS reference to refMonP.moneySchedular[<];
+		set refMS.(XMLNSC.Attribute)xsi:type='moneyprov:MoneySchedular';
+		
+		-- Due date / outstanding amount
+		create lastchild of refMS name 'generates';
+		declare refgen reference to refMS.generates[<];
+		set refgen.(XMLNSC.Attribute)xsi:type='moneyprov:PaymentDue';
+		set refgen.outStandingAmount = coalesce(refInBody.RP_AMT_OWING,0);
+		set refgen.dueDate = DateFunc.StrToDate(CAST(refInBody.RP_PREMIUM_DTLS.RP_INSTDTE AS CHAR));
+		
+		-- Set the payment plan
+		declare strFreq, strPlan character '';
+		case refInBody.RP_PREMIUM_DTLS.RP_BILLPLAN
+			when 'NANN' then
+				set strPlan = 'Yearly';
+				set strFreq = 'Annual';
+			when 'HOM ' then
+				set strPlan = 'Yearly';
+				set strFreq = 'Annual';				
+			when 'NMTH' then
+				set strPlan = 'Monthly';
+				set strFreq = 'Instalment';				
+			when 'NFOR' then
+				set strPlan = 'Fortnightly';
+				set strFreq = 'Instalment';				
+			else
+				set strPlan = '';
+				set strFreq = '';
+		end case;
+		
+		set refMS.paymentPlan = strPlan;
+		set refMS.paymentFrequency = strFreq;
+
+		set refMS.paymentMethod = coalesce(refInBody.RP_PAYMENT.RP_PAY_METHOD,'');
+
+		
+	end;
+		
+	/* Format Next Occurance */	
+	create procedure FormatNextOccurance(inout refMonProv reference, in refInBody reference)
+	begin
+		
+		declare twoDecPlace character '########0.00';
+		
+		create lastchild of refMonProv name 'nextOccurance';
+		declare refNo reference to refMonProv.nextOccurance[<];
+		set refNo.(XMLNSC.Attribute)xsi:type='moneyprov:ParticularMoneyProvision';
+		
+		create lastchild of refNo name 'moneySchedular';
+		declare refNoMs reference to refNo.moneySchedular[<];
+		set refNoMs.(XMLNSC.Attribute)xsi:type='moneyprov:MoneySchedular';
+		
+		create lastchild of refNoMs name 'generates';
+		declare refNoMsG reference to refNoMs.generates[<];
+		set refNoMsG.(XMLNSC.Attribute)xsi:type='moneyprov:PaymentDue';
+	
+		set refNoMsG.outStandingAmount = refInBody.RP_PAYMENT.RP_NCOLLAMT;
+		set refNoMsG.dueDate = DateFunc.StrToDate(CAST(refInBody.RP_PAYMENT.RP_NCOLLDTE AS CHAR));	
+
+		-- Set the payment plan
+		declare strFreq, strPlan character '';
+		case refInBody.RP_PREMIUM_DTLS.RP_BILLPLAN
+			when 'NANN' then
+				set strPlan = 'Yearly';
+				set strFreq = 'Annual';
+			when 'MOT ' then
+				set strPlan = 'Yearly';
+				set strFreq = 'Annual';
+			when 'NMTH' then
+				set strPlan = 'Monthly';
+				set strFreq = 'Instalment';								
+			when 'NFOR' then
+				set strPlan = 'Fortnightly';
+				set strFreq = 'Instalment';								
+			else
+				set strPlan = '';
+				set strFreq = '';								
+		end case;
+		set refNoMs.paymentPlan = strPlan;	
+		set refNoMs.paymentFrequency = strFreq;
+			
+		set refNoMs.paymentMethod = coalesce(refInBody.RP_PAYMENT.RP_PAY_METHOD,'');
+		
+	end;
+		
+	/* Format RolesInContract for a Person */
+	create procedure FormatRolesInContractByPerson(inout refOut reference, in refInPer reference, in chrType character)
+	begin
+	
+		declare iCount integer 0;
+		declare refInPerDet reference to refInPer.RP_CLIENTS.RP_CLIENT_DTL[>];
+		declare chrSeq character;
+		
+		x : while lastmove(refInPerDet) do
+		
+			set chrSeq = right('0000000000' || cast(refInPerDet.RP_SEQCLTNO as character format '##########'), 9);			
+			set iCount = (select count(*) 
+					from Environment.Clients.*[] as c where c = chrSeq);
+					-- c where c.ClientNumber = chrSeq);
+		
+			if (iCount = 0) then
+		
+				-- TYPEOFCLT = 'K' are processed in RolesInContractByOrganisation	
+				if (refInPerDet.RP_REFASSOC in ('PH', 'ST', 'BC')) then
+					create lastchild of refOut name 'rolesInContract';
+					declare refrc reference to refOut.rolesInContract[<];
+					set refrc.(XMLNSC.Attribute)xsi:type = 'party:Person';
+								
+					create lastchild of refrc name 'partyRegistration';
+					declare reflg reference to refrc.partyRegistration[<];
+					set reflg.(XMLNSC.Attribute)xsi:type = 'registration:LoyaltyRegistration';
+					
+					create lastchild of refrc name 'playsRole';
+					declare refpr reference to refrc.playsRole;
+					
+					-- Check the type of client - only needed for the merge of the customer detail
+					--   as an identifier
+					declare chrType character '';
+					if (refInPerDet.RP_TYPEOFCLT = 'K') then
+						set chrType = 'Customer';
+					else
+						set chrType = 'Owner';
+					end if;
+					set refpr.(XMLNSC.Attribute)xsi:type = 'party:' || chrType;
+					
+					set refrc.isIdentifiedBy.componentId = 'HUON';
+					--set chrSeq = right('0000000000' || cast(refInPerDet.RP_SEQCLTNO as character format '##########'), 9);
+					set refrc.isIdentifiedBy.partyId = chrSeq;
+				
+					create lastchild of Environment.Clients name 'ClientNumber' value chrSeq;
+					
+				end if;
+			
+			end if;
+			
+			move refInPerDet nextsibling repeat name;
+			
+		end while;		
+	end;
+		 
+			 
+	/* Format RolesInContract for an Organisation */
+	create procedure FormatRolesInContractByOrganisation(inout refOut reference, in refInBody reference, in chrType character)
+	begin
+	
+		create lastchild of refOut name 'rolesInContract';
+		declare refrc reference to refOut.rolesInContract[<];
+		set refrc.(XMLNSC.Attribute)xsi:type = 'party:Organisation';	
+
+		create lastchild of refrc name 'playsRole';
+		declare refpr reference to refrc.playsRole[<];
+		set refpr.(XMLNSC.Attribute)xsi:type = 'party:Distributor';	
+
+		create lastchild of refrc name 'isIdentifiedBy';
+		declare refpid reference to refrc.isIdentifiedBy[<];
+		set refpid.(XMLNSC.Attribute)xsi:type = 'identifiers:PartyIdentifier';	
+		set refpid.partyId = refInBody.RP_DISTRIBUTOR;
+		
+	
+		declare iCount integer 0;
+		declare refInOrgDet reference to refInBody.RP_OTHPARTY.RP_OTHPARTY_DTL[>];
+		declare chrSeq character;
+		
+		x : while lastmove(refInOrgDet) do
+
+			set chrSeq = right('0000000000' || cast(refInOrgDet.RP_SEQCLTNO as character format '##########'), 9);			
+			set iCount = (select count(*) 
+					from Environment.Clients.*[] as c where c = chrSeq);
+					-- where c.ClientNumber = chrSeq);
+		
+			if (iCount = 0) then
+				create lastchild of refOut name 'rolesInContract';
+				move refrc to refOut.rolesInContract[<];
+				set refrc.(XMLNSC.Attribute)xsi:type = 'party:Organisation';
+				
+				create lastchild of refrc name 'playsRole';
+				move refpr to refrc.playsRole[<];
+				set refpr.(XMLNSC.Attribute)xsi:type = 'party:FinancialServicesRole';	
+	
+				set refrc.isIdentifiedBy.componentId	= 'HUON'; 
+	
+				--set chrSeq = right('0000000000' || cast(refInOrgDet.RP_SEQCLTNO as character format '##########'), 9);			
+				set refrc.isIdentifiedBy.partyId = chrSeq;
+				
+				-- populate the Financial type from HUON
+				create lastchild of refrc name 'providesFinancialServices';
+				declare refFin reference to refrc.providesFinancialServices;
+				set refFin.(XMLNSC.Attribute)xsi:type = 'agreement:FinancialServicesAgreementComponent';
+				set refFin.description = coalesce(trim(refInOrgDet.RP_TYPE_DESC), 'Financial Services');
+	
+				create lastchild of Environment.Clients name 'ClientNumber' value chrSeq;					
+			
+			end if;
+			
+			move refInOrgDet nextsibling repeat name;
+			
+		end while;		
+
+		
+		-- Look for any Client, other than OP ( as these are in OTHPARTY ), 
+		--   that are marked as 'K' (Company)
+		declare refInPerDet reference to refInBody.RP_CLIENTS.RP_CLIENT_DTL[>];
+		set chrSeq = '';
+		
+		x : while lastmove(refInPerDet) do
+
+			set chrSeq = right('0000000000' || cast(refInPerDet.RP_SEQCLTNO as character format '##########'), 9);			
+			set iCount = (select count(*) 
+					from Environment.Clients.*[] as c where c = chrSeq);
+					-- where c.ClientNumber = chrSeq);
+
+			if (iCount = 0) then
+				
+				if (refInPerDet.RP_REFASSOC not in ('OP')
+						and refInPerDet.RP_TYPEOFCLT = 'K') then
+					create lastchild of refOut name 'rolesInContract';
+					move refrc to refOut.rolesInContract[<];
+					set refrc.(XMLNSC.Attribute)xsi:type = 'party:Organisation';
+				
+					create lastchild of refrc name 'playsRole';
+					move refpr to refrc.playsRole[<];
+					set refpr.(XMLNSC.Attribute)xsi:type = 'party:ServiceProvider';	
+				
+					set refrc.isIdentifiedBy.componentId	= 'HUON'; 
+		
+					--set chrSeq = right('0000000000' || cast(refInPerDet.RP_SEQCLTNO as character format '##########'), 9);			
+					set refrc.isIdentifiedBy.partyId = chrSeq;
+					create lastchild of Environment.Clients name 'ClientNumber' value chrSeq;			
+		
+				end if;
+			
+			end if;
+			
+			move refInPerDet nextsibling repeat name;
+				
+		end while;		
+		
+	end;
+		
+		
+END MODULE;
+
+
+CREATE COMPUTE MODULE NZ_RetrievePolicyHome_Reply_v2_Format_Error
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		-- Set Environment variables from the RequestState response, so the Envelope can be re-built
+		set Environment.MQMD.[] = Environment.RequestState.MQMD.[];
+		set Environment.Header.[] = Environment.RequestState.XMLNSC.*:Envelope.*:Header.[];
+		set Environment.Header.esbhdr:maxReturnLevel = 'ERROR';
+
+		-- Point to the input ....
+		declare refInHead reference to InputRoot.MRM.RP_HEADER;
+		declare refInBody reference to InputRoot.MRM.RP_BODY;
+
+		-- build a fault ....
+		create lastchild of OutputRoot.XMLNSC namespace soapenv name 'Fault';
+		declare refFault reference to OutputRoot.XMLNSC.soapenv:Fault;
+		set refFault.(XMLNSC.NamespaceDecl)xmlns:soapenv 	= soapenv;
+		
+		set refFault.faultcode ='soapenv:Client';
+		set refFault.faultstring = trim(refInHead.RP_ERR_MSG);
+		set refFault.faultactor ='HUON';
+		 
+		create lastchild of refFault name 'detail';
+		declare refDet reference to refFault.detail;
+
+		create lastchild of refDet namespace esberr name 'Error';
+		declare refErr reference to refDet.esberr:Error;
+		set refErr.(XMLNSC.NamespaceDecl)xmlns:esberr 	= esberr;
+		
+		set refErr.esberr:code = refInHead.RP_ERRNO;
+		set refErr.esberr:message = trim(refInHead.RP_ERR_MSG);
+		set refErr.esberr:severity = 'ERROR';
+		set refErr.esberr:system = 'HUON';
+		
+		return true;
+
+
+
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE NZ_RetrievePolicyHome_Reply_v2_SetTheEnviornment
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+	
+		set OutputRoot = InputRoot;
+
+		set OutputRoot.MRM = null;
+		
+		-- Set Environment variables from the RequestState response, so the Envelope can be re-built
+		set Environment.MQMD.[] = Environment.RequestState.MQMD.[];
+		set Environment.Header.[] = Environment.RequestState.XMLNSC.*:Envelope.*:Header.[];
+		set Environment.Header.esbhdr:maxReturnLevel = 'ERROR';
+	
+		set OutputRoot.MQMD = Environment.RequestState.MQMD;
+		
+		return true;
+	
+	END;
+END MODULE;

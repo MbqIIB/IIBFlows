@@ -1,0 +1,8 @@
+	
+	BEGIN
+		CALL ExtractEnvelope();
+		RETURN FALSE;
+	END;
+	
+	
+	CREATE PROCEDURE ExtractEnvelope()

@@ -1,0 +1,2240 @@
+/***************************************************************************************************
+Date       Name            Comments
+02/04/2013 Mick Moriarty - Initial version
+						   New service to retrieve the Claim Details from the Claims Centre
+26/04/2013 Bruce Kennaway  Loss event type and perild type codes and descriptions mapped incorrectly
+						   Fixed incorrect naming of prefixTitles,isWindscreenCovered and hireOptionAmount	
+						   Updated the WSDL to the latest version						   
+02/05/2013 Mick Moriarty   daysHire incorrectly mapped - amended to HireCarDuration
+11/07/2013 Bruce Kennaway  BIK1 Updated to include Vehicle Incident ID
+19/07/2013 Bruce Kennaway  BIK2 Updated excess to be paid
+24/07/2013 Paul Milburn	   Paul Various changes to fix defects in the mapping of roles and client information  
+***************************************************************************************************/
+
+BROKER SCHEMA di.claimmanagement.claimenquirydetails.pa
+              
+-- Create some constants - CED - 'ClaimsEnquiryDetails'
+declare SERVICE_NAME external character 'RetrieveClaimDetails';
+
+declare CED_PERSON constant character 'P';
+declare CED_COMPANY constant character 'C';
+declare CED_OK constant character 'OK';
+declare CED_NONE constant character 'NONE';
+
+declare CED_YES constant character 'Yes';
+declare CED_NO constant character 'No';
+declare CED_TRUE constant character 'true';
+declare CED_FALSE constant character 'false';
+
+-- Telephone types
+declare CED_PHONE_MOBILE constant character 'Mobile';
+declare CED_PHONE_WORK constant character 'Work';
+declare CED_PHONE_FAX constant character 'Fax';
+declare CED_PHONE_HOME constant character 'Home';
+
+-- Purpose and Contact types
+declare CED_PURPOSE_PRIM constant character 'Primary';
+declare CED_PURPOSE_SEC constant character 'Secondary';
+declare CED_CONTACT_PRIM constant character 'primarycontact';
+
+-- Company types
+declare CED_COMPTYPE_ABN constant character 'ABN';
+declare CED_COMPTYPE_ACN constant character 'ACN';
+
+-- ComponentId types
+declare CED_COMPID_MANAGER constant character 'contactmanager';
+declare CED_COMPID_CLAIMC  constant character 'claimcentre';
+
+-- Roles from Claims Centre
+declare CED_CC_ROLE_DRIVER 		constant character 'driver';
+declare CED_CC_ROLE_NOMDRIVER 	constant character 'nominateddriver';
+declare CED_CC_ROLE_CGUTHIRDP 	constant character 'CGU_Third_Party';
+declare CED_CC_ROLE_CLAIMANT 	constant character 'claimant';
+declare CED_CC_ROLE_INSURED 	constant character 'insured';
+declare CED_CC_ROLE_UNDERW 		constant character 'underwriter';
+declare CED_CC_ROLE_DITHIRDP 	constant character 'DI_thirdparty_nominated_driver';
+declare CED_CC_ROLE_EMERGENCY 	constant character 'emergency';
+declare CED_CC_ROLE_VENDOR 		constant character 'vendor';
+declare CED_CC_ROLE_MAINCONT 	constant character 'maincontact';
+declare CED_CC_ROLE_OWNER 		constant character 'owner';
+declare CED_CC_ROLE_WITNESS 	constant character 'witness';
+declare CED_CC_ROLE_PASSENGER 	constant character 'passenger';
+declare CED_CC_ROLE_PEDESTRIAN	constant character 'pedestrian';
+declare CED_CC_ROLE_DIALLOCSUP	constant character 'DI_Allocated_Supplier';
+
+-- Speciality types
+declare CED_CC_SPECTYPE_REPAIRER constant character 'Repairer';
+declare CED_CC_SPECTYPE_SUPPLIER constant character 'Supplier';
+declare CED_CC_SPECTYPE_HIRECAR  constant character 'HIRE_CAR';
+
+CREATE COMPUTE MODULE ClaimEnquiryDetails_Request_v1_ClaimEnquiryDetails_Request
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+ 		
+		declare refOut reference to OutputRoot;
+		set OutputRoot = null;
+		
+		-- Get the service details from the database ....	
+		Create firstchild of Environment domain 'XMLNSC' name 'ServiceProperties';
+		declare refServiceProperties reference to Environment.ServiceProperties;
+		CALL GetProperties(refServiceProperties, SERVICE_NAME, MessageFlowLabel, BrokerName);
+	 
+		IF TRIM(Environment.ServiceProperties.REQUESTURL1) > ' ' THEN
+			SET OutputLocalEnvironment.Destination.SOAP.Request.Transport.HTTP.WebServiceURL = TRIM(Environment.ServiceProperties.REQUESTURL1);
+		ELSE
+			SET OutputLocalEnvironment.Destination.SOAP.Request.Transport.HTTP.WebServiceURL = TRIM(Environment.ServiceProperties.REQUESTURL2);
+		END IF;
+	 
+	    declare conversationId character;
+	    set conversationId = Environment.Header.esbhdr:conversationId;
+	    
+		--Set up HTTP Headers
+		CALL au.iag.wmb.common.http.v1.SetUpHTTP(refOut, Environment.Header.esbhdr:conversationId, Environment.MQMD.MsgId);
+	
+		declare refInEnv reference to InputRoot.XMLNSC.soapenv1:Envelope;
+		declare refInBody reference to InputRoot.XMLNSC.defns:retrieveClaimDetailsReq;
+		
+		-- Copy input message
+		create field OutputLocalEnvironment.OriginalMessage;
+		declare refInMsg reference to OutputLocalEnvironment.OriginalMessage;
+		set refInMsg.[] = refInBody.[];
+		
+		-- Start building the IClaimEnquiryAPI request message
+		create lastchild of OutputRoot domain 'XMLNSC' name 'XMLNSC';
+	   	
+	   	create lastchild of OutputRoot.XMLNSC namespace soapenv name 'Envelope'; 	  		
+		declare refEnv reference to OutputRoot.XMLNSC.soapenv:Envelope;
+		set refEnv.(XMLNSC.NamespaceDecl)xmlns:soapenv = soapenv; 
+		set refEnv.(XMLNSC.NamespaceDecl)xmlns:soap1 = soap1;  	
+		set refEnv.(XMLNSC.NamespaceDecl)xmlns:icl = icl;  	
+	 	
+		create lastchild of refEnv namespace soapenv name 'Header';
+		declare refHead reference to refEnv.soapenv:Header;
+		set refHead.soap1:locale = '';
+		set refHead.soap1:authentication.soap1:username = TRIM(Environment.ServiceProperties.REQUESTUSERID1);
+		set refHead.soap1:authentication.soap1:password = TRIM(Environment.ServiceProperties.REQUESTPASSWORD1);
+				
+		-- Create the body and root 
+		create lastchild of refEnv identity(XMLNSC.Element)soapenv:Body;
+		declare refBody reference to refEnv.soapenv:Body;
+		
+		create lastchild of refBody namespace icl name 'findClaimDetails';
+		declare refclaim reference to refBody.icl:findClaimDetails;
+		
+		-- set the value from the input message
+		set refclaim.icl:claimNumber = trim(refInBody.claimNumber.claimId);
+	
+		return true;
+			
+	END;
+END MODULE;
+
+CREATE COMPUTE MODULE ClaimEnquiryDetails_Request_v1_BuildResponse
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		declare refIn reference to InputRoot.XMLNSC;
+		declare refRespRet reference to refIn.icl:findClaimDetailsResponse.icl:return;
+		declare refRespInfo reference to refRespRet.pogo:CCServiceResponseInfo;
+		
+		declare refInOrigMsg reference to InputLocalEnvironment.OriginalMessage.*:claimNumber;
+		set Environment.Header.maxReturnLevel = CED_OK;	
+		
+		-- Start creating the response message ....			
+		create lastchild of OutputRoot.XMLNSC namespace ClaimDetails name 'retrieveClaimDetailsResp';
+		declare refResp reference to OutputRoot.XMLNSC.ClaimDetails:retrieveClaimDetailsResp;
+        
+        -- set the namespace declatations 
+ 		set refResp.(XMLNSC.NamespaceDecl)xmlns:xsi 			= xsi;        
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:claim 			= claim; 
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:ClaimDetails 	= ClaimDetails; 
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:"event" 		= event; 		
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:location 		= location; 
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:party 			= party; 
+		set refResp.(XMLNSC.NamespaceDecl)xsi:schemaLocation 	= schemaLocation;
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:identifiers 	= identifiers; 
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:physicalobjects = physicalobjects; 
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:registration 	= registration;		
+		
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:aggreement 		= aggreement; 
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:communication 	= communication;
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:coverage 		= coverage; 
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:moneyprov 		= moneyprov; 
+		set refResp.(XMLNSC.NamespaceDecl)xmlns:activity 		= activity;		
+		
+		
+		-- claim details start here
+		create lastchild of refResp name 'claimDetails';
+		declare refCD reference to refResp.claimDetails;
+		
+		-- IsRecordedAgainst starts here
+		create lastchild of refCD name 'isRecordedAgainst';
+		declare refisRec reference to refCD.isRecordedAgainst;
+		
+		declare refDetCI reference to refRespRet.pogo:DetailedClaimInfo;
+        declare refPol reference to refDetCI.dci:PolicyInformation;			
+		set refisRec.inceptionDate = cast(substring(cast(refPol.dpi:InceptionDate as character) from 1 for 10) as date);
+		set refisRec.endDate = cast(substring(cast(refPol.dpi:ExpirationDate as character) from 1 for 10) as date);
+		set refisRec.startDate = cast(substring(cast(refPol.dpi:EffectivDate as character) from 1 for 10) as date);  -- typo, but deliberate
+		
+		-- policyFor
+		call FormatPolicyFor(refisRec, refPol);
+		
+		-- has messages
+		declare refpolMsg reference to refPol.dpi:PolicyMessages;
+	    declare refEntry reference to refpolMsg.dpi:Entry[>];
+		x : while lastmove(refEntry) do
+			
+			create lastchild of refisRec name 'hasMessage';
+			declare refhasMsg reference to refisRec.hasMessage[<];
+			set refhasMsg.title = refEntry.dpm:MessageType;
+			set refhasMsg.dateTime = substring(cast(refEntry.dpm:MessageDate as character) from 1 for 19);
+			set refhasMsg.description = refEntry.dpm:MessageTitle;
+			
+			move refEntry nextsibling repeat name;
+			
+		end while;
+		
+		-- loss event
+		create lastchild of refCD name 'lossEvent';
+		declare refLoss reference to refCD.lossEvent;
+		set refLoss.(XMLNSC.Attribute)xsi:type='event:LossEvent';
+		
+		set refLoss.startDate = cast(substring(cast(refDetCI.dci:LossDate as character) from 1 for 10) as date);
+		set refLoss.description = refDetCI.dci:NatureOfLossDesc;
+		set refLoss.time = cast(substring(cast(refDetCI.dci:LossDate as character) from 12 for 8) as time);
+		set refLoss.natureOfEvent = refDetCI.dci:NatureOfLossCode;
+		set refLoss.reportDate = cast(substring(cast(refDetCI.dci:ClaimReportDate as character) from 1 for 10) as date);
+		set refLoss.catastrophe = coalesce(refDetCI.dci:ClaimCatastropheFlag, CED_FALSE);
+		
+		-- loss address
+		declare refAllClaims reference to refDetCI.dci:AllClaimContact;
+		declare refEntries reference to refAllClaims.dci:Entry[>];
+
+		-- Loss Address - note, this give 'Primary' in the address block
+		--declare refLossAdd reference to refDetCI.dci:LossLocation;
+		call FormatUnstructuredPostalAddressLossEvent(refLoss, refDetCI); 
+		
+		-- Claim Status
+		create lastchild of refCD name 'claimStatus';
+		declare refTmp reference to refCD.claimStatus;
+		set refTmp.statusCode = refDetCI.dci:ClaimStatus;
+		create lastchild of refTmp name 'description' value '';
+		--set refTmp.description = coalesce(refDetCI.dci:Description,'');
+		
+		-- isIdentifiedBy
+		create lastchild of refCD name 'isIdentifiedBy';
+		move refTmp to refCD.isIdentifiedBy;		
+		set refTmp.componentId = refInOrigMsg.*:componentId;
+		set refTmp.claimId = refInOrigMsg.*:claimId;
+		
+		-- fault rating
+		create lastchild of refCD name 'faultRating' value refDetCI.dci:FaultRatingCode;
+	
+		-- Object vehicles - Claimant and / or driver vehicle details
+		declare refAllVInc reference to refDetCI.dci:AllVehicleIncidents;
+		declare refVEntry, refObj, refDriver reference to InputRoot;
+		declare sType character;
+		
+		-- refClaimType is either a Company or Person
+		declare refClaimType reference to InputRoot;		
+		declare strPublicId, strType character;		
+		declare bClaimant boolean false;
+		declare bInsured boolean false;
+		declare bDriver boolean false;
+		
+		-- Main Loop
+		create lastchild of OutputLocalEnvironment name 'ProcessedPublicId';
+		declare refProcId reference to OutputLocalEnvironment.ProcessedPublicId;
+		move refEntries to refAllVInc.dci:Entry[>];
+		x : while lastmove(refEntries) do
+			move refDriver to refEntries.dvi:Driver[>];
+			set strPublicId = coalesce(refEntries.dvi:incidentOwnerPublicId,CED_NONE);
+			if (strPublicId = CED_NONE) then
+				leave x;
+			end if;
+			
+			set bClaimant = false;
+			set bInsured = false;
+			set bDriver = false;
+			
+            -- Find the Claim by PublibID				
+			call FindClaimByPublicId(refClaimType, refDetCI, strPublicId, refObj, strType);
+			
+		    move refVEntry to refEntries.dvi:Vehicle[>];
+			if lastmove(refVEntry) then
+				-- processing a Veicle claim
+				create lastchild of refCD name 'involvesObject';
+				declare refInvO reference to refCD.involvesObject[<];
+				--set refInvO.(XMLNSC.Attribute)xsi:type='objects:Vehicle';
+				set refInvO.(XMLNSC.Attribute)xsi:type='physicalobjects:Vehicle';
+--BIK1 				
+				create lastchild of refInvO name 'externalReference' value refEntries.dvi:PublicID;
+--BIK1				
+				-- Processing a Person object, so set the details
+				if (strType = CED_PERSON) then
+--Paul					call FormatPerson (refInvO, refObj, bClaimant);
+					call FormatPerson (refInvO, refObj, bClaimant, bInsured, bDriver);
+					-- If we need 'Driver' details, set them
+--Paul start
+					-- but first check that the driver details haven't already been output as part of 'FormatPerson' 
+					if bDriver then
+					else
+--Paul end												
+  						if lastmove (refDriver) then
+  							call FormatAssociatedParty(refCD, refDriver, refObj);
+  						end if;
+--Paul start
+					end if;
+--Paul end												
+  						
+  					-- Add the remaining details
+					call FormatPersonalDetails (refCD, refObj);
+				end if;
+				
+				-- Processing a Company object, so set the details			
+				if (strType = CED_COMPANY) then
+					-- Not a Person, so must be Company
+--Paul					call FormatCompany (refInvO, refObj, bClaimant);
+					call FormatCompany (refInvO, refObj, bClaimant, bInsured);
+					-- If we need 'Driver' details, set them
+  					if lastmove (refDriver) then
+  						call FormatAssociatedParty(refCD, refDriver, refObj);
+  					end if;
+				end if;
+
+				-- Save the PublicId so we can check later if it has been processed
+				if (strType <> ' ') then
+					create lastchild of refProcId name 'PublicId' value strPublicId;
+				end if;
+
+				-- If match ID has a 'Claimant' ContactRoles entry - then add any other nominated drivers
+--Paul				if (bClaimant and strType = CED_PERSON) then
+				if (bClaimant and bInsured and strType = CED_PERSON) then
+					call FormatNominatedDriversInClaim(refInvO, refDetCI);
+				end if;
+				
+				-- Set remaining fields
+				-- If Company, process ServicedBy details
+				call FormatIsServicedBy(refInvO, refEntries);			
+				call FormatVehicleSpecification(refInvO, refEntries);
+
+				-- Commented out as Claim Centre is NOT currently sending these details - 18/04/2013
+				--call FormatModificationItem(refInvO, refEntries);
+
+				call FormatTowed(refInvO, refEntries);
+				call FormatVehicleRegistration(refInvO, refEntries);
+			    call FormatVehicleCover(refInvO, refEntries);
+				call FormatPricePurchase(refInvO, refEntries);
+				call FormatVehicleDamage(refInvO, refEntries);
+				
+			end if;
+			
+			move refEntries nextsibling repeat name;
+			
+		end while;
+
+		-- Just incase there isn't a strPublicId, throw an error
+		if (strPublicId = CED_NONE) then
+			set OutputRoot = null;
+			create lastchild of OutputRoot domain('XMLNSC') name 'Errors';
+			declare refErr reference to OutputRoot.XMLNSC.Errors;
+			set refErr.code = 'GCC02';
+			set refErr.description = 'incidentOwnerPublicId was not found within AllClaimContact entries';
+			propagate to terminal 'out1';
+			return false;
+		end if;
+
+		-- Common to all 
+		call FormatOutCome(refCD, refDetCI);
+		call FormatDecision(refCD, refDetCI);		
+	    call FormatRolesInClaim(refCD, refDetCI);
+        call FormatExcessMsgs(refCD, refDetCI);		
+		call FormatClaimDescription(refCD, refDetCI);
+		
+		return true;
+		
+		END;
+
+		-- Policy Information
+		create procedure FormatPolicyFor(inout ref reference, in refPol reference)
+		begin
+		
+			declare refisRec reference to ref;
+			
+			create lastchild of refisRec name 'policyFor';
+			declare refPolFor reference to refisRec.policyFor;
+			set refPolFor.(XMLNSC.Attribute)xsi:type='physicalobjects:Vehicle';
+			set refPolFor.isCoveredFor.riskType = refPol.dpi:RiskType;
+			set refisRec.policyBrand = refPol.dpi:Distributor;
+	
+			-- IsIdentifiedBy starts here
+			create lastchild of refisRec name 'isIdentifiedBy';
+			declare refIdBy reference to refisRec.isIdentifiedBy;
+			
+			-- PolicyId and Number
+			set refIdBy.policyId = substring(fieldvalue(refPol.dpi:PolicyNumber) from 1 for 3);		
+			declare iLen integer 0;
+			set iLen = length(fieldvalue(refPol.dpi:PolicyNumber)) - 3;
+			set refIdBy.productCode = substring(fieldvalue(refPol.dpi:PolicyNumber) from 4 for iLen);
+			
+			-- If underwrite present, create the rolesInContract
+			declare refPolUn reference to refPol.dpi:Underwriter;
+			if lastmove(refPolUn) then
+				create lastchild of refisRec name 'rolesInContract';
+				declare refRIC reference to refisRec.rolesInContract;
+				create lastchild of refRIC name 'playsRole';
+				declare refRICpr reference to refRIC.playsRole[<];			
+				set refRICpr.(XMLNSC.Attribute)xsi:type='party:Underwriter';							
+				set refRIC.isIdentifiedBy.partyId = refPol.dpi:Underwriter;
+
+			end if;
+			
+		end;
+		
+		
+		-- Find the ClaimEntry by PublicId for either a Company or Person
+		CREATE PROCEDURE FindClaimByPublicId(IN refEntry REFERENCE, IN refDetCI REFERENCE, IN pubId CHARACTER, INOUT ref reference, OUT strType CHARACTER) 
+		BEGIN
+
+			set strType = ' ';
+			
+			-- Point to the first entry and loop, looking for the PublicId in pubId
+			move refEntry to refDetCI.dci:AllClaimContact.dci:Entry[>];
+			declare refC, ref reference to InputRoot;
+			
+			-- Loop each entry ....
+			x : while lastmove(refEntry) do
+				
+					-- Point to Company details				
+					move refC to refEntry.dcci:ClaimContactCompany;
+					if lastmove(refC) then
+						set strType = CED_COMPANY;
+					end if;
+					
+					-- If the Company doesn't exist, check for Person details
+					if not lastmove(refC) then
+						move refC to refEntry.dcci:ClaimContactPerson;
+    					set strType = CED_PERSON;
+					end if;
+					-- We are either pointing to a Company or Person, so check the PublicID
+					if lastmove(refC) then
+						if strType = CED_PERSON then
+							if (refC.dcp:PublicID = pubId) then
+								leave x;
+							end if;
+						end if;
+						if strType = CED_COMPANY then
+							if (refC.dcompi:PublicID = pubId) then
+								leave x;
+							end if;
+						end if;
+						
+					end if;					
+					move refEntry nextsibling repeat name;
+				
+				end while;
+
+				-- return found entry
+				set ref = refEntry;
+				
+		END;  			
+		
+		-- Format the Person details
+--Paul		CREATE PROCEDURE FormatPerson (inout ref reference, in refInEntry reference, inout bClaimant boolean)
+		CREATE PROCEDURE FormatPerson (inout ref reference, in refInEntry reference, inout bClaimant boolean, inout bInsured boolean, inout bDriver boolean)
+		BEGIN
+
+			declare refIn reference to refInEntry.dcci:ClaimContactPerson;
+			declare refClaimP reference to ref;
+
+			-- Create the root ....			
+			create lastchild of refClaimP name 'isUsedBy';
+			declare refVisU reference to refClaimP.isUsedBy[<];
+			set refVisU.(XMLNSC.Attribute)xsi:type='party:Person';
+			
+			-- Any Registration details
+			create lastchild of refVisU name 'partyRegistration';
+			declare refreg reference to refVisU.partyRegistration;
+			set refreg.(XMLNSC.Attribute)xsi:type='registration:DrivingLicence';
+
+			-- IsIdentifiedBy			
+			create lastchild of refreg name 'isIdentifiedBy';
+			declare refregId reference to refreg.isIdentifiedBy;
+			set refregId.RegistrationId = refIn.dcp:LicenseNumber;
+			set refreg.licenceType = refIn.dcp:LicenseType;
+			
+			-- Address
+			--declare refInAdd reference to refIn.dcp:PrimaryAddress;		
+		    call FormatUnstructuredPostalAddress(refVisU, refIn); 
+					
+			-- Telephone Numbers - Cell, Work and Fax
+		    call FormatTelephoneNumbers(refVisU, refIn); 
+
+			-- Email
+			declare beMail1Created boolean false;
+			declare refIneMail reference to refIn.dcp:EmailAddress1;
+			declare refeMail reference to InputRoot;
+			if lastmove(refIneMail) then
+				create lastchild of refVisU name 'contactedAt';
+				move refeMail to refVisU.contactedAt[<];
+				set refeMail.(XMLNSC.Attribute)xsi:type='location:EmailAddress';
+				create lastchild of refeMail name 'emailAddress' value refIn.dcp:EmailAddress1;
+				set beMail1Created = true;
+			end if;
+			move refIneMail to refIn.dcp:EmailAddress2;
+			if lastmove(refIneMail) then
+				if not beMail1Created then
+					create lastchild of refVisU name 'contactedAt';
+					move refeMail to refVisU.contactedAt[<];
+					set refeMail.(XMLNSC.Attribute)xsi:type='location:EmailAddress';					
+				end if;
+				create lastchild of refeMail name 'emailAddress' value refIn.dcp:EmailAddress2;
+				
+			end if;
+
+			-- Party Claimant			
+			declare refInCRoles reference to refInEntry.dcci:ContactRoles.dcci:Entry[>];
+			declare strRole character '';
+--Paul start			
+			declare bDriverRole boolean false;
+			declare bNomDriverRole boolean false;
+			declare bThirdPartyNomDriverRole boolean false;
+			declare bOppThirdPartyRole boolean false;
+			declare bClaimantRole boolean false;
+			declare bInsuredRole boolean false;
+			declare bPartyRole boolean false;
+			declare bCGUThirdPartyRole boolean false;
+			declare bOwnerRole boolean false;
+--Paul end									
+			declare bExternalRef, bMainContact boolean false;
+			declare strType character ' ';
+			declare iCount integer 0;
+
+			-- Loop through the ContactRoles			
+			while lastmove (refInCRoles) do
+
+				set strType = ' ';
+							
+				--create lastchild of refPClaim name 'Entry' value fieldvalue(refInCRoles);
+				if fieldvalue(refInCRoles) in (CED_CC_ROLE_DRIVER, CED_CC_ROLE_NOMDRIVER, CED_CC_ROLE_CGUTHIRDP, 
+							CED_CC_ROLE_CLAIMANT, CED_CC_ROLE_INSURED, CED_CC_ROLE_DITHIRDP
+							,CED_CC_ROLE_OWNER
+							,CED_CC_ROLE_WITNESS, CED_CC_ROLE_PASSENGER, CED_CC_ROLE_PEDESTRIAN 
+							,CED_CC_ROLE_MAINCONT
+							) then
+			
+					set iCount = iCount + 1;				
+					-- If a specific role is found, create the playsRole element, amending accordingly
+					case fieldvalue(refInCRoles)
+						when CED_CC_ROLE_DITHIRDP then
+--Paul						set strRole = 'Driver';
+							set bThirdPartyNomDriverRole = true;
+						when CED_CC_ROLE_NOMDRIVER then
+--Paul						set strRole = 'Driver';
+							set bNomDriverRole = true;
+						when CED_CC_ROLE_DRIVER then
+--Paul						set strRole = 'Driver';
+							set bDriverRole = true;
+							set bDriver = true;
+						when CED_CC_ROLE_OWNER then
+--Paul						set strRole = 'Driver';
+							set bOwnerRole = true;
+						when CED_CC_ROLE_CGUTHIRDP then
+--Paul						set strRole = 'OpponentThirdParty';
+							set bOppThirdPartyRole = true;
+						when CED_CC_ROLE_CLAIMANT then
+--Paul						set strRole = 'Claimant';
+							set bClaimantRole = true;
+							set bClaimant = true;
+						when CED_CC_ROLE_INSURED then
+--Paul						set strRole = 'Insured';
+							set bInsuredRole = true;
+							set bInsured = true;
+						when CED_CC_ROLE_WITNESS then
+							set bExternalRef = true;
+--Paul						set strRole = 'PartyRole';
+							set bPartyRole = true;
+							set strType = fieldvalue(refInCRoles);
+						when CED_CC_ROLE_PASSENGER then
+							set bExternalRef = true;
+--Paul						set strRole = 'PartyRole';
+							set bPartyRole = true;
+							set strType = fieldvalue(refInCRoles);
+						when CED_CC_ROLE_PEDESTRIAN then
+							set bExternalRef = true;
+--Paul						set strRole = 'PartyRole';
+							set bPartyRole = true;
+							set strType = fieldvalue(refInCRoles);
+						when CED_CC_ROLE_MAINCONT then
+							set bMainContact = true;
+						else
+							set strRole = fieldvalue(refInCRoles);
+					end case;
+
+					-- if not the 'maincontact', process what we have
+--Paul					if fieldvalue(refInCRoles) <> CED_CC_ROLE_MAINCONT AND
+----Paul
+--Paul						NOT (bThirdParty AND strRole = 'Claimant') THEN
+----Paul						
+--Paul						create lastchild of refVisU name 'playsRole';
+--Paul						declare refPClaim reference to refVisU.playsRole[<];
+--Paul						set refPClaim.(XMLNSC.Attribute)xsi:type='party:' || strRole;	
+----Paul
+----						end if;
+----Paul									
+						
+--Paul						-- If Nominated Driver, Third Party Noninated Driver, set as Yes
+--Paul						if fieldvalue(refInCRoles) in (CED_CC_ROLE_NOMDRIVER,CED_CC_ROLE_DITHIRDP) then
+--Paul							create lastchild of refPClaim name 'designated' value CED_YES;
+--Paul						end if;
+						
+--Paul						-- If Driver, set as No
+----Paul						if fieldvalue(refInCRoles) in (CED_CC_ROLE_DRIVER) then
+----Paul							create lastchild of refPClaim name 'designated' value CED_NO;
+----Paul						end if;
+						
+--Paul						-- If Owner, set as 'ownerDriver'
+--Paul						if fieldvalue(refInCRoles) in (CED_CC_ROLE_OWNER) then
+--Paul							create lastchild of refPClaim name 'ownerDriver' value CED_YES;
+--Paul						end if;
+	
+--Paul					if fieldvalue(refInCRoles) = CED_CC_ROLE_CLAIMANT then
+--Paul						set bClaimant = true;
+--Paul					end if;
+						
+--Paul					if fieldvalue(refInCRoles) = CED_CC_ROLE_INSURED then
+--Paul						set bInsured = true;
+--Paul					end if;
+--Paul
+--						end if;
+--Paul							
+--Paul					end if;
+				end if;
+				
+				move refInCRoles nextsibling repeat name;
+			end while;
+			
+--Paul Start
+
+			if bOppThirdPartyRole or bThirdPartyNomDriverRole then
+				create lastchild of refVisU name 'playsRole';
+				declare refPClaim reference to refVisU.playsRole[<];
+				set refPClaim.(XMLNSC.Attribute)xsi:type='party:OpponentThirdParty';	
+				
+				if bThirdPartyNomDriverRole then
+					create lastchild of refPClaim name 'designated' value CED_YES;
+				else	
+					create lastchild of refPClaim name 'designated' value CED_NO;
+				end if;
+			end if;	
+
+			if bDriverRole or bOwnerRole or bNomDriverRole then
+				create lastchild of refVisU name 'playsRole';
+				declare refPClaim reference to refVisU.playsRole[<];
+				set refPClaim.(XMLNSC.Attribute)xsi:type='party:Driver';	
+
+				if not bOppThirdPartyRole then				
+					if bOwnerRole then 
+						create lastchild of refPClaim name 'ownerDriver' value CED_YES;
+					else	
+						create lastchild of refPClaim name 'ownerDriver' value CED_NO;
+					end if;
+				end if;	
+
+				if bOppThirdPartyRole then				
+					if bThirdPartyNomDriverRole then
+						create lastchild of refPClaim name 'designated' value CED_YES;
+					else	
+						create lastchild of refPClaim name 'designated' value CED_NO;
+					end if;
+				else
+					if bNomDriverRole then
+						create lastchild of refPClaim name 'designated' value CED_YES;
+					else	
+						create lastchild of refPClaim name 'designated' value CED_NO;
+					end if;
+				end if;	
+			end if;	
+
+			if bClaimantRole and not bOppThirdPartyRole then
+				create lastchild of refVisU name 'playsRole';
+				declare refPClaim reference to refVisU.playsRole[<];
+				set refPClaim.(XMLNSC.Attribute)xsi:type='party:Claimant';	
+			end if;	
+
+			if bInsuredRole then
+				create lastchild of refVisU name 'playsRole';
+				declare refPClaim reference to refVisU.playsRole[<];
+				set refPClaim.(XMLNSC.Attribute)xsi:type='party:Insured';	
+			end if;	
+
+
+--Paul End			
+			
+            -- If we haven't processed anything (or there is a party role), create a partyRole entry
+--Paul		if (iCount = 0) then
+			if (iCount = 0) or bPartyRole then
+				create lastchild of refVisU name 'playsRole';
+				declare refPClaim reference to refVisU.playsRole[<];			
+				set refPClaim.(XMLNSC.Attribute)xsi:type='party:PartyRole';
+			end if;
+			
+			-- Claiment Id
+			create lastchild of refVisU name 'isIdentifiedBy';
+			declare refIsId reference to refVisU.isIdentifiedBy;
+			declare refAddBook reference to refIn.dcp:AddressBookId;
+			if lastmove(refAddBook) then
+				set refIsId.componentId = CED_COMPID_MANAGER;
+				set refIsId.partyId = fieldvalue(refIn.dcp:AddressBookId);
+			else
+				set refIsId.componentId = CED_COMPID_CLAIMC;
+				set refIsId.partyId = fieldvalue(refIn.dcp:PublicID);
+				
+			end if;
+			
+			-- Prefered Contact Method
+			-- Note - the 'preferedContactMethod' is missing ....
+			--create lastchild of refVisU name 'preferedContactMethod' value 'TBC';
+			
+			-- If 'maincontact', create the 'hasContactPoint' element
+			if (bMainContact) then
+				create lastchild of refVisU name 'hasContactPoint';
+				declare refCP reference to refVisU.hasContactPoint;
+				set refCP.isPreferedContact = CED_TRUE;
+			end if;
+			
+			-- External reference for witness, passenger or pedestrian
+			--   NOTE - this can only be one element, therefore, there is no need to build multiple entries
+			if (bExternalRef) then
+				create lastchild of refVisU name 'externalReference' value strType;
+			end if;
+			
+			
+		END;
+		
+		-- Format any Associated Party details
+		CREATE PROCEDURE FormatAssociatedParty(inout ref reference, in refInDriver reference, in refInObj reference)
+		BEGIN
+			
+			-- Create the root ...
+			declare refAPI reference to ref.involvesObject[<];
+			declare refAP reference to refAPI.isUsedBy[<];
+			create lastchild of refAP name 'associatedParty';
+			declare refAss reference to refAP.associatedParty;
+			set refAss.(XMLNSC.Attribute)xsi:type='party:Person';
+
+			-- Create the Driving Lisence details
+			create lastchild of refAss name 'partyRegistration';
+			declare refReg reference to refAss.partyRegistration;
+         	set refReg.(XMLNSC.Attribute)xsi:type='registration:DrivingLicence';			
+			set refReg.isIdentifiedBy.registrationId = refInDriver.dcp:LicenseNumber;
+			set refReg.licenceType = refInDriver.dcp:LicenseType;
+			
+			-- Driver contact address
+			--declare refInAdd reference to refInDriver.dcp:PrimaryAddress
+			call FormatUnstructuredPostalAddress(refAss, refInDriver); 
+									
+			-- Telephone number - Cell, Work and Fax
+            call FormatTelephoneNumbers(refAss, refInDriver); 			
+			
+			-- Email
+			declare beMail1Created boolean false;
+			declare refIneMail reference to refInDriver.dcp:EmailAddress1;
+			declare refeMail reference to InputRoot;
+			if lastmove(refIneMail) then
+				create lastchild of refAss name 'contactedAt';
+				move refeMail to refAss.contactedAt[<];
+				set refeMail.(XMLNSC.Attribute)xsi:type='location:EmailAddress';
+				create lastchild of refeMail name 'emailAddress' value refInDriver.dcp:EmailAddress1;
+				set beMail1Created = true;
+			end if;
+			move refIneMail to refInDriver.dcp:EmailAddress2;
+			if lastmove(refIneMail) then
+				if not beMail1Created then
+					create lastchild of refAss name 'contactedAt';
+					move refeMail to refAss.contactedAt[<];
+					set refeMail.(XMLNSC.Attribute)xsi:type='location:EmailAddress';					
+				end if;
+				create lastchild of refeMail name 'emailAddress' value refInDriver.dcp:EmailAddress2;
+				
+			end if;
+							
+			-- Roles - AssiciatedParty is only called when their is a Driver, so default to Driver
+			create lastchild of refAss name 'playsRole';
+			declare refR reference to refAss.playsRole[<];
+			set refR.(XMLNSC.Attribute)xsi:type='party:Driver';
+			
+--Paul 		This defaulting of designated driver to 'No' is incorrect, because in the case where the owner/insured is a company, the person driving the vehicle
+--Paul		(the associated party in this case) can be a designated driver. Having said that, the 'ContactRole' of 'nominatedDriver' which determines the
+--Paul      setting of this value isn't passed in this block of data but is passed in the 'ClaimContactPerson' data, therefore this value is set correctly during 
+--Paul      the mapping of 'RolesInClaim' (FormatRolesInClaimByPerson)     	
+
+--Paul		create lastchild of refR name 'designated' value CED_NO;
+			
+			-- Personal Details
+			--call FormatPersonalDetails(refAss, refInDriver);
+
+			set refAss.birthDate = cast(substring(cast(refInDriver.dcp:DateOfBirth as character) from 1 for 10) as date);
+			set refAss.gender = refInDriver.dcp:Gender;
+			create lastchild of refAss name 'personName';
+			set refAss.personName.firstName = refInDriver.dcp:FirstName;
+			set refAss.personName.lastName = refInDriver.dcp:LastName;
+			set refAss.personName.prefixTitles = refInDriver.dcp:Prefix;
+			
+		end;
+		
+		-- Add the remaining Personal Details
+		CREATE PROCEDURE FormatPersonalDetails (inout ref reference, in refInEntry reference)
+		BEGIN
+
+			-- Create the root ...		
+			declare refPerI reference to ref.involvesObject[<];
+			declare refPer reference to refPerI.isUsedBy[<];
+			declare refIn reference to refInEntry.dcci:ClaimContactPerson;
+			set refPer.birthDate = cast(substring(cast(refIn.dcp:DateOfBirth as character) from 1 for 10) as date);				
+			set refPer.gender = refIn.dcp:Gender;
+
+			create lastchild of refPer name 'personName';
+			set refPer.personName.firstName = refIn.dcp:FirstName;
+			set refPer.personName.lastName = refIn.dcp:LastName;
+			set refPer.personName.prefixTitles = refIn.dcp:Prefix;
+			
+		end;
+		
+		-- Format the Company details ....
+		-- ref points to the output message for a Company
+		-- refInEntry points to the current Company object
+--Paul		CREATE PROCEDURE FormatCompany (inout ref reference, in refInEntry reference, in bClaimant boolean)
+		CREATE PROCEDURE FormatCompany (inout ref reference, in refInEntry reference, in bClaimant boolean, in bInsured boolean)
+		BEGIN
+			
+			declare refIn reference to refInEntry.dcci:ClaimContactCompany;		
+			declare refClaimC reference to ref;
+			
+			-- Create the root ....
+			create lastchild of refClaimC name 'isUsedBy';
+			declare refCisU reference to refClaimC.isUsedBy;
+			set refCisU.(XMLNSC.Attribute)xsi:type='party:Company';
+
+			-- Company Name
+			create lastchild of refCisU name 'hasName';
+			declare refCName reference to refCisU.hasName[<];
+			set refCName.(XMLNSC.Attribute)xsi:type='party:PartyName';
+			set refCName.fullName = refIn.dcompi:Name;
+			
+			-- Primary Contact Name
+			declare refPriCon reference to refIn.dcompi:PrimaryContactName;
+			if lastmove(refPriCon) then
+				create lastchild of refCisU name 'hasName';
+				declare refPName reference to refCisU.hasName[<];
+				set refPName.(XMLNSC.Attribute)xsi:type='party:PersonName';
+				set refPName.fullName = refIn.dcompi:PrimaryContactName;
+				set refPName.nameType = CED_CONTACT_PRIM;
+			end if;
+			
+			-- Company Registration Details
+			call FormatCompanyRegistration(refCisU, refIn);
+			
+			-- Postal Address
+			--declare refInAdd reference to refIn.dcompi:PrimaryAddress;
+			call FormatUnstructuredPostalAddress(refCisU, refIn); 
+			
+			-- Telephone Numbers - Cell, Work and Fax
+            call FormatTelephoneNumbers(refCisU, refIn);
+             				
+			-- Party Roles	
+			declare refInCRoles reference to refInEntry.dcci:ContactRoles.dcci:Entry[>];
+			declare strRole character '';
+			declare bServiceProvider, bMainContact boolean false;
+
+			-- Emergency or Vendor count
+			declare iEVCount integer 0;
+			
+			-- Loop through the roles ....
+			while lastmove (refInCRoles) do
+			
+				if fieldvalue(refInCRoles) in (CED_CC_ROLE_DRIVER, CED_CC_ROLE_NOMDRIVER, CED_CC_ROLE_CGUTHIRDP, 
+							CED_CC_ROLE_CLAIMANT, CED_CC_ROLE_INSURED, CED_CC_ROLE_UNDERW, CED_CC_ROLE_DITHIRDP
+							,CED_CC_ROLE_EMERGENCY, CED_CC_ROLE_VENDOR
+							,CED_CC_ROLE_MAINCONT
+							) then
+							
+					-- If a match, create the playsRole and amend accordingly
+					case fieldvalue(refInCRoles)
+						when CED_CC_ROLE_DITHIRDP then
+							set strRole = 'Driver';
+						when CED_CC_ROLE_NOMDRIVER then
+							set strRole = 'Driver';
+						when CED_CC_ROLE_DRIVER then
+							set strRole = 'Driver';
+						when CED_CC_ROLE_CGUTHIRDP then
+							set strRole = 'OpponentThirdParty';
+						when CED_CC_ROLE_CLAIMANT then
+							set strRole = 'Claimant';
+						when CED_CC_ROLE_INSURED then
+							set strRole = 'Insured';
+						when CED_CC_ROLE_UNDERW then
+							set strRole = 'Underwriter';
+						when CED_CC_ROLE_EMERGENCY then
+							set strRole = 'ServiceProvider';
+							set iEVCount = iEVCount + 1;
+						when CED_CC_ROLE_VENDOR then
+							set iEVCount = iEVCount + 1;
+							set strRole = 'ServiceProvider';
+						when CED_CC_ROLE_MAINCONT then
+							set bMainContact = true;
+							
+						else
+							set strRole = fieldvalue(refInCRoles);
+					end case;
+					
+					if fieldvalue(refInCRoles) <> CED_CC_ROLE_MAINCONT then
+						create lastchild of refCisU name 'playsRole';
+						declare refPClaim reference to refCisU.playsRole[<];			
+						set refPClaim.(XMLNSC.Attribute)xsi:type='party:' || strRole;				
+
+						-- If 'emergency', set the appropriate type
+						if fieldvalue(refInCRoles) in (CED_CC_ROLE_EMERGENCY) then
+							create lastchild of refPClaim name 'natureOfService' value fieldvalue(refInEntry.dcci:EmergencyServiceType);
+						end if;
+						
+						-- If Driver or Claimant, set the appropriate element
+						if fieldvalue(refInCRoles) in (CED_CC_ROLE_NOMDRIVER,CED_CC_ROLE_DITHIRDP) then
+							create lastchild of refPClaim name 'designated' value CED_YES;
+						end if;
+						
+--Paul						if fieldvalue(refInCRoles) in (CED_CC_ROLE_DRIVER) then
+--Paul							create lastchild of refPClaim name 'designated' value CED_NO;
+--Paul						end if;
+						
+						-- bClaimant is not used as yet
+						if fieldvalue(refInCRoles) = CED_CC_ROLE_CLAIMANT then
+							set bClaimant = true;
+						end if;
+
+						if fieldvalue(refInCRoles) = CED_CC_ROLE_INSURED then
+							set bInsured = true;
+						end if;
+						
+					end if;
+				else
+				
+					-- If 'Alocated Supplier' and CompanySpecialityType indicates 'Repearer', set as 'Repairer'
+	 				if fieldvalue(refInCRoles) in (CED_CC_ROLE_DIALLOCSUP) then				
+						if contains(fieldvalue(refIn.dcompi:CompanySpecialityType),CED_CC_SPECTYPE_REPAIRER) then
+							create lastchild of refCisU name 'playsRole';
+							declare refPClaim reference to refCisU.playsRole[<];			
+							set refPClaim.(XMLNSC.Attribute)xsi:type='party:Repairer';							
+							set refPClaim.natureOfService = refIn.dcompi:CompanySpecialityType;	
+							
+						end if;
+	
+						-- If 'Alocated Supplier' and CompanySpecialityType indicates 'Supplier', set as 'Supplier'
+						if contains(fieldvalue(refIn.dcompi:CompanySpecialityType),CED_CC_SPECTYPE_SUPPLIER) then
+							create lastchild of refCisU name 'playsRole';
+							declare refPClaim reference to refCisU.playsRole[<];			
+							set refPClaim.(XMLNSC.Attribute)xsi:type='party:Supplier';							
+							set refPClaim.natureOfService = refIn.dcompi:CompanySpecialityType;	
+						end if;
+	
+						-- If 'Alocated Supplier' and CompanySpecialityType indicates 'Hire Car', set as 'Supplier'
+						if contains(upper(fieldvalue(refIn.dcompi:CompanySpecialityType)),CED_CC_SPECTYPE_HIRECAR) then
+							create lastchild of refCisU name 'playsRole';
+							declare refPClaim reference to refCisU.playsRole[<];			
+							set refPClaim.(XMLNSC.Attribute)xsi:type='party:Supplier';		
+							set refPClaim.natureOfService = refIn.dcompi:CompanySpecialityType;
+							
+						end if;
+	
+	 				else
+	 					set bServiceProvider = true;
+					end if;
+					
+				end if;					
+				
+				move refInCRoles nextsibling repeat name;
+			
+			end while;
+			
+			-- See if we need to create a ServiceProvider element
+			if  (bServiceProvider and iEVCount = 0) then
+				create lastchild of refCisU name 'playsRole';
+				declare refPClaim reference to refCisU.playsRole[<];
+				set refPClaim.(XMLNSC.Attribute)xsi:type='party:ServiceProvider';
+			end if;
+			
+			-- Claiment Id
+			create lastchild of refCisU name 'isIdentifiedBy';
+			declare refIsId reference to refCisU.isIdentifiedBy;
+			declare refAddBook reference to refIn.dcompi:AddressBookId;
+			if lastmove(refAddBook) then
+				set refIsId.componentId = CED_COMPID_MANAGER;
+	            set refIsId.partyId = fieldvalue(refIn.dcompi:AddressBookId);
+			else
+				set refIsId.componentId = CED_COMPID_CLAIMC;
+	            set refIsId.partyId = fieldvalue(refIn.dcompi:PublicID);
+			end if;
+            
+			-- Prefered Contact Method
+			-- create lastchild of refCisU name 'preferedContactMethod' value 'TBC';
+	
+			-- If maincontact
+			if (bMainContact) then
+				create lastchild of refCisU name 'hasContactPoint';
+				declare refCP reference to refCisU.hasContactPoint;
+				set refCP.isPreferedContact = CED_TRUE;
+			end if;
+
+		end;
+		
+		-- Forma the Company Registration		
+		create procedure FormatCompanyRegistration(inout ref reference, in refIn reference)
+		begin
+			
+			declare refCisU reference to ref;
+			declare refABNorNot reference to refIn.dcompi:ABN;
+
+			if lastmove(refABNorNot) then
+				create lastchild of refCisU name 'partyRegistration';
+				declare refReg reference to refCisU.partyRegistration[<];
+				set refReg.(XMLNSC.Attribute)xsi:type='registration:CompanyRegistration';
+				set refReg.isIdentifiedBy.registrationId = refIn.dcompi:ABN;
+				set refReg.registrationType = CED_COMPTYPE_ABN;
+			else
+				move refABNorNot to refIn.dcompi:ACN;
+				if lastmove(refABNorNot) then
+					create lastchild of refCisU name 'partyRegistration';
+					declare refReg reference to refCisU.partyRegistration[<];
+					set refReg.(XMLNSC.Attribute)xsi:type='registration:CompanyRegistration';
+					set refReg.isIdentifiedBy.registrationId = refIn.dcompi:ACN;
+					set refReg.registrationType = CED_COMPTYPE_ACN;
+				end if;
+			end if;			
+		end;
+		
+		create procedure FormatIsServicedBy(inout ref reference, in refInEntry reference)
+		begin
+			
+			declare refProcId reference to OutputLocalEnvironment.ProcessedPublicId;
+			
+			declare refAllocAndBook reference to refInEntry.dvi:AllocationAndBookings;
+			declare refAllocAndBookEnt reference to refInEntry.dvi:AllocationAndBookings.dvi:Entry[>];
+
+			declare refOut reference to ref;
+			declare refIsSer reference to InputRoot;
+			
+			-- Make sure we have at least one Entry within the Allocation and Bookings
+			if lastmove(refAllocAndBookEnt) then
+				
+				create lastchild of refOut name 'isServicedBy';
+				move refIsSer to refOut.isServicedBy;
+				set refIsSer.(XMLNSC.Attribute)xsi:type='party:Company';				
+				
+				declare refABEntry reference to refAllocAndBook.dvi:Entry[>];
+				
+				ab: while lastmove(refABEntry) do
+				
+					declare refABEAllBook reference to refABEntry.daab:AllBookings;
+
+					-- hasName				
+					declare refABSP reference to refABEntry.daab:ServiceProvider;
+					create lastchild of refIsSer name 'hasName';
+					declare refIsSerName reference to refIsSer.hasName[<];
+					set refIsSerName.(XMLNSC.Attribute)xsi:type='party:PartyName';
+					set refIsSerName.fullName = refABSP.dcompi:Name;
+				
+					-- Address
+					declare refABAdd reference to refABSP.dcompi:PrimaryAddress;
+					declare refAdd reference to InputRoot;
+					
+					if lastmove(refABAdd) then
+						create lastchild of refIsSer name 'contactedAt';
+						move refAdd to refIsSer.contactedAt;
+						set refAdd.(XMLNSC.Attribute)xsi:type='location:UnStructuredPostalAddress';
+						set refAdd.purpose = CED_PURPOSE_PRIM;
+					else
+						move refABAdd to refABSP.dcompi:SecondaryAddress;
+						if lastmove(refABAdd) then
+							create lastchild of refIsSer name 'contactedAt';
+							move refAdd to refIsSer.contactedAt;
+							set refAdd.(XMLNSC.Attribute)xsi:type='location:UnStructuredPostalAddress';
+							set refAdd.purpose = CED_PURPOSE_SEC;
+						end if;
+					end if;	
+					if lastmove(refABAdd) then
+						set refAdd.suburb = refABAdd.dai:Suburb;
+						set refAdd.state = refABAdd.dai:State;
+						set refAdd.postCode = refABAdd.dai:PostalCode;
+						set refAdd.country = refABAdd.dai:Country;
+						declare refAline reference to refABAdd.dai:AddressLine1;						
+					    if lastmove(refAline) then
+							create lastchild of refAdd name 'addressLines' value refABAdd.dai:AddressLine1;
+						end if;
+						move refAline to refABAdd.dai:AddressLine2;						
+					    if lastmove(refAline) then
+							create lastchild of refAdd name 'addressLines' value refABAdd.dai:AddressLine2;
+						end if;
+						move refAline to refABAdd.dai:AddressLine3;						
+					    if lastmove(refAline) then
+							create lastchild of refAdd name 'addressLines' value refABAdd.dai:AddressLine3;
+						end if;
+						
+					end if;						
+
+					-- telephone
+					call FormatTelephoneNumbers(refIsSer, refABSP);
+					
+					-- Role
+					create lastchild of refIsSer name 'playsRole';
+					declare refPR reference to refIsSer.playsRole[<];
+					set refPR.(XMLNSC.Attribute)xsi:type='party:Repairer';
+					set refPR.natureOfService = refABSP.dcompi:CompanySpecialityType;
+					
+					-- Component Id
+					create lastchild of refIsSer name 'isIdentifiedBy';
+					declare refIsId reference to refIsSer.isIdentifiedBy;
+					declare refAddBook reference to refABSP.dcompi:AddressBookId;
+					if lastmove(refAddBook) then
+						set refIsId.componentId = CED_COMPID_MANAGER;
+			            set refIsId.partyId = fieldvalue(refABSP.dcompi:AddressBookId);					
+					else
+						set refIsId.componentId = CED_COMPID_CLAIMC;
+						set refIsId.partyId = fieldvalue(refABSP.dcompi:PublicID);	
+					end if;
+				
+					-- Add the PublicId to saved list, so we dont process it again later in the RolesInClaim
+					create lastchild of refProcId name 'PublicId' value fieldvalue(refABSP.dcompi:PublicID);
+
+					-- Associatedd party
+					create lastchild of refIsSer name 'associatedParty';
+					declare refAssP reference to refIsSer.associatedParty;
+					set refAssP.isIdentifiedBy.partyId = refABSP.dcompi:ContactRelationshipCode;
+					
+					
+					--
+					create lastchild of refIsSer name 'performs';
+					declare refPerf reference to refIsSer.performs;
+					set refPerf.startDate = cast(substring(cast(refABEntry.daab:AllocationDate as character) from 1 for 10) as date);
+					set refPerf.name = refABEntry.daab:AllocationType;
+					set refPerf.isIdentifiedBy.activityId = refABEntry.daab:AllocationPublicId;
+					set refPerf.status = refABEntry.daab:AllocationStatus;
+					
+					--cast(substring(cast(refAB.dvifo:RegisterationDate as character) from 1 for 10) as date);
+					-- Loop through the bookings ....
+					
+					declare refAllBookEntries reference to refABEAllBook.daab:Entry[>];
+
+					abe: while lastmove(refAllBookEntries) do
+						
+						create lastchild of refPerf name 'hasOccurance';
+						declare refPfO reference to refPerf.hasOccurance[<];
+						set refPfO.(XMLNSC.Attribute)xsi:type = 'activity:ActivityOccurance';
+						set refPfO.status = refAllBookEntries.db:BookingStatus;
+						set refPfO.plannedStartDateTime = cast(refAllBookEntries.db:BookingDate as character);
+						set refPfO.plannedEndDateTime = cast(refAllBookEntries.db:BookingEndDate as character);
+						set refPfO.objectTreatment = refAllBookEntries.db:BookingType;
+						
+						move refAllBookEntries nextsibling repeat name; 
+						
+					end while;
+				
+					move refABEntry nextsibling repeat name;
+					
+				end while;
+				
+			
+			end if;			
+			
+		end;
+		
+		-- Format the VehicleSpecifications 
+		CREATE PROCEDURE FormatVehicleSpecification (inout ref reference, in refInEntry reference)
+		BEGIN
+			declare refIn reference to refInEntry;
+			declare refVS reference to ref;
+
+			create lastchild of refVS name 'specifiesItem';
+			declare refSpecI reference to refVS.specifiesItem;
+			set refSpecI.(XMLNSC.Attribute)xsi:type='physicalobjects:VehicleSpecification';
+			if lastmove(refIn) then
+				declare refInV reference to refIn.dvi:Vehicle;
+				if lastmove (refInV) then
+					set refSpecI.make = refInV.dvifo:VehicleMake;
+					set refSpecI.model = refInV.dvifo:VehicleModel;
+					set refSpecI.modelYear = refInV.dvifo:YearOfManufacture;
+					set refSpecI.series = refInV.dvifo:Series;
+					set refSpecI.vehicleIdentificationNumber = refInV.dvifo:Vin;
+					set refSpecI.bodyType = refInV.dvifo:VehicleBodyType;
+					set refSpecI.vehicleType = refInV.dvifo:VehicleStyle;
+
+					set refSpecI.engineType = refInV.dvifo:VehicleEngineType;
+					set refSpecI.engineCapacity = refInV.dvifo:VehicleEngineCapacity;
+					set refSpecI.equipmentLevel = refInV.dvifo:Level;
+					set refSpecI.vehicleStyle = refInV.dvifo:Style;
+					set refSpecI.vehicleCategory = refInV.dvifo:VehicleCategory;
+					
+				end if;				
+			end if;
+			
+			
+		end;
+
+		-- Format the ModificationItems - these details are not currently being returned from the API 
+		CREATE PROCEDURE FormatModificationItem (inout ref reference, in refInEntry reference)
+		BEGIN
+
+			declare refIn reference to refInEntry;
+			declare refMod reference to ref;
+
+			create lastchild of refMod name 'modificationItem';
+			declare refModItem reference to refMod.modificationItem;
+			set refModItem.name = 'TBC';
+			set refModItem.description = 'TBC';
+			set refModItem.itemCode = 'TBC';
+			set refModItem.dateModified = 'TBC';
+			set refModItem.modificationValue = 'TBC';
+			
+		end;
+		
+		-- Format the Towed value
+		CREATE PROCEDURE FormatTowed (inout ref reference, in refInEntry reference)
+		BEGIN
+
+			set ref.isVehicleTowed = refInEntry.dvi:VehicleTowedFlag;
+
+		end;
+
+		-- Format the details for the Vehicle registration
+		CREATE PROCEDURE FormatVehicleRegistration (inout ref reference, in refInEntry reference)
+		BEGIN
+
+			declare refIn reference to refInEntry;
+			declare refVR reference to ref;
+
+			if lastmove(refIn) then
+                declare refInV reference to refIn.dvi:Vehicle;
+				if lastmove (refInV) then
+					create lastchild of refVR name 'vehicleRegistration';
+					declare refVRItem reference to refVR.vehicleRegistration;
+					set refVRItem.issueDate = cast(substring(cast(refInV.dvifo:RegisterationDate as character) from 1 for 10) as date);
+					set refVRItem.isIdentifiedBy.registrationId = refInV.dvifo:LicencePlate;
+				end if;
+			end if;			
+		end;
+		
+		-- Format the details for the policy cover
+		CREATE PROCEDURE FormatVehicleCover (inout ref reference, in refInEntry reference)
+		BEGIN
+			declare refIn reference to refInEntry;
+			declare refVC reference to ref;
+		    declare pattern character '########0.00';
+			
+			if lastmove(refIn) then
+                declare refInC reference to refIn.dvi:Vehicle;
+				if lastmove (refInC) then
+					create lastchild of refVC name 'isCoveredFor';
+					declare refVCItem reference to refVC.isCoveredFor;
+
+					-- when 'agreedValue', create the fields as value, type
+					-- when 'marketValue', create the fields as type, value
+					case fieldvalue(refInC.dvifo:VehicleValueType)
+						when 'agrdval' then
+							set refVCItem.agreedValue = cast(refInC.dvifo:VehicleValueAmount as character format pattern);
+							set refVCItem.coverageTypeCode = refInC.dvifo:VehicleValueType;
+							
+						when 'mktval' then
+							set refVCItem.coverageTypeCode = refInC.dvifo:VehicleValueType;
+							set refVCItem.marketValue = cast(refInC.dvifo:VehicleValueAmount as character format pattern);
+
+					end case;
+					
+					set refVCItem.isWindscreenCovered = refInC.dvifo:WindScreenOption;
+					set refVCItem.hireCoverageOption = refInC.dvifo:HireCarCoverage;
+					set refVCItem.hireCoverage.hireCoverageType = refInC.dvifo:HireCarOption;
+					set refVCItem.hireCoverage.hireOptionAmount = cast(refInC.dvifo:HireCarRate as character format pattern);
+					--set refVCItem.hireCoverage.hireOptionAmount = refInC.dvifo:HireCarRate;
+					-- set refVCItem.hireCoverage.daysHired = refInC.dvifo:HireCarDays;
+					set refVCItem.hireCoverage.numberOfDaysHired = refIn.dvi:HireCarDuration;
+					
+				end if;
+			end if;			
+		end;
+
+		-- Format the details retail price, trade price
+		CREATE PROCEDURE FormatPricePurchase (inout ref reference, in refInEntry reference)
+		BEGIN
+			declare refIn reference to refInEntry;
+			declare refVC reference to ref;
+		    declare pattern character '########0.00';
+			declare refInC reference to refIn.dvi:Vehicle;
+			
+			--if  fieldvalue(refInC.dvifo:VehicleValueType) in ('mktval') then
+			--	create lastchild of refVC name 'retailPrice' value cast(refInC.dvifo:RetailPrice as character format pattern);
+			--	create lastchild of refVC name 'tradePrice' value cast(refInC.dvifo:TradePrice as character format pattern);
+			--	create lastchild of refVC name 'lowPrice' value cast(refInC.dvifo:LowPrice as character format pattern);
+			--end if;
+			
+			-- removed 28th May
+			--create lastchild of refVC name 'purchaseDate' value cast(substring(cast(refInC.dvifo:PurchaseDate as character) from 1 for 10) as date);
+			--set refVC.isIdentifiedBy.vehicleId = refInC.dvifo:LicencePlate;
+			set refVC.isIdentifiedBy.vehicleId = refInC.dvifo:PublicID;
+	
+		end;
+
+		-- Format the any Vehicle Damages 
+		-- ref points to the output message 
+		-- refInEntry points to the current Entry object
+		CREATE PROCEDURE FormatVehicleDamage (inout ref reference, in refInEntry reference)
+		BEGIN
+			declare refIn reference to refInEntry;
+			declare refVD reference to ref;
+			declare refDA reference to refVD.damageAreas;
+
+			if lastmove(refIn) then
+				declare refInDAList reference to refIn.dvi:DamagedAreaList.dvi:Entry[>];
+				x : while lastmove (refInDAList) do
+			
+					create lastchild of refVD name 'damageAreas';
+					declare refDAEntry reference to refVD.damageAreas[<];
+					set refDAEntry.itemCode = fieldvalue(refInDAList);
+
+					move refInDAList nextsibling repeat name;
+								
+				end while;
+				
+			end if;
+			
+		end;
+
+		-- Format the ClaimOutcome - called for ALL ?????
+		CREATE PROCEDURE FormatOutCome (inout ref reference, in refAllV reference)
+		BEGIN
+			declare refOut reference to ref;
+		    declare refIn reference to refAllV;
+		    declare pattern character '########0.00';
+		    
+			create lastchild of refOut name 'outcomeOffer';
+			declare refOff reference to refOut.outcomeOffer;
+			set refOff.status = refIn.dci:ClaimClosedOutcome;
+ 			set refOff.allocationAllowed = refIn.dci:AllowMotorAllocInCatastrophe;
+ 
+ 			create lastchild of refOff name 'isBasedOn';
+			declare refisB reference to refOff.isBasedOn;
+			set refisB.deductibleAmount = cast(refIn.dci:DeductibleAmount as character format pattern);
+			set refisB.applicableAmount = cast(refIn.dci:TotalClaimExcessAmount as character format pattern);
+			
+			-- Loop through the list of excess amounts
+			declare refAllClaimEx reference to refIn.dci:AllClaimExcess;
+			declare refAllCEEntry reference to refAllClaimEx.dci:Entry[>];
+			declare refExList reference to InputRoot;
+
+			-- Sum amounts here is applicable ...
+			-- set dAmount = (select sum(cast(e.dpei:PolicyExcessAmount as decimal)) 
+			--			from refPolInfo.dpi:AllPolicyExcess.Entry[] as e);
+			-- Loop through the PolicyExcessList
+			x : while lastmove (refAllCEEntry) do
+				
+				create lastchild of refisB name 'hasDetail';
+				move refExList to refisB.hasDetail[<];	
+				set refExList.applicableType = refAllCEEntry.dpei:ExcessType;
+				set refExList.applicableAmount = cast(refAllCEEntry.dpei:ClaimExcessAmount as character format pattern);
+				
+				move refAllCEEntry nextsibling repeat name;
+				
+			end while;
+		
+			
+		end;
+
+		-- Format the Decisions - called for ALL ?????
+		CREATE PROCEDURE FormatDecision (inout ref reference, in refAllV reference)
+		BEGIN
+			declare refDes reference to ref;
+            declare refIn reference to refAllV;
+			
+			create lastchild of refDes name 'decisions' value refIn.dci:ClaimDecisionStatus;
+			
+		end;
+
+		-- Create the address details
+		create procedure FormatUnstructuredPostalAddress(inout refOut reference, in refInAddress reference)
+		begin
+			
+			-- Check for Primary Address			
+			declare refAline, refAdd reference to InputRoot;
+			-- Point to the address block, regardless of namespace - this is because, there can be
+			--   address details from different namespace entries
+			declare refInAdd reference to refInAddress.*:PrimaryAddress;
+			
+			if lastmove(refInAdd) then
+				create lastchild of refOut name 'contactedAt';
+				move refAdd to refOut.contactedAt;
+				set refAdd.(XMLNSC.Attribute)xsi:type='location:UnStructuredPostalAddress';
+				set refAdd.purpose = CED_PURPOSE_PRIM;
+			else
+				move refInAdd to refInAddress.*:SecondaryAddress;
+				if lastmove (refInAdd) then
+					create lastchild of refOut name 'contactedAt';
+					move refAdd to refOut.contactedAt;
+					set refAdd.(XMLNSC.Attribute)xsi:type='location:UnStructuredPostalAddress';
+					set refAdd.purpose = CED_PURPOSE_SEC;
+				end if;
+			end if;				
+			if lastmove (refInAdd) then
+--				set refAdd.city = refInAdd.dai:City;
+				set refAdd.suburb = refInAdd.dai:Suburb;
+				set refAdd.state = refInAdd.dai:State;
+				set refAdd.postCode = refInAdd.dai:PostalCode;
+				set refAdd.country = refInAdd.dai:Country;
+				declare refAline reference to refInAdd.dai:AddressLine1;						
+			    if lastmove(refAline) then
+					create lastchild of refAdd name 'addressLines' value refInAdd.dai:AddressLine1;
+				end if;
+				move refAline to refInAdd.dai:AddressLine2;						
+			    if lastmove(refAline) then
+					create lastchild of refAdd name 'addressLines' value refInAdd.dai:AddressLine2;
+				end if;
+				move refAline to refInAdd.dai:AddressLine3;						
+			    if lastmove(refAline) then
+					create lastchild of refAdd name 'addressLines' value refInAdd.dai:AddressLine3;
+				end if;
+			end if;
+			
+		end;
+
+		-- Create the address details for the LossEvent.
+		--  This is different to FormatUnstructuredPostalAddress, the element created is 'occursAt'
+		create procedure FormatUnstructuredPostalAddressLossEvent(inout refOut reference, in refInAddress reference)
+		begin
+			
+			-- Check for Primary Address			
+			declare refAline, refAdd reference to InputRoot;
+			declare refInAdd reference to refInAddress.dci:LossLocation;
+
+			if lastmove(refInAdd) then
+				create lastchild of refOut name 'occursAt';
+				move refAdd to refOut.occursAt;
+				set refAdd.(XMLNSC.Attribute)xsi:type='location:UnStructuredPostalAddress';
+				set refAdd.purpose = CED_PURPOSE_PRIM;
+
+--				set refAdd.city = refInAdd.dai:City;
+				set refAdd.suburb = refInAdd.dai:Suburb;
+				set refAdd.state = refInAdd.dai:State;
+				set refAdd.postCode = refInAdd.dai:PostalCode;
+				set refAdd.country = refInAdd.dai:Country;
+				declare refAline reference to refInAdd.dai:AddressLine1;						
+			    if lastmove(refAline) then
+					create lastchild of refAdd name 'addressLines' value refInAdd.dai:AddressLine1;
+				end if;
+				move refAline to refInAdd.dai:AddressLine2;						
+			    if lastmove(refAline) then
+					create lastchild of refAdd name 'addressLines' value refInAdd.dai:AddressLine2;
+				end if;
+				move refAline to refInAdd.dai:AddressLine3;						
+			    if lastmove(refAline) then
+					create lastchild of refAdd name 'addressLines' value refInAdd.dai:AddressLine3;
+				end if;
+			end if;
+						
+		end;
+
+		-- Format Telephone numbers
+		create procedure FormatTelephoneNumbers(inout refOut reference, in refInTele reference)
+		begin
+		
+			-- Telephone Numbers - Cell, Work and Fax
+			-- NOTE: Using wildcard for namespace as the input can be from either Company or Person 
+			--   thay have different namespace declarations
+
+			declare strPhoneType character '';
+			set strPhoneType = coalesce(fieldvalue(refInTele.*:PrimaryPhoneType), CED_NONE);
+			
+			declare refInTel reference to refInTele.*:CellPhone;
+            declare refTel reference to InputRoot;			
+			if lastmove(refInTel) then
+				create lastchild of refOut name 'contactedAt';
+				move refTel to refOut.contactedAt[<];
+				set refTel.(XMLNSC.Attribute)xsi:type='location:TelephoneNumber';
+				set refTel.usage = CED_PHONE_MOBILE;
+				if (strPhoneType = CED_PHONE_MOBILE) then
+					set refTel.purpose = CED_PURPOSE_PRIM;
+				end if;
+				set refTel.localNumber = fieldvalue(refInTel);
+			end if;
+	
+			move refInTel to refInTele.*:WorkPhone;
+			if lastmove(refInTel) then							
+				create lastchild of refOut name 'contactedAt';
+				move refTel to refOut.contactedAt[<];
+				set refTel.(XMLNSC.Attribute)xsi:type='location:TelephoneNumber';
+				set refTel.usage = CED_PHONE_WORK;
+				if (strPhoneType = CED_PHONE_WORK) then
+					set refTel.purpose = CED_PURPOSE_PRIM;
+				end if;
+				set refTel.localNumber = fieldvalue(refInTel);
+			end if;
+								
+			move refInTel to refInTele.*:FaxPhone;
+			if lastmove(refInTel) then							
+				create lastchild of refOut name 'contactedAt';
+				move refTel to refOut.contactedAt[<];
+				set refTel.(XMLNSC.Attribute)xsi:type='location:TelephoneNumber';
+				set refTel.usage = CED_PHONE_FAX;
+				if (strPhoneType = CED_PHONE_FAX) then
+					set refTel.purpose = CED_PURPOSE_PRIM;
+				end if;
+				set refTel.localNumber = fieldvalue(refInTel);
+			end if;
+
+			move refInTel to refInTele.*:HomePhone;
+			if lastmove(refInTel) then							
+				create lastchild of refOut name 'contactedAt';
+				move refTel to refOut.contactedAt[<];
+				set refTel.(XMLNSC.Attribute)xsi:type='location:TelephoneNumber';
+				set refTel.usage = CED_PHONE_HOME;
+				if (strPhoneType = CED_PHONE_HOME) then
+					set refTel.purpose = CED_PURPOSE_PRIM;
+				end if;
+				set refTel.localNumber = fieldvalue(refInTel);
+			end if;
+			
+		end;
+		
+		-- Process any Nominated Driver roles that are on the Claim and add them to the
+		--   Claimant block if we have not already processed it.
+		CREATE PROCEDURE FormatNominatedDriversInClaim (inout ref reference, in refDetCI reference)
+		BEGIN
+		
+			declare refAllCC reference to refDetCI.dci:AllClaimContact;
+			declare refEntry reference to refAllCC.dci:Entry[>];
+			declare refRolOut reference to ref;
+			declare refC, refObj reference to InputRoot;
+			declare iRoleCount, iProcessedCount integer 0;
+			declare strType, strPublicId character '';
+			declare bClaimant boolean false;
+			declare bInsured boolean false;
+			declare bDriver boolean false;
+			
+			declare refProcId reference to OutputLocalEnvironment.ProcessedPublicId;
+			
+			x : while lastmove(refEntry) do
+			
+				-- Check for the appropriate roles ... Can only be Person according to Raghav - 22nd April 2013 13:50
+				move refC to refEntry.dcci:ClaimContactPerson;  -- force person for testing only				
+				
+				if lastmove(refC) then
+					-- when we are processing a Person ....
+					-- Check for which of the PublidID's we have processed ....
+					set iProcessedCount = (select count(*) 
+							from OutputLocalEnvironment.ProcessedPublicId.*[] as p where p = fieldvalue(refC.dcp:PublicID));
+					-- if we haven't process it ... then process it now
+					if (iProcessedCount = 0) then
+						
+						-- check for the 'nominated driver' role within the ContactRoles ....
+						set iRoleCount = (select count(*) 
+							from refEntry.dcci:ContactRoles.*[] as r where r in (CED_CC_ROLE_NOMDRIVER));
+						if (iRoleCount > 0) then
+--Paul Start							
+							call FormatPerson (refRolOut, refEntry, bClaimant, bInsured, bDriver);
+--							call FormatPerson (refRolOut, refEntry, bClaimant);
+--Paul End
+					--		remove the comment if the personal details are required in each <isUsedBy> element
+					--		as of 16/05/2013 - this was not a requirement
+							call FormatPersonalDetails (refRolOut, refEntry);
+							-- add the PublicId of the this entry to the list to indicate that we have processed it
+							set strPublicId = refC.dcp:PublicID;
+							create lastchild of refProcId name 'PublicId' value strPublicId;
+							
+						end if;
+						
+					end if;
+					
+				end if;
+				
+				move refEntry nextsibling repeat name;
+				
+			end while;
+			
+		end;
+		
+		-- Format any Claim Contact that has not been previously processed
+		--   and create the RolesInClaim element
+		CREATE PROCEDURE FormatRolesInClaim (inout ref reference, in refDetCI reference)
+		BEGIN
+
+			declare refAllCC reference to refDetCI.dci:AllClaimContact;
+			--move refEntries to refAllVInc.dci:Entry[>];
+			declare refEntry reference to refAllCC.dci:Entry[>];
+			declare refRolOut reference to ref;
+			declare refC reference to InputRoot;
+			declare iProcessedCount, iRoles integer 0;
+			
+			declare refEntAdd reference to InputRoot;
+			
+			x : while lastmove(refEntry) do
+			
+				--set iProcessedCount = 0;
+				
+				-- Force to do ALL roles ...
+				set iRoles = 1;
+				
+				-- Check for the appropriate roles ...
+				--set OutputLocalEnvironment.Roles.Entry[] = select * 
+				--	from refEntry.dcci:ContactRoles.*[] as r where r in ('Repairer', 'Supplier');
+				-- If any found, process them ...
+				--if (cardinality(OutputLocalEnvironment.Roles.*[]) > 0) then
+				if (iRoles > 0) then
+					move refC to refEntry.dcci:ClaimContactCompany;
+					if lastmove(refC) then
+						
+						-- Format the Claim Contact Company details ...
+						call FormatRolesInClaimByCompany(refRolOut, refC, refEntry, refDetCI);
+						
+					end if;
+					
+					move refC to refEntry.dcci:ClaimContactPerson;
+					if lastmove(refC) then
+						
+						-- Format the RolesInClaim by Person
+						call FormatRolesInClaimByPerson(refRolOut, refC, refEntry, refDetCI);
+
+					end if;
+					set refEntAdd = null;
+					
+				-- End of Cardinality
+				end if;
+							
+				move refEntry nextsibling repeat name;
+				
+			end while;
+			
+			-- Format any Claim Handler details
+			call FormatClaimHandler (refRolOut, refDetCI);
+			
+		end;
+
+		-- Format the Claim Handler
+		create procedure FormatClaimHandler(inout ref reference, in refDetCI reference)
+		begin
+
+			declare refOut reference to ref;
+			declare refCICH reference to refDetCI.dci:ClaimHandler;
+			
+			if lastmove(refCICH) then
+				create lastchild of refOut name 'rolesInClaim';
+				declare refCH reference to refOut.rolesInClaim[<];
+				set refCH.(XMLNSC.Attribute)xsi:type='party:Party';
+			
+				create lastchild of refCH name 'hasName';
+				declare refCHName reference to refCH.hasName[<];
+				set refCHName.(XMLNSC.Attribute)xsi:type='party:PartyName';
+				set refCHName.fullName = refDetCI.dci:ClaimHandler;
+				
+				declare refCHTel reference to refDetCI.dci:ClaimHandlerWorkPhone;
+	            declare refTel reference to InputRoot;			
+				if lastmove(refCHTel) then
+					create lastchild of refCH name 'contactedAt';
+					move refTel to refCH.contactedAt[<];
+					set refTel.(XMLNSC.Attribute)xsi:type='location:TelephoneNumber';
+					set refTel.usage = CED_PHONE_WORK;
+					set refTel.purpose = CED_PURPOSE_PRIM;
+					set refTel.localNumber = fieldvalue(refCHTel);
+				end if;
+				
+				create lastchild of refCH name 'playsRole';
+				declare refPR reference to refCH.playsRole;
+				set refPR.(XMLNSC.Attribute)xsi:type='party:CaseManager';
+				
+				create lastchild of refCH name 'isIdentifiedBy';
+				declare refId reference to refCH.isIdentifiedBy;
+				set refId.partyId = refDetCI.dci:ClaimHandlerID;
+				
+			end if;
+
+		end;
+
+		-- Format the 'Company' from RolesInClaim		
+		create procedure FormatRolesInClaimByCompany(inout ref reference, in refC reference, in refEntry reference, in refDetCI reference)
+		begin
+
+			declare iProcessedCount, iRoles integer 0;
+			declare refRolOut reference to ref;
+			
+			-- Have we already processed this ?
+			set iProcessedCount = (select count(*) 
+					from OutputLocalEnvironment.ProcessedPublicId.*[] as p where p = fieldvalue(refC.dcompi:PublicID));
+			-- No, then process it now
+			if (iProcessedCount = 0) then
+				create lastchild of refRolOut name 'rolesInClaim';
+				declare refRol reference to refRolOut.rolesInClaim[<];
+				set refRol.(XMLNSC.Attribute)xsi:type='party:Company';
+			--	set refRol.hasName.fullName = refC.dcompi:Name;
+
+				create lastchild of refRol name 'hasName';
+				declare refCName reference to refRol.hasName[<];
+				set refCName.(XMLNSC.Attribute)xsi:type='party:PartyName';
+				set refCName.fullName = refC.dcompi:Name;
+		
+				declare refPriCon reference to refC.dcompi:PrimaryContactName;
+				if lastmove(refPriCon) then
+					create lastchild of refRol name 'hasName';
+					declare refPName reference to refRol.hasName[<];
+					set refPName.(XMLNSC.Attribute)xsi:type='party:PersonName';
+					set refPName.fullName = refC.dcompi:PrimaryContactName;
+					set refPName.nameType = CED_PURPOSE_PRIM;
+				end if;
+
+				-- Registration details									
+				call FormatCompanyRegistration(refRol, refC);
+				
+				declare refEntAdd reference to refC.dcompi:PrimaryAddress;
+				if not lastmove(refEntAdd) then
+					move refEntAdd to refC.dcompi:SecondaryAddress;
+				end if;
+
+				-- Address
+				if lastmove (refEntAdd) then
+					create lastchild of refRol name 'contactedAt';
+					declare refRC reference to refRol.contactedAt[<];
+					set refRC.(XMLNSC.Attribute)xsi:type='location:UnStructuredPostalAddress';
+				--	set refRC.city = refEntAdd.dai:City;
+					set refRC.suburb = refEntAdd.dai:Suburb;
+					set refRC.state = refEntAdd.dai:State;
+					set refRC.postCode = refEntAdd.dai:PostalCode;
+					set refRC.country = refEntAdd.dai:Country;
+					
+					declare refAline reference to refEntAdd.dai:AddressLine1;						
+				    if lastmove(refAline) then
+						create lastchild of refRC name 'addressLines' value refEntAdd.dai:AddressLine1;
+					end if;
+					move refAline to refEntAdd.dai:AddressLine2;						
+				    if lastmove(refAline) then
+						create lastchild of refRC name 'addressLines' value refEntAdd.dai:AddressLine2;
+					end if;
+					move refAline to refEntAdd.dai:AddressLine3;						
+				    if lastmove(refAline) then
+						create lastchild of refRC name 'addressLines' value refEntAdd.dai:AddressLine3;
+					end if;
+				
+				end if;
+				
+				-- Telephones
+				call FormatTelephoneNumbers(refRol, refC);
+					
+				-- Party Roles	
+				declare refInCRoles reference to refEntry.dcci:ContactRoles.dcci:Entry[>];
+				declare strRole character '';
+				declare bServiceProvider, bMainContact boolean false;
+
+				-- Emergency or Vendor count			
+				declare iEVCount integer 0;
+				
+				-- Loop through the roles ....
+				r: while lastmove (refInCRoles) do
+ 
+						if fieldvalue(refInCRoles) in (CED_CC_ROLE_DRIVER, CED_CC_ROLE_NOMDRIVER, CED_CC_ROLE_CGUTHIRDP, 
+						CED_CC_ROLE_CLAIMANT, CED_CC_ROLE_INSURED, CED_CC_ROLE_UNDERW, CED_CC_ROLE_DITHIRDP
+						,CED_CC_ROLE_EMERGENCY, CED_CC_ROLE_VENDOR
+						,CED_CC_ROLE_MAINCONT
+						) then
+								
+							-- If a match, create the playsRole and amend accordingly
+							case fieldvalue(refInCRoles)
+								when CED_CC_ROLE_DITHIRDP then
+									set strRole = 'Driver';
+								when CED_CC_ROLE_NOMDRIVER then
+									set strRole = 'Driver';
+								when CED_CC_ROLE_DRIVER then
+									set strRole = 'Driver';
+								when CED_CC_ROLE_CGUTHIRDP then
+									set strRole = 'OpponentThirdParty';
+								when CED_CC_ROLE_CLAIMANT then
+									set strRole = 'Claimant';
+								when CED_CC_ROLE_INSURED then
+									set strRole = 'Insured';
+								when CED_CC_ROLE_UNDERW then
+									set strRole = 'Underwriter';
+								when CED_CC_ROLE_EMERGENCY then
+									set strRole = 'ServiceProvider';
+									set iEVCount = iEVCount + 1;
+								when CED_CC_ROLE_VENDOR then
+									set strRole = 'ServiceProvider';
+									set iEVCount = iEVCount + 1;
+								when CED_CC_ROLE_MAINCONT then
+									set bMainContact = true;
+									
+								else
+									set strRole = fieldvalue(refInCRoles);
+							end case;
+
+							if fieldvalue(refInCRoles) <> CED_CC_ROLE_MAINCONT then
+								
+								create lastchild of refRol name 'playsRole';
+								declare refPClaim reference to refRol.playsRole[<];			
+								set refPClaim.(XMLNSC.Attribute)xsi:type='party:' || strRole;				
+
+								if fieldvalue(refInCRoles) in (CED_CC_ROLE_EMERGENCY) then
+									create lastchild of refPClaim name 'natureOfService' value fieldvalue(refEntry.dcci:EmergencyServiceType);
+								end if;
+								
+								-- If Driver or Claimant, set the appropriate element
+								if fieldvalue(refInCRoles) in (CED_CC_ROLE_NOMDRIVER,CED_CC_ROLE_DITHIRDP) then
+									create lastchild of refPClaim name 'designated' value CED_YES;
+								end if;
+								
+--Paul								if fieldvalue(refInCRoles) in (CED_CC_ROLE_DRIVER) then
+--Paul									create lastchild of refPClaim name 'designated' value CED_NO;
+--Paul								end if;
+								
+							end if;						
+						else
+					
+						-- If 'Alocated Supplier' and CompanySpecialityType indicates 'Repearer', set as 'Repairer'
+			 				if fieldvalue(refInCRoles) in (CED_CC_ROLE_DIALLOCSUP) then				
+								if contains(fieldvalue(refC.dcompi:CompanySpecialityType),CED_CC_SPECTYPE_REPAIRER) then
+									create lastchild of refRol name 'playsRole';
+									declare refRR reference to refRol.playsRole[<];			
+									set refRR.(XMLNSC.Attribute)xsi:type='party:Repairer';	
+									set refRR.natureOfService = refC.dcompi:CompanySpecialityType;	
+								end if;
+
+								-- If 'Alocated Supplier' and CompanySpecialityType indicates 'Supplier', set as 'Supplier'
+								if contains(fieldvalue(refC.dcompi:CompanySpecialityType),CED_CC_SPECTYPE_SUPPLIER) then
+									create lastchild of refRol name 'playsRole';
+									declare refRR reference to refRol.playsRole[<];			
+									set refRR.(XMLNSC.Attribute)xsi:type='party:Supplier';							
+									set refRR.natureOfService = refC.dcompi:CompanySpecialityType;	
+								end if;
+
+								-- If 'Alocated Supplier' and CompanySpecialityType indicates 'Hire Car', set as 'Supplier'
+								if contains(upper(fieldvalue(refC.dcompi:CompanySpecialityType)),CED_CC_SPECTYPE_HIRECAR) then
+									create lastchild of refRol name 'playsRole';
+									declare refRR reference to refRol.playsRole[<];			
+									set refRR.(XMLNSC.Attribute)xsi:type='party:Supplier';		
+									set refRR.natureOfService = refC.dcompi:CompanySpecialityType;
+								end if;
+							
+			 				else
+								set bServiceProvider = true;
+							end if;
+						
+						end if;
+					
+					move refInCRoles nextsibling repeat name;
+
+				end while;
+
+				-- See if we need to create a ServiceProvider element
+				if  (bServiceProvider and iEVCount = 0) then
+					create lastchild of refRol name 'playsRole';
+					declare refRR reference to refRol.playsRole[<];
+					set refRR.(XMLNSC.Attribute)xsi:type='party:ServiceProvider';
+				end if;
+
+				
+				-- ComponentId
+				create lastchild of refRol name 'isIdentifiedBy';
+				declare refIsId reference to refRol.isIdentifiedBy;
+				declare refAddBook reference to refC.dcompi:AddressBookId;
+				if lastmove(refAddBook) then
+					set refIsId.componentId = CED_COMPID_MANAGER;
+		            set refIsId.partyId = fieldvalue(refC.dcompi:AddressBookId);					
+				else
+					set refIsId.componentId = CED_COMPID_CLAIMC;
+					set refIsId.partyId = fieldvalue(refC.dcompi:PublicID);	
+				end if;
+				
+				-- set maincontact
+				if (bMainContact) then
+					create lastchild of refRol name 'hasContactPoint';
+					declare refCP reference to refRol.hasContactPoint;
+					set refCP.isPreferedContact = CED_TRUE;
+				end if;
+				
+			-- End of iProcessedCount
+			end if;			
+			
+		end;	
+					
+		
+		-- Format the 'Person' from RolesInClaim					
+		create procedure FormatRolesInClaimByPerson(inout ref reference, in refC reference, in refEntry reference, in refDetCI reference)
+		begin
+			
+			declare iProcessedCount, iRoles integer 0;
+			declare refRolOut reference to ref;
+
+			-- Have we processed this yey
+			set iProcessedCount = (select count(*) 
+					from OutputLocalEnvironment.ProcessedPublicId.*[] as p where p = fieldvalue(refC.dcp:PublicID));
+			-- No, then process this now
+			if (iProcessedCount = 0) then
+				create lastchild of refRolOut name 'rolesInClaim';
+				declare refRol reference to refRolOut.rolesInClaim[<];
+				set refRol.(XMLNSC.Attribute)xsi:type='party:Person';
+				
+				-- Format the persons name
+				create lastchild of refRol name 'hasName';							
+				declare refPer reference to refRol.hasName;
+				set refPer.(XMLNSC.Attribute)xsi:type='party:PersonName';
+				set refPer.firstName = refC.dcp:FirstName;
+				set refPer.lastName = refC.dcp:LastName;
+				set refPer.prefixTitles = refC.dcp:Prefix;
+				
+				-- Format the persons primary or secondary address
+				declare refEntAdd reference to refC.dcp:PrimaryAddress;
+				if not lastmove(refEntAdd) then
+					move refEntAdd to refC.dcp:SecondaryAddress;
+				end if;
+														
+				-- Address
+				if lastmove (refEntAdd) then
+					create lastchild of refRol name 'contactedAt';
+					declare refRC reference to refRol.contactedAt[<];
+					set refRC.(XMLNSC.Attribute)xsi:type='location:UnStructuredPostalAddress';
+			--		set refRC.city = refEntAdd.dai:City;
+					set refRC.suburb = refEntAdd.dai:Suburb;
+					set refRC.state = refEntAdd.dai:State;
+					set refRC.postCode = refEntAdd.dai:PostalCode;
+					set refRC.country = refEntAdd.dai:Country;
+					
+					declare refAline reference to refEntAdd.dai:AddressLine1;						
+				    if lastmove(refAline) then
+						create lastchild of refRC name 'addressLines' value refEntAdd.dai:AddressLine1;
+					end if;
+					move refAline to refEntAdd.dai:AddressLine2;						
+				    if lastmove(refAline) then
+						create lastchild of refRC name 'addressLines' value refEntAdd.dai:AddressLine2;
+					end if;
+					move refAline to refEntAdd.dai:AddressLine3;						
+				    if lastmove(refAline) then
+						create lastchild of refRC name 'addressLines' value refEntAdd.dai:AddressLine3;
+					end if;
+				
+				end if;
+
+                -- Telephones
+				call FormatTelephoneNumbers(refRol, refC);
+
+				-- Party Claimant			
+				declare refInCRoles reference to refEntry.dcci:ContactRoles.dcci:Entry[>];
+				declare strRole character '';
+--Paul start			
+				declare bDriverRole boolean false;
+				declare bNomDriverRole boolean false;
+				declare bThirdPartyNomDriverRole boolean false;
+				declare bOppThirdPartyRole boolean false;
+				declare bClaimantRole boolean false;
+				declare bInsuredRole boolean false;
+				declare bPartyRole boolean false;
+				declare bCGUThirdPartyRole boolean false;
+				declare bOwnerRole boolean false;
+--Paul end                
+				declare bExternalRef, bMainContact boolean false;
+				declare strType character ' ';
+
+			    --create 'additionalPeople' to store any witness, passenger and pedestirans
+			    --set OutputLocalEnvironment.additionalPeople = null;
+			    --create lastchild of OutputLocalEnvironment name 'additionalPeople';
+			    --declare refAddP reference to OutputLocalEnvironment.additionalPeople;
+				declare iCount integer 0;
+				
+				-- Loop through the ContactRoles			
+				while lastmove (refInCRoles) do
+				
+					-- reset external switch for witness, passenger and pedstrian
+					set bMainContact = false;
+					set strType = ' ';
+
+					if fieldvalue(refInCRoles) in (CED_CC_ROLE_DRIVER, CED_CC_ROLE_NOMDRIVER, CED_CC_ROLE_CGUTHIRDP, 
+								CED_CC_ROLE_CLAIMANT, CED_CC_ROLE_INSURED, CED_CC_ROLE_DITHIRDP
+								,CED_CC_ROLE_OWNER
+								,CED_CC_ROLE_WITNESS, CED_CC_ROLE_PASSENGER, CED_CC_ROLE_PEDESTRIAN
+								,CED_CC_ROLE_MAINCONT
+								) then
+								
+						set iCount = iCount + 1;
+						-- If a specific role is found, create the playsRole element, amending accordingly
+						case fieldvalue(refInCRoles)
+							when CED_CC_ROLE_DITHIRDP then
+--Paul							set strRole = 'Driver';
+								set bThirdPartyNomDriverRole = true;
+							when CED_CC_ROLE_NOMDRIVER then
+--Paul							set strRole = 'Driver';
+								set bNomDriverRole = true;								
+							when CED_CC_ROLE_DRIVER then
+--Paul							set strRole = 'Driver';
+								set bDriverRole = true;
+							when CED_CC_ROLE_OWNER then
+--Paul							set strRole = 'Driver';
+								set bOwnerRole = true;
+							when CED_CC_ROLE_CGUTHIRDP then
+--Paul							set strRole = 'OpponentThirdParty';
+								set bOppThirdPartyRole = true;								
+							when CED_CC_ROLE_CLAIMANT then
+--Paul							set strRole = 'Claimant';
+								set bClaimantRole = true;
+							when CED_CC_ROLE_INSURED then
+--Paul							set strRole = 'Insured';
+								set bInsuredRole = true;
+							when CED_CC_ROLE_WITNESS then
+								set bExternalRef = true;
+--Paul							set strRole = 'PartyRole';
+								set bPartyRole = true;
+								set strType = fieldvalue(refInCRoles);
+							when CED_CC_ROLE_PASSENGER then
+								set bExternalRef = true;
+--Paul							set strRole = 'PartyRole';
+								set bPartyRole = true;
+								set strType = fieldvalue(refInCRoles);
+							when CED_CC_ROLE_PEDESTRIAN then
+								set bExternalRef = true;
+--Paul							set strRole = 'PartyRole';
+								set bPartyRole = true;
+								set strType = fieldvalue(refInCRoles);
+							when CED_CC_ROLE_MAINCONT then
+								set bMainContact = true;
+							else
+								set strRole = fieldvalue(refInCRoles);
+						end case;
+						
+--Paul						if fieldvalue(refInCRoles) <> CED_CC_ROLE_MAINCONT then
+--Paul							create lastchild of refRol name 'playsRole';
+--Paul							declare refPClaim reference to refRol.playsRole[<];			
+--Paul							set refPClaim.(XMLNSC.Attribute)xsi:type='party:' || strRole;				
+							
+--Paul							-- If Nominated Driver, Third Party Noninated Driver, set as Yes
+--Paul							if fieldvalue(refInCRoles) in (CED_CC_ROLE_NOMDRIVER,CED_CC_ROLE_DITHIRDP) then
+--Paul								create lastchild of refPClaim name 'designated' value CED_YES;
+--Paul							end if;
+							
+--Paul							-- If Owner, set as 'ownerDriver'
+--Paul							if fieldvalue(refInCRoles) in (CED_CC_ROLE_OWNER) then
+--Paul								create lastchild of refPClaim name 'ownerDriver' value CED_YES;
+--Paul							end if;
+							
+--Paul							-- If Driver, set as No
+----Paul							if fieldvalue(refInCRoles) in (CED_CC_ROLE_DRIVER) then
+----Paul								create lastchild of refPClaim name 'designated' value CED_NO;
+----Paul							end if;
+						
+--Paul						end if;
+					end if;
+					
+					move refInCRoles nextsibling repeat name;
+				end while;
+
+--Paul Start
+
+				if bOppThirdPartyRole or bThirdPartyNomDriverRole then
+					create lastchild of refRol name 'playsRole';
+					declare refPClaim reference to refRol.playsRole[<];
+					set refPClaim.(XMLNSC.Attribute)xsi:type='party:OpponentThirdParty';	
+				
+					if bThirdPartyNomDriverRole then
+						create lastchild of refPClaim name 'designated' value CED_YES;
+					else	
+						create lastchild of refPClaim name 'designated' value CED_NO;
+					end if;
+				end if;	
+
+				if bDriverRole or bOwnerRole or bNomDriverRole then
+					create lastchild of refRol name 'playsRole';
+					declare refPClaim reference to refRol.playsRole[<];
+					set refPClaim.(XMLNSC.Attribute)xsi:type='party:Driver';	
+
+					if not bOppThirdPartyRole then				
+						if bOwnerRole then 
+							create lastchild of refPClaim name 'ownerDriver' value CED_YES;
+						else	
+							create lastchild of refPClaim name 'ownerDriver' value CED_NO;
+						end if;
+					end if;	
+
+					if bOppThirdPartyRole then				
+						if bThirdPartyNomDriverRole then
+							create lastchild of refPClaim name 'designated' value CED_YES;
+						else	
+							create lastchild of refPClaim name 'designated' value CED_NO;
+						end if;
+					else
+						if bNomDriverRole then
+							create lastchild of refPClaim name 'designated' value CED_YES;
+						else	
+							create lastchild of refPClaim name 'designated' value CED_NO;
+						end if;
+					end if;	
+				end if;	
+
+				if bClaimantRole and not bOppThirdPartyRole then
+					create lastchild of refRol name 'playsRole';
+					declare refPClaim reference to refRol.playsRole[<];
+					set refPClaim.(XMLNSC.Attribute)xsi:type='party:Claimant';	
+				end if;	
+
+				if bInsuredRole then
+					create lastchild of refRol name 'playsRole';
+					declare refPClaim reference to refRol.playsRole[<];
+					set refPClaim.(XMLNSC.Attribute)xsi:type='party:Insured';	
+				end if;	
+
+--Paul End			
+			
+                -- If we haven't processed anything (or there is a party role), create a partyRole entry
+--Paul			if (iCount = 0) then
+				if (iCount = 0) or bPartyRole then
+ 					create lastchild of refRol name 'playsRole';
+					declare refPClaim reference to refRol.playsRole[<];			
+					set refPClaim.(XMLNSC.Attribute)xsi:type='party:PartyRole';
+				end if;
+				                
+				-- IsIdentifiedBy				
+				create lastchild of refRol name 'isIdentifiedBy';
+				declare refIsId reference to refRol.isIdentifiedBy;
+				declare refAddBook reference to refC.dcp:AddressBookId;
+				if lastmove(refAddBook) then
+					set refIsId.componentId = CED_COMPID_MANAGER;
+					set refIsId.partyId = fieldvalue(refC.dcp:AddressBookId);
+				else
+					set refIsId.componentId = CED_COMPID_CLAIMC;
+					set refIsId.partyId = fieldvalue(refC.dcp:PublicID);
+				end if;
+
+				-- If maincontract, set hascontactpoint				
+				if (bMainContact) then
+					create lastchild of refRol name 'hasContactPoint';
+					declare refCP reference to refRol.hasContactPoint;
+					set refCP.isPreferedContact = CED_TRUE;
+				end if;
+				
+				-- External reference for witness, passenger or pedestrian
+				if (bExternalRef) then
+					create lastchild of refRol name 'externalReference' value strType;
+				end if;
+			-- End of iProcessedCount
+			end if;
+			
+			
+		end;
+							
+					
+		-- Format the ExcessMessages
+		CREATE PROCEDURE FormatExcessMsgs (inout ref reference, in refDetCI reference)
+		BEGIN
+			declare refMsgOut reference to ref;
+			declare refIn reference to refDetCI.dci:PolicyInformation;
+			
+--			create lastchild of refMsgOut name 'isExcessPaid' value refDetCI.dci:ExcessToBePaidFlag;
+--BIK2a			
+			IF refDetCI.dci:ExcessToBePaidFlag = TRUE THEN
+				create lastchild of refMsgOut name 'isExcessPaid' value 'false';					
+			ELSE
+				create lastchild of refMsgOut name 'isExcessPaid' value 'true';	
+			END IF;			
+--BIK2e			
+			-- perilTypeForClaim
+			create lastchild of refMsgOut name 'perilTypeForClaim';
+			declare refPT reference to refMsgOut.perilTypeForClaim;
+			set refPT.description = refDetCI.dci:LossCauseType;
+			set refPT.claimCode = refDetCI.dci:LossCaussTypeCode;
+			
+			-- messages
+			declare refInMsg reference to refIn.dci:AllNotesOnClaim.dcni:Entry[>];
+			x : while lastmove(refInMsg) do
+				create lastchild of refMsgOut name 'hasClaimMessage';
+				declare refMsg reference to refMsgOut.hasClaimMessage[<];
+				
+				set refMsg.dateTime = cast(substring(cast(refInMsg.dcni:NoteCreatedDateTime as character) from 1 for 10) as date);
+				set refMsg.topic = refInMsg.dcni:NoteTopicType;
+				set refMsg.subject = refInMsg.dcni:NoteSubject;
+				set refMsg.securityLevel = refInMsg.dcni:NoteSecurityType;
+--Paul
+				set refMsg.isConfidential = refInMsg.dcni:Confidential;
+--Paul				
+--Paul			set refMsg.isConfidential = refInMsg.dcni:Condifential;
+				set refMsg.description = refInMsg.dcni:NoteBodyText;
+				
+				move refInMsg nextsibling repeat name;
+			
+			end while;
+			
+		end;
+
+		-- Format the ExcessMessages
+		CREATE PROCEDURE FormatClaimDescription (inout ref reference, in refDetCI reference)
+		BEGIN
+			declare refOut reference to ref;
+			declare refIn reference to refDetCI.dci:PolicyInformation;
+			
+			create lastchild of refOut name 'description' value refDetCI.dci:Description;
+
+			create lastchild of refOut name 'isViewedIn';
+			declare refIsV reference to refOut.isViewedIn;
+			set refIsV.perspectiveOnClaimDescription = refDetCI.dci:ClaimFNOLDesc;		
+			
+		end;
+
+			
+END MODULE;
+
+-- If we have any errors, create a response
+CREATE COMPUTE MODULE ClaimEnquiryDetails_Request_v1_BuildErrorResponse
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		declare refIn reference to InputRoot.XMLNSC;
+		declare refRespRet reference to refIn.icl:findClaimDetailsResponse.icl:return;
+		declare refRespInfo reference to refRespRet.pogo:CCServiceResponseInfo;
+			
+		create lastchild of OutputRoot.XMLNSC namespace esberr name 'Error';
+		set OutputRoot.XMLNSC.esberr:"Error".esberr:code 				= 'GCC01';
+		set OutputRoot.XMLNSC.esberr:"Error".esberr:message 			= refRespInfo.cc:ErrorDesc;
+		set OutputRoot.XMLNSC.esberr:"Error".esberr:system 				= 'CLAIMS';	
+		set OutputRoot.XMLNSC.esberr:"Error".esberr:severity 			= 'ERROR';	
+		set Environment.Header.maxReturnLevel							= 'ERROR';			
+	
+		return true;
+	
+	END;
+	
+END MODULE;
+
+-- Check if the response is OK from the back end Claims Centre
+CREATE FILTER MODULE ClaimEnquiryDetails_Request_v1_Filter
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+ 		declare refIn reference to Root.XMLNSC;
+		declare refRespRet reference to refIn.icl:findClaimDetailsResponse.icl:return;
+		declare refRespInfo reference to refRespRet.pogo:CCServiceResponseInfo;
+		
+		if refRespInfo.cc:ResponseCode = CED_OK then
+			return true;
+		else
+			return false;
+		end if;
+		
+	END;
+END MODULE;
+
+
+
+
+CREATE COMPUTE MODULE ClaimEnquiryDetails_Request_v1_BuildProcessingError
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		set OutputRoot.Properties = InputRoot.Properties;
+		declare refIn reference to InputRoot.XMLNSC.Errors;
+		
+		create lastchild of OutputRoot.XMLNSC namespace esberr name 'Error';
+		set OutputRoot.XMLNSC.esberr:"Error".esberr:code 				= refIn.code;
+		set OutputRoot.XMLNSC.esberr:"Error".esberr:message 			= refIn.description;
+		set OutputRoot.XMLNSC.esberr:"Error".esberr:system 				= 'CLAIMS';	
+		set OutputRoot.XMLNSC.esberr:"Error".esberr:severity 			= 'ERROR';	
+		set Environment.Header.maxReturnLevel							= 'ERROR';			
+	
+		return true;
+		
+	END;
+END MODULE;

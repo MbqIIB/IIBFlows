@@ -1,0 +1,20 @@
+CREATE FUNCTION IsLeapYear (IYear INTEGER) RETURNS BOOLEAN
+BEGIN
+	DECLARE Result BOOLEAN;
+	
+	IF (MOD(IYear, 4) <> 0) THEN
+		SET Result = FALSE;    -- year not divisible by 4
+	ELSE
+	IF (MOD(IYear, 400) = 0) THEN
+		SET Result = TRUE;     -- year divisible by 400
+	ELSE 
+	IF (MOD(IYear, 100) = 0) THEN
+		SET Result = FALSE;    -- year divisible by 100
+	ELSE
+		SET Result = TRUE;	
+	END IF;
+	END IF;
+	END IF;
+			
+	RETURN (Result);
+END;

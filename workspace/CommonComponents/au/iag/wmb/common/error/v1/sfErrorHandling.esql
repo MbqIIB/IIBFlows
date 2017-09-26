@@ -1,0 +1,162 @@
+BROKER SCHEMA au.iag.wmb.common.error.v1
+
+DECLARE esbenv NAMESPACE 'http://iag.com.au/di/esb/envelope/v1/';
+DECLARE esbhdr NAMESPACE 'http://iag.com.au/di/esb/header/v1/';
+DECLARE esberr NAMESPACE 'http://iag.com.au/di/esb/error/v1/';
+
+	DECLARE Severity EXTERNAL CHARACTER;
+	DECLARE System EXTERNAL CHARACTER;
+
+CREATE COMPUTE MODULE sfErrorHandling_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		 CALL ExceptionHandling();
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE ExceptionHandling() BEGIN
+		set OutputRoot.Properties = InputRoot.Properties;
+		declare refMQMD reference to InputRoot.MQMD;
+		if lastmove(refMQMD) then
+			set OutputRoot.MQMD = InputRoot.MQMD;
+		end if;
+--		if exists(InputRoot.XMLNSC.*[]) then
+--			set OutputRoot.XMLNSC = InputRoot.XMLNSC;
+--		elseif exists(InputRoot.MRM.*[]) then
+--			set OutputRoot.MRM = InputRoot.MRM;
+--		end if;
+		
+		--SET OutputRoot = InputRoot;
+--		DECLARE refOutXMLNSC REFERENCE TO OutputRoot.XMLNSC;
+--		DETACH refOutXMLNSC;
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'XMLNSC';			
+		
+		
+		DECLARE chrFile CHAR;
+		DECLARE chrFunction CHAR;
+		DECLARE chrType CHAR;
+		DECLARE chrName CHAR;
+		DECLARE chrLabel CHAR;
+		DECLARE chrText CHAR;
+		DECLARE chrCatalog CHAR;
+		DECLARE intSeverity INTEGER;
+		DECLARE intNumber INTEGER;
+		DECLARE intLine INTEGER;
+		
+		SET chrLabel = ''; 
+		CALL RetrieveMostInnerChild(InputExceptionList,chrFile,intLine,chrFunction,chrType,chrName,chrLabel,chrText,chrCatalog,intSeverity,intNumber);
+		
+		IF EXISTS(Environment.RequestState.esbenv:Envelope.esbhdr:Header[]) THEN
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header 						= Environment.RequestState.esbenv:Envelope.esbhdr:Header;
+			
+		ELSEIF EXISTS(Environment.esbhdr.Header[]) THEN
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header 						= Environment.esbhdr:Header;	
+			
+		ELSEIF EXISTS(InputRoot.SOAP.Header.esbhdr:Header[]) THEN
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header 						= InputRoot.SOAP.Header.esbhdr:Header;				
+			
+		ELSE	
+				SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:operationName = MessageFlowLabel;
+				IF EXISTS(OutputRoot.MQMD[]) THEN 
+ 					SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:messageId = CAST(InputRoot.MQMD.MsgId AS CHAR);
+ 					 
+ 					
+				ELSEIF EXISTS(InputRoot.HTTPInputHeader[]) THEN 
+ 					SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:messageId = CAST(InputRoot.HTTPInputHeader."X-Message-Transaction-Correlation-Id" AS CHAR); 
+ 					 					
+				ELSE
+					SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:messageId = CAST('000000000000000000000000000000000000000000000000' AS CHAR);
+					
+				END IF;
+				SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:timestamp    = DateFunc.GetCurrentTimeStampXML();
+				SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:sourceSystem = 'ESB';
+				SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:userId 		= 'WMB';
+			
+		END IF;
+			
+		SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:code 					= intNumber;
+		SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:message 				= chrText; 
+		SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:severity 				= Severity;
+		SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:system 				= System;		
+				
+	END;
+END MODULE;
+
+CREATE PROCEDURE RetrieveMostInnerChild (IN refRoot REFERENCE,INOUT chrFile CHAR,INOUT intLine INTEGER,INOUT chrFunction CHAR, INOUT chrType CHAR, INOUT chrName CHAR, 
+	INOUT chrLabel CHAR, INOUT chrText CHAR, INOUT chrCatalog CHAR, INOUT intSeverity INTEGER, INOUT intNumber INTEGER)
+	BEGIN
+		DECLARE Cursor REFERENCE TO refRoot;
+		DECLARE LastException REFERENCE TO refRoot;
+		declare field character '';
+		
+		WHILE LASTMOVE(Cursor) DO			
+			set field = fieldname(Cursor);
+		
+			IF FIELDNAME(Cursor) IN (
+				'RecoverableException',
+				'DatabaseException',
+				'ParserException',
+				'ConversionException',
+				'UserException',
+				'MessageException',
+				'FatalException',
+				'ConfigurationException',
+				'SecurityException',
+				'CastException',
+				'SqlException',
+				'SocketException',
+				'SocketTimeoutException',
+				'UnknownException') THEN
+				MOVE LastException TO Cursor;
+			END IF;
+			MOVE Cursor LASTCHILD;			
+		END WHILE;		
+	
+		IF FIELDNAME(LastException) IN (
+			'RecoverableException',
+			'DatabaseException',
+			'ParserException',
+			'ConversionException',
+			'UserException',
+			'MessageException',
+			'FatalException',
+			'ConfigurationException',
+			'SecurityException',
+			'CastException',
+			'SqlException',
+			'SocketException',
+			'SocketTimeoutException',
+			'UnknownException') THEN
+			SET chrFile = LastException.File;
+			SET intLine = LastException.Line;
+			SET chrFunction = LastException.Function;
+			SET chrType = LastException.Type;
+			SET chrName = LastException.Name;
+			SET chrLabel = LastException.Label;
+			SET chrText = LastException.Text;
+			SET chrCatalog = LastException.Catalog;
+			SET intSeverity = LastException.Severity;
+			SET intNumber = LastException.Number;
+			
+			MOVE Cursor TO LastException.Insert;
+			
+			WHILE LASTMOVE(Cursor) DO
+				SET chrText = chrText || ';' || Cursor.Text;
+				MOVE Cursor NEXTSIBLING;
+				WHILE LASTMOVE(Cursor) AND (FIELDNAME(Cursor) <> 'Insert') DO
+					MOVE Cursor NEXTSIBLING;
+				END WHILE;
+			END WHILE;
+		ELSE
+			SET chrFile = '???';
+			SET intLine = -1;
+			SET chrFunction = '???';
+			SET chrType = '???';
+			SET chrName = '???';
+			SET chrLabel = '???';
+			SET chrText = 'Error while handling errors - Type of Exception is not in expected format';
+			SET chrCatalog = '???';
+			SET intSeverity = 3;
+			SET intNumber = -1;			
+		END IF;	
+	END;

@@ -1,0 +1,18 @@
+CREATE COMPUTE MODULE ClaimEnquiryDetails_Request_v1_BuildProcessingError
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		set OutputRoot.Properties = InputRoot.Properties;
+		declare refIn reference to InputRoot.XMLNSC.Errors;
+		
+		create lastchild of OutputRoot.XMLNSC namespace esberr name 'Error';
+		set OutputRoot.XMLNSC.esberr:"Error".esberr:code 				= refIn.code;
+		set OutputRoot.XMLNSC.esberr:"Error".esberr:message 			= refIn.description;
+		set OutputRoot.XMLNSC.esberr:"Error".esberr:system 				= 'CLAIMS';	
+		set OutputRoot.XMLNSC.esberr:"Error".esberr:severity 			= 'ERROR';	
+		set Environment.Header.maxReturnLevel							= 'ERROR';			
+	
+		return true;
+		
+	END;
+END MODULE;

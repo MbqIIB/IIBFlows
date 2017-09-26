@@ -1,0 +1,23 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		
+		DECLARE refInBody REFERENCE TO InputRoot.XMLNSC."CustomerGet";
+		
+		-- Copy input message
+		CREATE FIELD OutputLocalEnvironment.OriginalMessage;
+		DECLARE refIn REFERENCE TO OutputLocalEnvironment.OriginalMessage;
+		SET refIn.[] = refInBody.[];
+		
+		-- Start building the MQ Customer Service 
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'JSON' NAME 'JSON';
+		CREATE LASTCHILD OF OutputRoot.JSON NAME 'Customer_Request'; 	  		
+		DECLARE refReq REFERENCE TO OutputRoot.JSON."Customer_Request";
+
+		SET refReq.CustomerId = refInBody.customerId;
+			
+		RETURN TRUE;
+		
+	END;

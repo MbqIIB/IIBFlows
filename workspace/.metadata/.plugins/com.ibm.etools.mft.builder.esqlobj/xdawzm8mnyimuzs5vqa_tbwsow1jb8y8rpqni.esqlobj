@@ -1,0 +1,10 @@
+CREATE FILTER MODULE GetCustomer_v1_Reply_Any_Errors
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		DECLARE inRef REFERENCE TO InputRoot.JSON.Data.Customer;
+		
+		RETURN TRUE;
+	END;
+
+END MODULE;

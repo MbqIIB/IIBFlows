@@ -1,0 +1,25 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+		-- Declare Exception List
+		DECLARE start 			REFERENCE TO InputExceptionList.*[1];
+
+		--  Setup MQMD	
+		SET OutputRoot.MQMD.Version        = MQMD_CURRENT_VERSION; 
+		SET OutputRoot.MQMD.MsgType        = MQMT_REPLY;  
+		SET OutputRoot.MQMD.Format         = MQFMT_STRING;
+		SET OutputRoot.MQMD.CorrelId	   = InputRoot.MQMD.MsgId;
+		SET OutputRoot.MQMD.Expiry         = -1; -- Unlimited
+		SET OutputRoot.MQMD.Encoding	   = MQENC_NATIVE;
+		SET OutputRoot.MQMD.CodedCharSetId = 1208;	
+
+		-- Set ReplyToQueue and ReplyToQueueManager saved from input
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueName			= InputRoot.MQMD.ReplyToQ; 
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueManagerName 	= InputRoot.MQMD.ReplyToQMgr; 		
+		
+		--  Map Error code in ResponseHeader 
+		SET OutputRoot.XMLNSC.ESBEnvelope.Header.header										   	= InputRoot.XMLNSC.ESBEnvelope.Header.header;
+		SET OutputRoot.XMLNSC.ESBEnvelope.Header.header.maxReturnLevel 			   				= 'ERROR';
+
+		RETURN TRUE;
+	END;
+	

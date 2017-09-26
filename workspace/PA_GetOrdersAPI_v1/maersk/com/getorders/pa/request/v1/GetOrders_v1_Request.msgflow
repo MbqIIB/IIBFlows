@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQHeader.msgnode="ComIbmMQHeader.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmPassthru.msgnode="ComIbmPassthru.msgnode" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:maersk_iib_common_envelope_v1_sfExtractEnvelope.subflow="maersk/iib/common/envelope/v1/sfExtractEnvelope.subflow"
+    xmlns:maersk_iib_common_state_v1_sfSaveStateMessage_v1.subflow="maersk/iib/common/state/v1/sfSaveStateMessage_v1.subflow" xmlns:maersk_iib_errorhandler_v1_sfErrorHandler_v1.subflow="maersk/iib/errorhandler/v1/sfErrorHandler_v1.subflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="maersk/com/getorders/pa/request/v1/GetOrders_v1_Request.msgflow" nsPrefix="maersk_com_getorders_pa_request_v1_GetOrders_v1_Request.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="GetOrders_v1_Request" bundleName="maersk/com/getorders/pa/request/v1/GetOrders_v1_Request" pluginId="PA_GetOrdersAPI_v1"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/PA_GetOrdersAPI_v1/icons/full/obj16/GetOrders_v1_Request.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/PA_GetOrdersAPI_v1/icons/full/obj30/GetOrders_v1_Request.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="69,222" queueName="EAI.GET_ORDERS_PA.REQ">
+        <translation xmi:type="utility:ConstantString" string="EAI.GET_ORDER_PA.REQ"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_common_state_v1_sfSaveStateMessage_v1.subflow:FCMComposite_1" xmi:id="FCMComposite_1_2" location="247,152" transactionMode="no" queueName="STATE.PA.QUEUE">
+        <translation xmi:type="utility:ConstantString" string="sfSaveStateMessage_v1"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_errorhandler_v1_sfErrorHandler_v1.subflow:FCMComposite_1" xmi:id="FCMComposite_1_3" location="215,350" Format="CUSTOM" ResponseName="ordersResponse">
+        <translation xmi:type="utility:ConstantString" string="sfErrorHandler_v1"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="450,352" queueName="EA.GET_ORDERS_ERROR.IN" newMsgId="true" validateMaster="none">
+        <translation xmi:type="utility:ConstantString" string="EA.GET_ORDERS_ERROR.IN"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_common_envelope_v1_sfExtractEnvelope.subflow:FCMComposite_1" xmi:id="FCMComposite_1_5" location="450,152">
+        <translation xmi:type="utility:ConstantString" string="sfExtractEnvelope"/>
+      </nodes>
+      <nodes xmi:type="ComIbmPassthru.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="638,156" label="Payload">
+        <translation xmi:type="utility:ConstantString" string="Payload"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="768,156" computeExpression="esql://routine/maersk.com.getorders.pa.request.v1#GetOrders_v1_Request_BuildRequest.Main">
+        <translation xmi:type="utility:ConstantString" string="BuildRequest"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQHeader.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="862,91" mqmdAAAOptions="Add header" mqmdCodedCharSetId="MQCCSI_Q_MGR" mqmdFormat="MQFMT_NONE" mqmdVersion="MQMD_VERSION_1" mqmdMsgType="MQMT_REQUEST" mqmdExpiry="MQEI_UNLIMITED" mqmdFeedback="MQFB_NONE" mqmdPriority="MQPRI_PRIORITY_AS_Q_DEF" mqmdPersistence="MQPER_PERSISTENCE_AS_Q_DEF" mqmdMsgId="$Environment/StateMQMD/CorrelId" mqmdCorrelId="MQCI_NONE" mqmdReplyToQ="EAI.GET_ORDERS_PA.REPLY">
+        <translation xmi:type="utility:ConstantString" string="Add MQ Header"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="997,157" queueName="GETORDERS_SERVICE">
+        <translation xmi:type="utility:ConstantString" string="GETORDERS_SERVICE"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.Output1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard/>
+  </eClassifiers>
+</ecore:EPackage>

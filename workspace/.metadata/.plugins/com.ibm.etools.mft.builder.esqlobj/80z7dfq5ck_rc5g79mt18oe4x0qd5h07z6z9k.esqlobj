@@ -1,0 +1,21 @@
+CREATE COMPUTE MODULE GetCustomer_v1_Reply_BuildResponse
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD.*[] = Environment.RequestState.MQMD.*[];
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2.*[] = Environment.RequestState.MQRFH2.*[];
+			END IF;
+		END IF;
+		
+		CREATE LASTCHILD OF OutputRoot.JSON.Data NAME 'Error';
+		SET OutputRoot.JSON.Data."Error".code = 'Carta Error';
+
+		RETURN TRUE;
+
+	END;
+END MODULE;

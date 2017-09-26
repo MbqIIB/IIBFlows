@@ -1,0 +1,15 @@
+CREATE PROCEDURE Build_MQMD_Header (INOUT refOutMRM REFERENCE, IN Correlid BLOB, IN ReplyQ CHAR, IN ReplyQM CHAR) BEGIN
+	
+	SET refOutMRM.Version             			= MQMD_CURRENT_VERSION; 
+	SET refOutMRM.MsgType             			= MQMT_REQUEST;  
+	SET refOutMRM.Format              			= MQFMT_STRING;
+	SET refOutMRM.CorrelId						= Correlid;			
+	--SET refOutMRM.Expiry              			= -1; 
+	-- SD2500355 
+	SET refOutMRM.Expiry              			= 600; -- 1 minute
+	SET refOutMRM.Encoding						= MQENC_NATIVE;
+	SET refOutMRM.CodedCharSetId				= 1208;
+	SET refOutMRM.ReplyToQ						= ReplyQ;	
+   	SET refOutMRM.ReplyToQMgr					= ReplyQM;		
+	
+END;

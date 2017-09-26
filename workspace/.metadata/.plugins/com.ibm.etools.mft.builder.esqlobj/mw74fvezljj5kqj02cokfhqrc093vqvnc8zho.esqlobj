@@ -1,0 +1,34 @@
+CREATE PROCEDURE RemoveEmptyXMLTags(INOUT elementRef REFERENCE, IN ExemptionList REFERENCE)
+BEGIN
+	-- Author: Gil Alava
+	-- This procedure removes empty XML tags from the tree reference passed to it
+	--
+	-- ExemptionList expected structure
+	-- 
+	-- ExemptionList
+	--    ExemptField (Occurs multiple times)
+	-- 
+	-- The ExemptionList contains those fields which will not be deleted even if they are empty
+	--
+	DECLARE tempRef REFERENCE TO elementRef;
+	DECLARE tempRef2 REFERENCE TO elementRef;
+	DECLARE intCtr INTEGER 1;
+	WHILE LASTMOVE(elementRef) DO
+		CASE
+		WHEN EXISTS(elementRef.*[]) THEN
+			MOVE tempRef2 TO elementRef;
+			CALL RemoveEmptyXMLTags(tempRef2.*[1], ExemptionList);
+			MOVE elementRef NEXTSIBLING;
+			SET intCtr = intCtr + 1;
+		WHEN FIELDVALUE(elementRef) IS NULL AND NOT EXISTS(SELECT e FROM ExemptionList.ExemptField[] AS e WHERE
+				FIELDNAME(elementRef) = e) THEN
+			MOVE tempRef TO elementRef;
+			MOVE tempRef PARENT;
+			DELETE FIELD elementRef;
+			MOVE elementRef TO tempRef.*[intCtr];
+		ELSE
+			MOVE elementRef NEXTSIBLING;
+			SET intCtr = intCtr + 1;
+		END CASE;
+	END WHILE;
+END;

@@ -1,0 +1,23 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/ BEGIN
+		
+		DECLARE inRefHdr		REFERENCE TO InputRoot.XMLNSC.party:"AmendPersonDetailsResponseV1_0".ResponseHeader;
+		DECLARE ROLEPLAYER		REFERENCE TO InputRoot.XMLNSC.party:"AmendPersonDetailsResponseV1_0".Payload.AmendPersonInfo.partyRoles.rolePlayer;
+		DECLARE MAILING_ADDRESS	REFERENCE TO ROLEPLAYER;
+		
+		IF inRefHdr.maxReturnLevel = 'OK' OR inRefHdr.maxReturnLevel = 'WARN' THEN
+			
+			MOVE MAILING_ADDRESS TO ROLEPLAYER.mailingAddressAndPolicyAssociation;
+			WHILE LASTMOVE(MAILING_ADDRESS) DO
+  				IF MAILING_ADDRESS.address.objectReference.objectId = Environment.newAddressDPID THEN
+  					SET Environment.newAddressRef = SUBSTRING(MAILING_ADDRESS.address.alternateReference.OtherReference.objectId FROM 11 FOR 9);
+  				END IF;		
+ 				MOVE MAILING_ADDRESS NEXTSIBLING REPEAT NAME;			
+			END WHILE; 
+		ELSE
+			SET Environment.AmendPersonDetailsErrmsg = inRefHdr.errorList.errorInfo.message||'('||inRefHdr.errorList.errorInfo.code||')';
+			
+			PROPAGATE TO TERMINAL 'out1';
+		END IF;	
+				 
+		RETURN TRUE;
+	END;

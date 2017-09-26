@@ -1,0 +1,17 @@
+CREATE COMPUTE MODULE SetupThruReply_v2
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		set OutputRoot = InputRoot;
+		-- Create MQMD 	
+		set OutputRoot.MQMD.Version             			= MQMD_CURRENT_VERSION; 
+		set OutputRoot.MQMD.MsgType             			= MQMT_REPLY;  
+		set OutputRoot.MQMD.Format              			= MQFMT_STRING;
+
+		set OutputRoot.MQMD.CorrelId						= InputRoot.MQMD.MsgId;
+		
+
+		RETURN TRUE;
+	END;
+		
+END MODULE;

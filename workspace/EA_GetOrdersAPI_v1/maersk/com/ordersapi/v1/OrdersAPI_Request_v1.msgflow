@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmThrow.msgnode="ComIbmThrow.msgnode" xmlns:ComIbmWSInput.msgnode="ComIbmWSInput.msgnode" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:maersk_iib_common_json_custom_v1_sfAddCommonEnvelope.subflow="maersk/iib/common/json/custom/v1/sfAddCommonEnvelope.subflow" xmlns:maersk_iib_errorhandler_v1_sfErrorHandler_v1.subflow="maersk/iib/errorhandler/v1/sfErrorHandler_v1.subflow"
+    xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="maersk/com/ordersapi/v1/OrdersAPI_Request_v1.msgflow" nsPrefix="maersk_com_ordersapi_v1_OrdersAPI_Request_v1.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="OrdersAPI_Request_v1" bundleName="maersk/com/ordersapi/v1/OrdersAPI_Request_v1" pluginId="EA_GetOrdersAPI_v1"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/EA_GetOrdersAPI_v1/icons/full/obj16/OrdersAPI_Request_v1.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/EA_GetOrdersAPI_v1/icons/full/obj30/OrdersAPI_Request_v1.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmWSInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="161,134" URLSpecifier="/order/v1/getOrder" messageDomainProperty="JSON" timeoutForClient="5" faultFormat="HTML">
+        <translation xmi:type="utility:ConstantString" string="HTTP Input"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="675,133" queueName="BS.GET_ORDERS.INIT" request="true" replyToQ="EA.GET_ORDERS.TERM">
+        <translation xmi:type="utility:ConstantString" string="BS.GET_ORDERS.INIT"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_errorhandler_v1_sfErrorHandler_v1.subflow:FCMComposite_1" xmi:id="FCMComposite_1_4" location="274,370" Format="CUSTOM" ResponseName="ordersResponse">
+        <translation xmi:type="utility:ConstantString" string="sfErrorHandler_v1"/>
+      </nodes>
+      <nodes xmi:type="ComIbmThrow.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="346,243">
+        <translation xmi:type="utility:ConstantString" string="3001"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="599,371" queueName="EA.GET_ORDERS_ERROR.IN">
+        <translation xmi:type="utility:ConstantString" string="EA.GET_ORDERS_ERROR.IN"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_common_json_custom_v1_sfAddCommonEnvelope.subflow:FCMComposite_1" xmi:id="FCMComposite_1_7" location="399,134">
+        <translation xmi:type="utility:ConstantString" string="sfAddCommonEnvelope"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.timeout" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard/>
+  </eClassifiers>
+</ecore:EPackage>

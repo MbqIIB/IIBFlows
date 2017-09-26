@@ -1,0 +1,31 @@
+CREATE FUNCTION S_GetRefDataCodeVal(chrRefDataId CHAR, chrRefDataLongTx CHAR) RETURNS CHAR
+-----------------------------------------------------------------------------------------------------------------	
+BEGIN
+	CASE chrRefDataLongTx
+	WHEN NULL THEN
+		RETURN NULL;
+	WHEN '' THEN
+		RETURN '';
+	END CASE;
+	
+	DECLARE chrRefDataCodeVal CHAR;
+	SET chrRefDataCodeVal
+	= THE (SELECT ITEM A.REF_DATA_CODE_VAL  FROM Database.MQMBUSER.REF_DATA AS A
+	WHERE A.REF_DATA_ID = chrRefDataId
+	AND UPPER(A.REF_DATA_LONG_TX) = UPPER(chrRefDataLongTx));
+	
+	IF SQLCODE <> 0 THEN
+		SET chrRefDataCodeVal =
+		' Error accessing Error Message Table - ' ||
+		' SQL STATE ' || SQLSTATE ||
+		' SQL ERROR TEXT ' || SQLERRORTEXT ||
+		' SQL CODE ' || CAST (SQLCODE AS CHARACTER) ||
+		' SQL NATIVE ERROR ' || CAST(SQLNATIVEERROR AS CHARACTER);
+		THROW USER EXCEPTION VALUES('Fail to get RefDataCodeValue from database: '||chrRefDataCodeVal);
+	END IF;
+	IF chrRefDataCodeVal IS NULL THEN
+		SET chrRefDataCodeVal = 'CODE_VAL NOT FOUND FOR LONGTX ' || chrRefDataLongTx;
+	END IF;
+	   				    
+	RETURN chrRefDataCodeVal;
+END;

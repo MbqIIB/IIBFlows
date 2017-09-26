@@ -1,0 +1,9 @@
+CREATE COMPUTE MODULE saveStateMessage_Compute_TransformMQMD
+	
+	DECLARE setExpiry EXTERNAL INTEGER 180;
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		SET OutputRoot = InputRoot;
+       	SET OutputRoot.MQMD.Expiry = setExpiry;
+	END;		
+END MODULE;

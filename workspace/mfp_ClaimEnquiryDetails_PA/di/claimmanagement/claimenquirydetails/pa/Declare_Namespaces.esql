@@ -1,0 +1,53 @@
+BROKER SCHEMA di.claimmanagement.claimenquirydetails.pa
+
+
+-- Declare Namespace Prefixes
+declare soapenv  namespace 'http://www.w3.org/2003/05/soap-envelope';
+declare soapenv1  namespace 'http://schemas.xmlsoap.org/soap/envelope/';
+
+declare soap1    namespace 'http://guidewire.com/ws/soapheaders';
+declare icl  	 namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/IClaimDetailsAPI';
+--declare defns 	 namespace 'http://iag.com.au/di/ClaimManagement/EnquieryDetails/v1/';
+declare defns 	 namespace 'http://iag.com.au/di/ClaimManagement/ClaimEnquiryDetails/v1/';
+declare pogo 	 namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/ClaimDetailResponse';
+declare cc 		 namespace 'http://guidewire.com/di/cc/webservices/common/CCServiceResponse';
+declare dci      namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/DetailedClaimInfo';
+declare dpi      namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/DetailedPolicyInfo';
+declare dpm      namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/DetailedPolicyMessage';
+declare dcci     namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/DetailedClaimContactInfo';
+declare dcp      namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/DetailedContactPerson';
+declare dai      namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/DetailedAddressInfo';
+declare dvi      namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/DetailedVehicleIncident';
+declare dvifo    namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/DetailedVehicleInfo';
+declare dcompi   namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/DetailedCompanyContactInfo';
+declare dcni     namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/ClaimNoteInfo';
+declare dpei     namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/DetailedPolicyExcessInfo';
+
+declare daab     namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/DetailedAllocationAndBooking';
+declare db       namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/DetailedBookings';
+
+declare esbenv 	 namespace 'http://iag.com.au/di/esb/envelope/v1/';
+declare esberr 	 namespace 'http://iag.com.au/di/esb/error/v1/';
+declare esbhdr 	 namespace 'http://iag.com.au/di/esb/header/v1/';
+ 
+
+declare SCI 	 namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimSummary/SummaryClaimInformation';
+declare POL 	 namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimSummary/SummaryPolicyInfo';
+declare ns1 	 namespace 'http://guidewire.com/di/cc/webservices/claimInquiry/claimSummary/SummaryAddressInfo';
+
+declare claim 		 namespace 'http://iag.com.au/di/Claim/v1/';
+declare ClaimDetails namespace 'http://iag.com.au/di/ClaimManagement/ClaimEnquiryDetails/v1/';
+declare event        namespace 'http://iag.com.au/di/Event/v1/';
+declare identifiers  namespace 'http://iag.com.au/di/Identifiers/v1/';
+declare location     namespace 'http://iag.com.au/di/Location/v1/'; 
+declare physicalobjects      namespace 'http://iag.com.au/di/PhysicalObject/v1/';
+declare party        namespace 'http://iag.com.au/di/Party/v1/';
+declare registration namespace 'http://iag.com.au/di/Registration/v1/';
+declare xsi          namespace 'http://www.w3.org/2001/XMLSchema-instance';
+declare schemaLocation namespace 'http://iag.com.au/di/ClaimManagement/ClaimEnquiryDetails/v1/ ClaimEnquiryDetails_v1.xsd ';
+
+declare aggreement   namespace 'http://iag.com.au/di/Agreement/v1/';
+declare communication   namespace 'http://iag.com.au/di/Communication/v1/';
+declare coverage     namespace 'http://iag.com.au/di/Coverage/v1/';
+declare moneyprov    namespace 'http://iag.com.au/di/MoneyProvision/v1/';
+declare activity     namespace 'http://iag.com.au/di/Activity/v1/';

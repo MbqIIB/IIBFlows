@@ -1,0 +1,51 @@
+CREATE COMPUTE MODULE NZ_AllocatePaymentToAgreement_Response
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+	    IF InputRoot.MRM.RRL_COMMON_BLOCK.RRL_RETURN_CODE <> '0' THEN
+	    	SET Environment.errNo = InputRoot.MRM.RRL_COMMON_BLOCK.RRL_RETURN_NUMBER;
+	    	PROPAGATE TO TERMINAL 'out1';
+		END IF;
+		
+		CALL BuildAllocatePaymentToAgreementResponseHdr();
+		CALL BuildAllocatePaymentToAgreementResponseBody();	
+-- Set destination list		
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueManagerName 	= Environment.REPLY_TO_QUEUE_MANAGER;
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueName 		= Environment.REPLY_TO_QUEUE;			
+			
+		RETURN TRUE;
+	END;
+/***********************************************************************************************************************************************************************/	
+CREATE PROCEDURE BuildAllocatePaymentToAgreementResponseHdr() BEGIN
+		DECLARE refIn  REFERENCE TO InputRoot.MRM.RP_HEADER; 
+-- Build MQMD					
+ 		CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN 'MQMD';
+ 		DECLARE refOut REFERENCE TO OutputRoot.MQMD;					
+ 		CALL Build_MQMD_Header (refOut, Environment.Msgid,Environment.REPLY_TO_QUEUE,Environment.REPLY_TO_QUEUE_MANAGER);			   
+-- Create HTTP Header   		 
+   		SET OutputRoot.HTTPReplyHeader					= Environment.HTTP;
+-- Create Allocate Payment To Agreement XML Response Header   		 
+   		CREATE LASTCHILD OF OutputRoot AS refOut DOMAIN 'XMLNSC' NAME 'XMLNSC';
+		CREATE LASTCHILD OF OutputRoot.XMLNSC AS refOut		NAMESPACE ser NAME 'AllocatePaymentToAgreementResponseSoapOut';	
+		CALL Build_XML_Response_Header (refOut, 'ALLOCATE_PAYMENT_TO_AGREEMENT', Environment.Header,refIn);					
+	END;
+
+/***********************************************************************************************************************************************************************/
+CREATE PROCEDURE BuildAllocatePaymentToAgreementResponseBody() BEGIN
+
+		DECLARE ResponseRef 	REFERENCE TO OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut";	
+
+-- Create xml parents 
+			CREATE LASTCHILD OF ResponseRef AS ResponseRef 						NAME 'Payload';
+			CREATE LASTCHILD OF ResponseRef AS ResponseRef 						NAME 'AllocatePaymentToAgreementResponse';
+			CREATE LASTCHILD OF ResponseRef AS ResponseRef 						NAMESPACE ns NAME 'remittance';
+			SET ResponseRef.(XMLNSC.Attribute)xmlns								=ns;
+			
+			MOVE ResponseRef TO OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".Payload.AllocatePaymentToAgreementResponse.remittance;
+			
+-- Set receipt number	
+			CREATE LASTCHILD OF ResponseRef AS ResponseRef						NAMESPACE ns NAME 'objectReference';
+ 			CREATE LASTCHILD OF ResponseRef AS ResponseRef 						NAMESPACE ns NAME 'objectId'		  	VALUE InputRoot.MRM.RRL_VARIABLE_BLOCK.RRL_RECEIPT_DTLS.RRL_RECEIPT_NUMBER;			
+	
+	END;    
+END MODULE;

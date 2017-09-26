@@ -1,0 +1,4 @@
+NZ_PolicyManagement#additionalInstances=5
+NZ_CalculatePremium#additionalInstances=5
+NZ_RecordInsurancePolicy#additionalInstances=5
+NZ_AllocatePaymentToAgreement#additionalInstances=5

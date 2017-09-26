@@ -1,0 +1,96 @@
+CREATE COMPUTE MODULE GetCustomer_v1_Reply_BuildResponse
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.(XMLNSC.NamespaceDecl)xmlns:esbenv = esbenv;
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.(XMLNSC.NamespaceDecl)xmlns:esbhdr = esbhdr;
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.(XMLNSC.NamespaceDecl)xmlns:esberr = esberr;
+		
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+			END IF;
+		END IF;
+
+		DECLARE inref REFERENCE TO InputRoot.JSON.Data.CustomerResponse.Item[>];
+		
+		CALL GetElement(inref, 'Address');
+		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'GetCustomerResponse';
+		DECLARE refMsg REFERENCE TO OutputRoot.XMLNSC."GetCustomerResponse";
+		
+		
+			
+		SET refMsg.CustomerId = inref.CustomerId;
+		SET refMsg.Name = inref.Name;
+	--	SET refMsg.Contact = inref.ContactName;
+	--	SET refMsg.Title = inref.ContactTitle;
+		
+		-- Address details ...
+		CREATE LASTCHILD OF refMsg NAME 'Address';
+		DECLARE refAddr REFERENCE TO refMsg.Address;
+		CREATE LASTCHILD OF refAddr NAME 'AddressLine' VALUE inref.Address.AddressLine1;
+		CREATE LASTCHILD OF refAddr NAME 'AddressLine' VALUE inref.Address.AddressLine2;
+		CREATE LASTCHILD OF refAddr NAME 'AddressLine' VALUE inref.Address.AddressLine3;
+		
+		SET refAddr.PostCode = inref.Address.PostalCode;
+		SET refAddr.City = inref.Address.City;
+		SET refAddr.Country = inref.Address.Country;
+		
+		-- Telephone number
+		CREATE LASTCHILD OF refMsg NAME 'TelephoneNumbers';
+		DECLARE refTel REFERENCE TO refMsg.TelephoneNumbers;
+
+		DECLARE refNo REFERENCE TO InputRoot;			
+		DECLARE refTelNo REFERENCE TO inref.TelephoneNumbers.Mobile;
+		IF LASTMOVE(refTelNo) THEN
+			CREATE LASTCHILD OF refTel NAME 'Number' VALUE inref.TelephoneNumbers.Mobile;
+			MOVE refNo TO refTel.Number[<];			
+			SET refNo.(XMLNSC.Attribute)type='Mobile';
+		END IF;
+
+		MOVE refTelNo TO inref.TelephoneNumbers.Work;
+		IF LASTMOVE(refTelNo) THEN		
+			CREATE LASTCHILD OF refTel NAME 'Number' VALUE inref.TelephoneNumbers.Work;
+			MOVE refNo TO refTel.Number[<];			
+			SET refNo.(XMLNSC.Attribute)type='Work';
+		END IF;
+
+		MOVE refTelNo TO inref.TelephoneNumbers.Fax;
+		IF LASTMOVE(refTelNo) THEN					
+			CREATE LASTCHILD OF refTel NAME 'Number' VALUE inref.TelephoneNumbers.Fax;
+			MOVE refNo TO refTel.Number[<];			
+			SET refNo.(XMLNSC.Attribute)type='Fax';
+		END IF;		
+
+
+		-- email address
+		CREATE LASTCHILD OF refMsg NAME 'emailAddress';
+		DECLARE refeMail REFERENCE TO refMsg.emailAddress;
+
+		DECLARE ineMail REFERENCE TO inref.emailAddress.email[>];
+		E : WHILE LASTMOVE(ineMail)
+		DO
+			CREATE LASTCHILD OF refeMail NAME 'email' VALUE FIELDVALUE(ineMail);
+			MOVE ineMail NEXTSIBLING REPEAT NAME;	
+				
+		END WHILE;
+		
+		RETURN TRUE;
+
+		END;
+		
+	CREATE PROCEDURE GETELEMENT(IN ref REFERENCE, IN V CHARACTER)
+	BEGIN
+		
+		DELETE FIELD Environment.Variables.ADDRESS;
+		
+
+		
+	END;
+	
+END MODULE;

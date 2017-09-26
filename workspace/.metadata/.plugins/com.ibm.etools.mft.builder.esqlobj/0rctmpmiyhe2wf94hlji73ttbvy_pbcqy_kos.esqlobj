@@ -1,0 +1,16 @@
+CREATE FUNCTION S_GetRefDataLongTx(chrRefDataId CHAR, chrCodeVal CHAR, chrField CHAR) RETURNS CHAR
+-----------------------------------------------------------------------------------------------------------------	
+BEGIN		
+	
+	DECLARE chrRefDataLongTx CHAR;
+	SET chrRefDataLongTx
+	= THE (SELECT ITEM A.REF_DATA_LONG_TX FROM Database.MQMBUSER.REF_DATA AS A
+	WHERE A.REF_DATA_ID = chrRefDataId
+	AND A.REF_DATA_CODE_VAL = chrCodeVal);
+	
+	IF chrRefDataLongTx IS NULL OR chrRefDataLongTx = '' THEN
+		SET chrRefDataLongTx = 'UNKNOWN LongTx FOR CodeVal: ' || chrCodeVal || ' Field: ' || chrField;
+	END IF;
+		   				    
+	RETURN chrRefDataLongTx;
+END;

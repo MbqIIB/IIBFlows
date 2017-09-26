@@ -1,0 +1,296 @@
+BROKER SCHEMA di.huon.customer.pa
+
+
+CREATE COMPUTE MODULE SetupReply
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		DECLARE refInputHdr  		REFERENCE TO InputRoot.MRM.RP_HEADER;
+		DECLARE refInputBody 		REFERENCE TO InputRoot.MRM.RP_BODY;
+		DECLARE buildingTypeFlag    CHARACTER ' ';
+		DECLARE chrDate,chrField    CHARACTER ' ';
+		DECLARE chrTime1			CHARACTER ' ';
+		DECLARE chrTime2			CHARACTER ' ';
+		DECLARE intI, intJ		    INTEGER 0;
+
+
+		-- Create MQMD	
+		SET OutputRoot.MQMD.Version             			= MQMD_CURRENT_VERSION; 
+		SET OutputRoot.MQMD.MsgType             			= MQMT_REPLY;  
+		SET OutputRoot.MQMD.Format              			= MQFMT_STRING;
+		SET OutputRoot.MQMD.CorrelId						= Environment.RequestState.MQMD.MsgId; 
+		SET OutputRoot.MQMD.Expiry              			= -1; -- Unlimited
+		SET OutputRoot.MQMD.Encoding						= MQENC_NATIVE;
+		SET OutputRoot.MQMD.CodedCharSetId					= 1208;	
+		SET OutputRoot.MQMD.ReplyToQ		    			= Environment.RequestState.MQMD.ReplyToQ;  
+		SET OutputRoot.MQMD.ReplyToQMgr         			= Environment.RequestState.MQMD.ReplyToQMgr;
+
+		--  Build ESBEnvelope Header
+		SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header		= Environment.RequestState.XMLNSC.esbenv:Envelope.esbhdr:Header;
+					
+		--  Check Response
+    	IF refInputHdr.RP_RC IN (08, 16, 99) THEN
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:code					= refInputHdr.RP_ERRNO;
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:message				= refInputHdr.RP_ERR_MSG;
+			CASE refInputHdr.RP_RC
+			WHEN 8 THEN
+				SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:maxReturnLevel	= 'ERROR';
+				SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:severity			= 'ERROR';				
+			ELSE
+				SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:maxReturnLevel	= 'ERROR';
+				SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:severity			= 'ERROR';
+			END CASE;
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:system	= 'HUON';
+		ELSE																
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:maxReturnLevel 	= 'OK';	
+		END IF; 
+
+		--  Build Response Payload
+		IF refInputHdr.RP_RC IN (00, 04) THEN
+			
+			CREATE LASTCHILD OF OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body NAMESPACE cust NAME 'retrieveCustomerDetailsResp';
+		
+			DECLARE ResponseRef 		REFERENCE TO OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.cust:retrieveCustomerDetailsResp;
+			
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:xsi 			= 	xsi;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:agreement 		= 	agreement;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:event 			= 	event;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:party 			= 	party;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:physicalobjects	= 	physicalobjects;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:location		= 	location;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:moneyprov		= 	moneyprov;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:registration	= 	registration;
+
+
+			IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_TYPEOFCLT_INFO = 'K' THEN
+--			Organisation Client
+				SET ResponseRef.customerDetails.(XMLNSC.Attribute)xsi:type		= 'party:Organisation';
+				SET ResponseRef.customerDetails.hasName.fullName 				= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_LAST_INFO;
+				SET ResponseRef.customerDetails.hasName.nameType 				= 'Legal Name';
+			
+				IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ACNNO_INFO <> ' ' THEN
+
+					MOVE ResponseRef TO OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.cust:retrieveCustomerDetailsResp.customerDetails;
+
+					CREATE LASTCHILD OF ResponseRef		AS ResponseRef				NAME 'partyRegistration';
+					SET ResponseRef.(XMLNSC.Attribute)xsi:type							='registration:CompanyRegistration';
+
+					SET ResponseRef.isIdentifiedBy.registrationId 		= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ACNNO_INFO;
+					SET ResponseRef.registrationType 					= 'ACN';
+
+				END IF;
+				
+				IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ABNNO_INFO <> ' ' THEN
+
+					MOVE ResponseRef TO OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.cust:retrieveCustomerDetailsResp.customerDetails;
+
+					CREATE LASTCHILD OF ResponseRef		AS ResponseRef				NAME 'partyRegistration';
+					SET ResponseRef.(XMLNSC.Attribute)xsi:type							='registration:CompanyRegistration';
+
+					SET ResponseRef.isIdentifiedBy.registrationId 		= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ABNNO_INFO;
+					SET ResponseRef.registrationType 					= 'ABN';
+
+				END IF;
+				
+			ELSE
+--			Individual Client
+				SET ResponseRef.customerDetails.(XMLNSC.Attribute)xsi:type		= 'party:Person';			
+			END IF;
+
+
+			DECLARE ResponseRef1 		REFERENCE TO OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.cust:retrieveCustomerDetailsResp.customerDetails;
+			DECLARE ResponseRef2 		REFERENCE TO OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.cust:retrieveCustomerDetailsResp.customerDetails;
+
+
+			MOVE ResponseRef TO ResponseRef2;
+						
+			IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_EMAIL_INFO <> ' ' THEN	
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:EmailAddress';
+					SET ResponseRef.emailAddress 			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_EMAIL_INFO);							 
+			END IF;	
+			
+			MOVE ResponseRef TO ResponseRef2;
+						
+			IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONEEXT_WP_INFO <> ' ' THEN	
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:TelephoneNumber';
+					SET ResponseRef.usage 					= 'business';
+					IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_AREACODE_WP_INFO <> ' ' THEN
+						SET ResponseRef.localNumber			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_AREACODE_WP_INFO)||TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONENO_WP_INFO);
+						SET ResponseRef.extension			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONEEXT_WP_INFO);
+					ELSE
+						SET ResponseRef.localNumber			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONENO_WP_INFO);
+						SET ResponseRef.extension			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONEEXT_WP_INFO);
+					END IF;
+			END IF;	
+			
+			MOVE ResponseRef TO ResponseRef2;			
+					
+			IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONENO_HP_INFO <> ' ' THEN	
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:TelephoneNumber';
+					SET ResponseRef.usage 					= 'home';
+					IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_AREACODE_HP_INFO <> ' ' THEN
+						SET ResponseRef.localNumber			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_AREACODE_HP_INFO)||TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONENO_HP_INFO);
+						SET ResponseRef.extension			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONEEXT_HP_INFO);
+					ELSE
+						SET ResponseRef.localNumber			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONENO_HP_INFO);
+						SET ResponseRef.extension			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONEEXT_HP_INFO);
+					END IF;
+			END IF;	
+						
+			MOVE ResponseRef TO ResponseRef2;
+					
+			IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONENO_MP_INFO <> ' ' THEN	
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:TelephoneNumber';
+					SET ResponseRef.usage					= 'mobile';
+					IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_AREACODE_MP_INFO <> ' ' THEN
+						SET ResponseRef.localNumber			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_AREACODE_MP_INFO)||TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONENO_MP_INFO);
+						SET ResponseRef.extension			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONEEXT_MP_INFO);
+					ELSE
+						SET ResponseRef.localNumber			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONENO_MP_INFO);
+						SET ResponseRef.extension			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONEEXT_MP_INFO);
+					END IF;
+			END IF;	
+						
+			MOVE ResponseRef TO ResponseRef2;
+					
+			IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONENO_FX_INFO <> ' ' THEN	
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:TelephoneNumber';
+					SET ResponseRef.usage					= 'fax';
+					IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_AREACODE_FX_INFO <> ' ' THEN
+						SET ResponseRef.localNumber			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_AREACODE_FX_INFO)||TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONENO_FX_INFO);
+						SET ResponseRef.extension			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONEEXT_FX_INFO);
+					ELSE
+						SET ResponseRef.localNumber			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONENO_FX_INFO);
+						SET ResponseRef.extension			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_PHONEEXT_FX_INFO);
+					END IF;
+			END IF;	
+						
+			MOVE ResponseRef TO ResponseRef2;
+					
+			IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND1_INFO = 'P' THEN
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:POBoxAddress';
+			ELSE
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:StructuredPostalAddress';
+			END IF;		
+
+				SET ResponseRef.isIdentifiedBy.componentId 	= 'HUON';
+				SET ResponseRef.isIdentifiedBy.locationId	= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRREF_INFO;
+					
+				SET ResponseRef.suburb 			= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_CITY_INFO;
+				SET ResponseRef.state 			= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_STATE_3CHAR_INFO;
+				SET ResponseRef.postCode 		= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_POSTCODE_INFO;
+				SET ResponseRef.country 		= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_COUNTRY_INFO;
+				SET ResponseRef.addresseeLine 	= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_LOCATION1_ATTN_INFO);
+
+
+				IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND1_INFO = 'P' THEN
+					SET ResponseRef.boxType		= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND1_DESC_INFO);  
+					SET ResponseRef.boxNumber	= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRNO1_INFO);  
+				END IF;
+
+					
+				IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND1_INFO <> 'P' OR
+				refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND1_INFO IS NULL THEN
+
+					IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND1_INFO <> ' ' THEN
+						IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND2_INFO <> ' ' THEN
+						-- Both ADDRIND1 and ADDRIND2 were returned from HUON		
+							-- ADDRIND2 is a Unit or Apartment - so we set the unitNumber to ADDRNO2 and string ADDRIND1,ADDRNO1 into the buildingType
+							IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND2_INFO IN ('A','U') THEN
+								SET ResponseRef.unitNumber 			= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRNO2_INFO;
+								SET buildingTypeFlag				= 'A1';
+							-- ADDRIND2 is a Floor or Level - so we set the floorNumber to ADDRNO2 and string ADDRIND1,ADDRNO1 into the buildingType
+							ELSEIF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND2_INFO IN ('F','L') THEN
+								SET ResponseRef.floorNumber 		= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRNO2_INFO;
+								SET buildingTypeFlag				= 'A1';
+							-- ADDRIND1 is a Unit or Apartment - so we set the unitNumber to ADDRNO1 and string ADDRIND2,ADDRNO2 into the buildingType
+							ELSEIF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND1_INFO IN ('A','U') THEN
+								SET ResponseRef.unitNumber 			= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRNO1_INFO;
+								SET buildingTypeFlag				= 'A2';
+							-- ADDRIND1 is a Floor or Level - so we set the floorNumber to ADDRNO1 and string ADDRIND2,ADDRNO2 into the buildingType
+							ELSEIF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND1_INFO IN ('F','L') THEN
+								SET ResponseRef.floorNumber 		= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRNO1_INFO;
+								SET buildingTypeFlag				= 'A2';
+							ELSE
+							-- Neither ADDRIND1 or ADDRIND2 is a Unit or Apartment or Floor or Level - so we string ADDRIND1,ADDRNO1,ADDRIND2,ADDRNO2 into the buildingType
+								SET buildingTypeFlag				= 'A1A2';
+							END IF;
+						ELSE
+						-- Only ADDRIND1 was returned from HUON		
+							-- ADDRIND1 is a Unit or Apartment - so we set the unitNumber to ADDRNO1
+							IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND1_INFO IN ('A','U') THEN
+								SET ResponseRef.unitNumber 			= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRNO1_INFO;
+							-- ADDRIND1 is a Floor or Level - so we set the floorNumber to ADDRNO1
+							ELSEIF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND1_INFO IN ('F','L') THEN
+								SET ResponseRef.floorNumber 		= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRNO1_INFO;
+							ELSE
+							-- ADDRIND1 is neither a Unit or Apartment or Floor or Level - so we string ADDRIND1,ADDRNO1 into the buildingType
+								SET buildingTypeFlag				= 'A1';
+							END IF;	
+						END IF;
+					END IF;		
+
+					SET ResponseRef.streetNumber 	= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_STREETNO_INFO);
+					SET ResponseRef.streetName 		= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_STREET_INFO);
+					IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_STREET_TYPE_DESC_INFO <> ' ' THEN
+						SET ResponseRef.streetType 	= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_STREET_TYPE_DESC_INFO;
+					END IF;
+					SET ResponseRef.buildingName 	= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRFREE_INFO);	
+
+					CASE buildingTypeFlag
+					WHEN 'A1' THEN
+						SET ResponseRef.buildingType 		= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND1_DESC_INFO || ' ' || refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRNO1_INFO;
+					WHEN 'A2' THEN
+						SET ResponseRef.buildingType 		= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND2_DESC_INFO || ' ' || refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRNO2_INFO;							
+					WHEN 'A1A2' THEN
+						SET ResponseRef.buildingType 		= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND1_DESC_INFO || ' ' || refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRNO1_INFO || ' ' || refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRIND2_DESC_INFO || ' ' || refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_ADDRNO2_INFO;	
+					END CASE;
+
+					SET ResponseRef.streetDirection	= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_STREETDIR_DESC_INFO);
+
+				END IF;
+					
+			MOVE ResponseRef TO ResponseRef2;
+			
+			
+			SET ResponseRef.isIdentifiedBy.componentId 	= 'HUON';
+			SET ResponseRef.isIdentifiedBy.partyId 		= Environment.RequestState.XMLNSC.esbenv:Envelope.esbenv:Body.cust:retrieveCustomerDetailsReq.requestId.partyId;
+
+					
+			IF refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_TYPEOFCLT_INFO <> 'K' THEN
+			
+				SET ResponseRef.birthDate 						= DateFunc.StrToDate(CAST(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_BIRTHDTE_INFO AS CHAR));
+				SET ResponseRef.gender 							= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_GENDER_INFO;
+					
+				SET ResponseRef.personName.firstName			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_FIRST_INFO);
+				SET ResponseRef.personName.lastName				= refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_LAST_INFO;
+				SET ResponseRef.personName.middleNames			= TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_MIDDLE_INFO);
+			
+				CASE refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_GENDER_INFO
+				WHEN 'F' THEN
+					IF TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_TITLE_INFO) <> '' THEN
+		 				SET ResponseRef.personName.prefixTitles = GetRefDataLongTx('801225',TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_TITLE_INFO), 'Title');
+					END IF;
+				WHEN 'M' THEN
+					IF TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_TITLE_INFO) <> '' THEN
+ 						SET ResponseRef.personName.prefixTitles = GetRefDataLongTx('801224',TRIM(refInputBody.RP_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL.RP_TITLE_INFO), 'Title');
+					END IF;
+				END CASE;
+			END IF;	
+		END IF;		
+		
+		-- Set Output Queue and Queue Manager saved from input
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueName			= Environment.RequestState.MQMD.ReplyToQ; 
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueManagerName 	= Environment.RequestState.MQMD.ReplyToQMgr; 		
+
+		RETURN TRUE;
+	END;
+		
+END MODULE;

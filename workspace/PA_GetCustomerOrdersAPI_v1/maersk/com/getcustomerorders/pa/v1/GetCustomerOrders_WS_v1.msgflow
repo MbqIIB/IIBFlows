@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmFilter.msgnode="ComIbmFilter.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmMQReply.msgnode="ComIbmMQReply.msgnode" xmlns:ComIbmPassthru.msgnode="ComIbmPassthru.msgnode" xmlns:ComIbmRoute.msgnode="ComIbmRoute.msgnode" xmlns:ComIbmThrow.msgnode="ComIbmThrow.msgnode" xmlns:ComIbmWSRequest.msgnode="ComIbmWSRequest.msgnode"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:maersk_iib_common_envelope_v1_sfExtractEnvelope.subflow="maersk/iib/common/envelope/v1/sfExtractEnvelope.subflow" xmlns:maersk_iib_errorhandler_v1_sfErrorHandler_v1.subflow="maersk/iib/errorhandler/v1/sfErrorHandler_v1.subflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="maersk/com/getcustomerorders/pa/v1/GetCustomerOrders_WS_v1.msgflow" nsPrefix="maersk_com_getcustomerorders_pa_v1_GetCustomerOrders_WS_v1.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="GetCustomerOrders_WS_v1" bundleName="maersk/com/getcustomerorders/pa/v1/GetCustomerOrders_WS_v1" pluginId="PA_GetCustomerOrdersAPI_v1"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/PA_GetCustomerOrdersAPI_v1/icons/full/obj16/GetCustomerOrders_WS_v1.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/PA_GetCustomerOrdersAPI_v1/icons/full/obj30/GetCustomerOrders_WS_v1.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="31,147" queueName="EAI.GET_CUSTOMER_ORDERS_PA.REQ">
+        <translation xmi:type="utility:ConstantString" string="EAI.GET_CUSTOMER_ORDERS_PA.REQ"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_errorhandler_v1_sfErrorHandler_v1.subflow:FCMComposite_1" xmi:id="FCMComposite_1_2" location="223,278" Format="CUSTOM" ResponseName="CustomerGetResponse" Application="Customer">
+        <translation xmi:type="utility:ConstantString" string="sfErrorHandler_v1"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="410,279" queueName="EA.GET_CUSTOMER_ERROR.IN" newMsgId="true" validateMaster="none">
+        <translation xmi:type="utility:ConstantString" string="EA.GET_CUSTOMER_ERROR.IN"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_common_envelope_v1_sfExtractEnvelope.subflow:FCMComposite_1" xmi:id="FCMComposite_1_5" location="45,444">
+        <translation xmi:type="utility:ConstantString" string="sfExtractEnvelope"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="373,147" computeExpression="esql://routine/maersk.com.getcustomerorders.pa.v1#GetCustomerOrders_WS_v1_BuildRequest.Main" computeMode="destinationAndMessage">
+        <translation xmi:type="utility:ConstantString" string="BuildRequest"/>
+      </nodes>
+      <nodes xmi:type="ComIbmPassthru.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="532,148">
+        <translation xmi:type="utility:ConstantString" string="REST"/>
+      </nodes>
+      <nodes xmi:type="ComIbmWSRequest.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="651,148" URLSpecifier="http://localhost:80/dummy" timeoutForServer="10" httpVersion="1.1" protocol="TLS" messageDomainProperty="JSON">
+        <translation xmi:type="utility:ConstantString" string="HTTP Request"/>
+      </nodes>
+      <nodes xmi:type="ComIbmThrow.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="787,237" messageNumber="3201" messageText="Failure calling Orders RESTful service">
+        <translation xmi:type="utility:ConstantString" string="3201"/>
+      </nodes>
+      <nodes xmi:type="ComIbmPassthru.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_10" location="785,148">
+        <translation xmi:type="utility:ConstantString" string="WebResponse"/>
+      </nodes>
+      <nodes xmi:type="ComIbmThrow.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_11" location="784,51" messageNumber="3202">
+        <translation xmi:type="utility:ConstantString" string="3202"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_13" location="1088,153" computeExpression="esql://routine/maersk.com.getcustomerorders.pa.v1#GetCustomerOrders_WS_v1_BuildResponse.Main">
+        <translation xmi:type="utility:ConstantString" string="BuildResponse"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQReply.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_14" location="1253,154">
+        <translation xmi:type="utility:ConstantString" string="MQ Reply"/>
+      </nodes>
+      <nodes xmi:type="ComIbmRoute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_15" location="819,379">
+        <outTerminals terminalNodeID="Match" dynamic="true" label="Match"/>
+        <translation xmi:type="utility:ConstantString" string="Route"/>
+        <filterTable filterPattern="$Root/JSON/Data/orderResponse/Error" routingOutputTerminal="Match"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_16" location="1066,286" computeExpression="esql://routine/maersk.com.getcustomerorders.pa.v1#GetCustomerOrders_WS_v1_BuildErrorResponse.Main">
+        <translation xmi:type="utility:ConstantString" string="BuildErrorResponse"/>
+      </nodes>
+      <nodes xmi:type="ComIbmFilter.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="951,149" filterExpression="esql://routine/maersk.com.getcustomerorders.pa.v1#GetCustomerOrders_WS_v1_Any_Errors.Main">
+        <translation xmi:type="utility:ConstantString" string="Any Errors"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.error" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_10" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_11" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_11" targetNode="FCMComposite_1_14" sourceNode="FCMComposite_1_13" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_15" targetNode="FCMComposite_1_14" sourceNode="FCMComposite_1_16" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_10" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_10" targetNode="FCMComposite_1_16" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.true" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_12" targetNode="FCMComposite_1_13" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.false" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard/>
+  </eClassifiers>
+</ecore:EPackage>

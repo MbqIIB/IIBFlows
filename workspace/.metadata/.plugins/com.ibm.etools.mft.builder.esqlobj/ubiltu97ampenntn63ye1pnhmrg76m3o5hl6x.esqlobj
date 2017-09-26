@@ -1,0 +1,32 @@
+CREATE COMPUTE MODULE CustomerStub_v1_Create_JSOB_Stub_Response
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		SET OutputRoot.MQMD = InputRoot.MQMD;
+		
+		SET OutputRoot.MQMD.CorrelId = InputRoot.MQMD.MsgId;
+
+
+		DECLARE jsonResponse CHARACTER '';
+		SET jsonResponse = '{"CustomerResponse":{"CustomerId":"1234","Name":"The Big Shipping Company","ContactName":"Mr Smith","ContactTitle":"Top Dog","Address":[{"AddressLine1":"Esplanaden 50","AddressLine2":"","AddressLine3":"","PostalCode":"1098","City":"Copenhagen","Country":"Denmark"}]],"TelephoneNumbers":[{"Mobile":"123456","Work":"345656","Fax":"1212121212"}],"emailAddress":[{"emailAddress":"emailtest@maersk.com","emailAddress":"mail@maersk.com"}]}}';
+		
+		DECLARE refInBody REFERENCE TO InputRoot.JSON.Data."CustomerRequest";
+
+		-- Start building the MQ Customer Service 
+--		CREATE LASTCHILD OF OutputRoot DOMAIN 'JSON' NAME 'JSON';
+--		CREATE FIELD OutputRoot.JSON.Data IDENTITY (JSON.Object)Data;
+
+--		CREATE LASTCHILD OF OutputRoot.JSON.Data PARSE jsonResponse;
+		
+	--	CREATE LASTCHILD OF OutputRoot.JSON.Data NAME 'CustomerResponse'; 	  		
+	--	DECLARE refResp REFERENCE TO OutputRoot.JSON.Data."CustomerResponse";
+
+	--	SET refResp.customerId = refInBody.CustomerId;
+
+		SET OutputRoot.BLOB.BLOB = CAST ( jsonResponse AS BLOB CCSID 1208 );
+
+		RETURN TRUE;
+		
+	END;
+END MODULE;

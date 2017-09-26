@@ -1,0 +1,85 @@
+/****************************************************************************************************
+Date       Name            Comments
+13/11/2013 Mick Moriarty - Initial version
+						   New Enterprise Provider Adaptor for NZ - service gets the data from WQS060
+****************************************************************************************************/
+
+BROKER SCHEMA nz.huon.retrievepolicymotor.pa
+
+
+CREATE COMPUTE MODULE NZ_RetrievePolicyMotor_Request_v2_Build_HUON_Request
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		-- Headers
+		set OutputRoot.Properties = InputRoot.Properties;
+		
+	    set OutputRoot.Properties.MessageSet    = 'FH348IG002001'; 
+		set OutputRoot.Properties.MessageType   = 'msg_WQL060RQ';
+		set OutputRoot.Properties.MessageFormat = 'Binary1';   
+		
+		-- Setup Output MQMD
+		create nextsibling of OutputRoot.Properties domain 'MQMD';
+
+		set OutputRoot.MQMD.MsgId               = InputRoot.MQMD.MsgId;
+		set OutputRoot.MQMD.Version 		    = MQMD_CURRENT_VERSION;
+		set OutputRoot.MQMD.Format 		        = MQFMT_STRING;
+		set OutputRoot.MQMD.MsgType 		    = MQMT_REQUEST; 
+		set OutputRoot.MQMD.Encoding		    = MQENC_NATIVE;	
+		set OutputRoot.MQMD.CodedCharSetId      = MQCCSI_Q_MGR; 
+		set OutputRoot.MQMD.Expiry              = 600; 
+		set OutputRoot.MQMD.CorrelId            = InputRoot.MQMD.CorrelId; 
+		
+		set OutputRoot.MQMD.ReplyToQ		    = 'EAI.POL.NZ_RET_HUN_POLICY_MOTOR_V2.REPLY';  
+		set OutputRoot.MQMD.ReplyToQMgr         = InputRoot.MQMD.ReplyToQMgr;
+		
+		-- Setup Output RFH2 
+		set OutputRoot.MQRFH2                   = NULL;		
+
+		-- Build the request
+		declare refInEnv reference to InputRoot.XMLNSC.esbenv:Envelope;
+		declare refInHead reference to refInEnv.esbhdr:Header;
+		declare refInBody reference to refInEnv.esbenv:Body;
+		declare refIn reference to refInBody.retv2:retrieveInsurancePolicyDetailsReq;
+
+		create lastchild of OutputRoot domain ('MRM');
+		declare refOut reference to OutputRoot.MRM;
+	
+		create lastchild of refOut name 'RQ_HEADER';
+		declare refHead reference to refOut.RQ_HEADER;
+
+		set refHead.RQ_API_PROGRAM 		= 'API';
+		set refHead.RQ_LAYOUT 			= 'WQL060RQ';
+		set refHead.RQ_RC 				= '00';
+		set refHead.RQ_ABEND_CODE 		= '0000';
+		set refHead.RQ_ABEND_SOURCE 	= ' ';
+		 
+   	    set refHead.RQ_INITIATOR 		= left(BrokerName,8);			
+		set refHead.RQ_USERID 			= coalesce(refInHead.esbhdr:userId, ' ');	
+		set refHead.RQ_SOURCE_SYSTEM 	= coalesce(refInHead.esbhdr:sourceSystem,' ');
+		set refHead.RQ_TIMESTAMP 		= cast(current_timestamp as character format 'yyyyMMddHHmmssSSS');
+		 
+		declare chrPolicyNo, chrPolicyId character;
+		set chrPolicyId = (refIn.policyNumber.policyId || '000000000');
+		set chrPolicyNo = refIn.policyNumber.productCode || substring(chrPolicyId from 1 for 9);
+		set refHead.RQ_SBBREFERENCE  	= coalesce(chrPolicyNo ,' ');	
+
+		set refHead.RQ_CONVERSATION_ID  = coalesce(refInHead.esbhdr:conversationId,' ');
+		set refHead.RQ_ERRNO            = '0';
+		set refHead.RQ_ERR_MSG          = ' ';
+				
+		---
+		create lastchild of OutputRoot.MRM name 'RQ_BODY';
+		declare refOutBody reference to OutputRoot.MRM.RQ_BODY;
+		
+		set refOutBody.RQ_OPERATION         = 'RETRIEVE';
+		set refOutBody.RQ_DISTRIBUTOR       = coalesce(trim(refInHead.esbhdr:brand),' ');
+		set refOutBody.RQ_IDENTIFIER        = coalesce(trim(chrPolicyNo),' ');
+		set refOutBody.RQ_USER_CLIENT       = 0;
+		
+		return true;
+
+	END;
+END MODULE;
+
+

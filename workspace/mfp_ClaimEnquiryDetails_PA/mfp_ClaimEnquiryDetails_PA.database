@@ -1,0 +1,16 @@
+
+DEV-A
+-----
+INSERT INTO mqmbuser.SERVICEPROPERITES (SERVICENAME,FLOWNAME,BROKERNAME,OPERATIONNAME5,REQUESTURL1,REQUESTUSERID1, REQUESTPASSWORD1,MESSAGETIMEOUT1)
+VALUES ('RetrieveClaimDetails','di.claimmanagement.claimenquirydetails.pa.ClaimEnquiryDetails_Request_v1','AMXD03A','Y','http://deva-diclaim.auiag.corp:10080/cc/ws/di/cc/webservices/claimInquiry/claimDetails/IClaimDetailsAPI','su','gw','5000');
+
+INT-A
+-----
+INSERT INTO mqmbuser.SERVICEPROPERITES (SERVICENAME,FLOWNAME,BROKERNAME,OPERATIONNAME5,REQUESTURL1,REQUESTUSERID1, REQUESTPASSWORD1,MESSAGETIMEOUT1)
+VALUES ('RetrieveClaimDetails','di.claimmanagement.claimenquirydetails.pa.ClaimEnquiryDetails_Request_v1','AMXI08','Y','http://inta-diclaims.auiag.corp:10080/cc/ws/di/cc/webservices/claimInquiry/claimDetails/IClaimDetailsAPI','su','gw','5000');
+
+SYS-A
+-----
+INSERT INTO mqmbuser.SERVICEPROPERITES (SERVICENAME,FLOWNAME,BROKERNAME,OPERATIONNAME5,REQUESTURL1,REQUESTUSERID1, REQUESTPASSWORD1,MESSAGETIMEOUT1)
+VALUES ('RetrieveClaimDetails','di.claimmanagement.claimenquirydetails.pa.ClaimEnquiryDetails_Request_v1','AMXS03','Y','http://sysa-diclaims.auiag.corp:20080/cc/ws/di/cc/webservices/claimInquiry/claimDetails/IClaimDetailsAPI','su','gw','5000');
+

@@ -1,0 +1,23 @@
+CREATE COMPUTE MODULE SetupReply
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		SET OutputRoot = InputRoot;
+		-- Create MQMD 	
+		SET OutputRoot.MQMD.Version             			= MQMD_CURRENT_VERSION; 
+		SET OutputRoot.MQMD.MsgType             			= MQMT_REPLY;  
+		SET OutputRoot.MQMD.Format              			= MQFMT_STRING;
+		SET OutputRoot.MQMD.CorrelId						= Environment.HubWorkArea.Origin.MsgId; 
+		SET OutputRoot.MQMD.Expiry              			= -1; -- Unlimited
+		SET OutputRoot.MQMD.Encoding						= MQENC_NATIVE;
+		SET OutputRoot.MQMD.CodedCharSetId					= 1208;	
+		SET OutputRoot.MQMD.ReplyToQ		    			= Environment.HubWorkArea.Origin.ReplyToQ;  
+		SET OutputRoot.MQMD.ReplyToQMgr         			= Environment.HubWorkArea.Origin.ReplyToQMgr;
+
+-- Set ReplyToQueue and ReplyToQueueManager saved from input
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueName			= Environment.HubWorkArea.Origin.ReplyToQ; 
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueManagerName 	= Environment.HubWorkArea.Origin.ReplyToQMgr; 		
+			
+		RETURN TRUE;
+	END;
+		
+END MODULE;

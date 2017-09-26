@@ -1,0 +1,7 @@
+<wmb>
+	<project>mfp_PA_CRODS_Retrieve_Customer</project>
+	<app>
+		<name>RetrieveCustomerDetails</name>
+		<executionGroup>egPolicy</executionGroup>
+	</app>
+</wmb>

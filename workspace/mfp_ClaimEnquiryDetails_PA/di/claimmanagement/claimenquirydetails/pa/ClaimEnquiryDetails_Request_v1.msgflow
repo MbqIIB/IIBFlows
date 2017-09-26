@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmFilter.msgnode="ComIbmFilter.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQReply.msgnode="ComIbmMQReply.msgnode" xmlns:ComIbmSOAPExtract.msgnode="ComIbmSOAPExtract.msgnode" xmlns:ComIbmSOAPRequest.msgnode="ComIbmSOAPRequest.msgnode" xmlns:ComIbmThrow.msgnode="ComIbmThrow.msgnode" xmlns:au_iag_wmb_common_envelope_v1_sfAddEnvelope.subflow="au/iag/wmb/common/envelope/v1/sfAddEnvelope.subflow"
+    xmlns:au_iag_wmb_common_envelope_v1_sfExtractEnvelope.subflow="au/iag/wmb/common/envelope/v1/sfExtractEnvelope.subflow" xmlns:au_iag_wmb_common_error_v1_sfErrorHandling.subflow="au/iag/wmb/common/error/v1/sfErrorHandling.subflow" xmlns:au_iag_wmb_common_error_v1_sfFailureHandling.subflow="au/iag/wmb/common/error/v1/sfFailureHandling.subflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility"
+    nsURI="di/claimmanagement/claimenquirydetails/pa/ClaimEnquiryDetails_Request_v1.msgflow" nsPrefix="di_claimmanagement_claimenquirydetails_pa_ClaimEnquiryDetails_Request_v1.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="ClaimEnquiryDetails_Request_v1" bundleName="di/claimmanagement/claimenquirydetails/pa/ClaimEnquiryDetails_Request_v1" pluginId="mfp_ClaimEnquiryDetails_PA"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/mfp_ClaimEnquiryDetails_PA/icons/full/obj16/ClaimEnquiryDetails_Request_v1.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/mfp_ClaimEnquiryDetails_PA/icons/full/obj30/ClaimEnquiryDetails_Request_v1.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="-15,158" queueName="EAI.CMT.ENQUIRY_DETAILS.REQ" messageDomainProperty="XMLNSC" messageSetProperty="mspESBEnvelope">
+        <translation xmi:type="utility:ConstantString" string="EAI.CMT.ENQUIRY_DETAILS.REQ"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQReply.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="1183,164">
+        <translation xmi:type="utility:ConstantString" string="MQ Reply"/>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_envelope_v1_sfExtractEnvelope.subflow:FCMComposite_1" xmi:id="FCMComposite_1_3" location="194,158">
+        <translation xmi:type="utility:ConstantString" string="sfExtractEnvelope"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="271,154" dataSource="CODEREF" computeExpression="esql://routine/di.claimmanagement.claimenquirydetails.pa#ClaimEnquiryDetails_Request_v1_ClaimEnquiryDetails_Request.Main" computeMode="destinationAndMessage">
+        <translation xmi:type="utility:ConstantString" string="ClaimEnquiryDetails_Request"/>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_envelope_v1_sfAddEnvelope.subflow:FCMComposite_1" xmi:id="FCMComposite_1_5" location="1053,164">
+        <translation xmi:type="utility:ConstantString" string="sfAddEnvelope"/>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_error_v1_sfErrorHandling.subflow:FCMComposite_1" xmi:id="FCMComposite_1_6" location="331,372">
+        <translation xmi:type="utility:ConstantString" string="sfErrorHandling"/>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_error_v1_sfFailureHandling.subflow:FCMComposite_1" xmi:id="FCMComposite_1_7" location="182,76">
+        <translation xmi:type="utility:ConstantString" string="sfFailureHandling"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_10" location="869,200" computeExpression="esql://routine/di.claimmanagement.claimenquirydetails.pa#ClaimEnquiryDetails_Request_v1_BuildResponse.Main" computeMode="destinationAndMessage">
+        <translation xmi:type="utility:ConstantString" string="BuildResponse"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPExtract.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_11" location="578,155">
+        <translation xmi:type="utility:ConstantString" string="SOAP Extract"/>
+      </nodes>
+      <nodes xmi:type="ComIbmFilter.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_16" location="720,159" filterExpression="esql://routine/di.claimmanagement.claimenquirydetails.pa#ClaimEnquiryDetails_Request_v1_Filter.Main">
+        <translation xmi:type="utility:ConstantString" string="Filter"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_17" location="855,106" computeExpression="esql://routine/di.claimmanagement.claimenquirydetails.pa#ClaimEnquiryDetails_Request_v1_BuildErrorResponse.Main">
+        <translation xmi:type="utility:ConstantString" string="BuildErrorResponse"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPRequest.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_19" location="450,155" wsdlFileName="msp_SP_ClaimEnquiry_v1/com/guidewire/di/cc/webservices/claiminquiry/claimdetails/iclaimdetailsapi/IClaimDetailsAPI.wsdl" selectedPortType="IClaimDetailsAPIPortType" selectedBinding="IClaimDetailsAPISoap11Binding" selectedOperation="findClaimDetails" selectedPort="IClaimDetailsAPISoap11Port" targetNamespace="http://guidewire.com/di/cc/webservices/claimInquiry/claimDetails/IClaimDetailsAPI"
+          useHTTPTransport="true" webServiceURL="http://deva-diclaim.auiag.corp:10080/cc/ws/di/cc/webservices/claimInquiry/claimDetails/IClaimDetailsAPI/soap11" sslProtocol="TLS" parserXmlnscBuildTreeUsingXMLSchema="false" validateMaster="none">
+        <translation xmi:type="utility:ConstantString" string="SOAP Request"/>
+      </nodes>
+      <nodes xmi:type="ComIbmThrow.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="544,247" messageNumber="3002" messageText="Soap fault error">
+        <translation xmi:type="utility:ConstantString" string="3002"/>
+      </nodes>
+      <nodes xmi:type="ComIbmThrow.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_12" location="677,79" messageNumber="3003" messageText="Soap parsing extract error - Invalid Soap response">
+        <translation xmi:type="utility:ConstantString" string="3003"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="952,286" computeExpression="esql://routine/di.claimmanagement.claimenquirydetails.pa#ClaimEnquiryDetails_Request_v1_BuildProcessingError.Main">
+        <translation xmi:type="utility:ConstantString" string="BuildProcessingError"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in">
+        <bendPoints>788,11,-44,177</bendPoints>
+      </connections>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_10" sourceNode="FCMComposite_1_16" sourceTerminalName="OutTerminal.true" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_17" sourceNode="FCMComposite_1_16" sourceTerminalName="OutTerminal.false" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_19" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_10" targetNode="FCMComposite_1_11" sourceNode="FCMComposite_1_19" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_11" targetNode="FCMComposite_1_16" sourceNode="FCMComposite_1_11" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_12" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_10" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_13" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_17" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_14" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_19" sourceTerminalName="OutTerminal.fault" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_15" targetNode="FCMComposite_1_12" sourceNode="FCMComposite_1_11" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_16" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_10" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_17" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard/>
+  </eClassifiers>
+</ecore:EPackage>

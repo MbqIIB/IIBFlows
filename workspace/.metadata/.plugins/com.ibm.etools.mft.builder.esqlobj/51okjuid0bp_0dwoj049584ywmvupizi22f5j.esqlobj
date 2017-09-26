@@ -1,0 +1,19 @@
+CREATE FUNCTION mapElectronicType (IN electronicType CHAR) RETURNS CHAR
+	BEGIN
+		CASE electronicType 
+			WHEN 'Mobile Phone' THEN
+				RETURN 'MP';
+			WHEN 'Home Phone' THEN
+				RETURN 'HP';
+			WHEN 'Work Phone' THEN
+				RETURN 'WP';
+			WHEN 'Fax' THEN
+				RETURN 'FX';
+			WHEN 'No Number Available' THEN
+				RETURN 'NA';
+			WHEN 'Temporary Phone' THEN
+				RETURN 'TP';
+			WHEN 'White Pages Phone' THEN
+				RETURN 'WPP';
+	END CASE;
+END;

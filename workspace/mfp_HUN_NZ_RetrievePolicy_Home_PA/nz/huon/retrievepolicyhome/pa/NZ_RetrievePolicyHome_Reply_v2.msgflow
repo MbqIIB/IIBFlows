@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQReply.msgnode="ComIbmMQReply.msgnode" xmlns:ComIbmThrow.msgnode="ComIbmThrow.msgnode" xmlns:au_iag_wmb_common_envelope_v1_sfAddEnvelope.msgflow="au/iag/wmb/common/envelope/v1/sfAddEnvelope.msgflow" xmlns:au_iag_wmb_common_error_v1_sfErrorHandling.msgflow="au/iag/wmb/common/error/v1/sfErrorHandling.msgflow" xmlns:au_iag_wmb_common_error_v1_sfFailureHandling.msgflow="au/iag/wmb/common/error/v1/sfFailureHandling.msgflow"
+    xmlns:au_iag_wmb_common_state_v1_sfGetStateMessage.msgflow="au/iag/wmb/common/state/v1/sfGetStateMessage.msgflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="nz/huon/retrievepolicyhome/pa/NZ_RetrievePolicyHome_Reply_v2.msgflow"
+    nsPrefix="nz_huon_retrievepolicyhome_pa_NZ_RetrievePolicyHome_Reply_v2.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="NZ_RetrievePolicyHome_Reply_v2" bundleName="nz/huon/retrievepolicyhome/pa/NZ_RetrievePolicyHome_Reply_v2" pluginId="mfp_HUN_NZ_RetrievePolicy_Home_PA"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/mfp_HUN_NZ_RetrievePolicy_Home_PA/icons/full/obj16/NZ_RetrievePolicyHome_Reply_v2.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/mfp_HUN_NZ_RetrievePolicy_Home_PA/icons/full/obj30/NZ_RetrievePolicyHome_Reply_v2.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="-1,169" queueName="EAI.POL.NZ_RET_HUN_POLICY_HOME_V2.REPLY" messageDomainProperty="MRM" messageSetProperty="WQL070" messageTypeProperty="{}:msg_WQL070RP" messageFormatProperty="Binary1">
+        <translation xmi:type="utility:ConstantString" string="EAI.POL.NZ_RET_HUN_POLICY_HOME_V2.REPLY"/>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_error_v1_sfFailureHandling.msgflow:FCMComposite_1" xmi:id="FCMComposite_1_2" location="225,81">
+        <translation xmi:type="utility:ConstantString" string="sfFailureHandling"/>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_error_v1_sfErrorHandling.msgflow:FCMComposite_1" xmi:id="FCMComposite_1_3" location="265,287">
+        <translation xmi:type="utility:ConstantString" string="sfErrorHandling"/>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_state_v1_sfGetStateMessage.msgflow:FCMComposite_1" xmi:id="FCMComposite_1_4" location="245,169" queueName="EAI.POL.NZ_RET_HUN_POLICY_MOTOR_V2.STATE">
+        <translation xmi:type="utility:ConstantString" string="sfGetStateMessage"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQReply.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="813,174">
+        <translation xmi:type="utility:ConstantString" string="MQ Reply"/>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_envelope_v1_sfAddEnvelope.msgflow:FCMComposite_1" xmi:id="FCMComposite_1_6" location="625,174">
+        <translation xmi:type="utility:ConstantString" string="sfAddEnvelope"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="438,169" dataSource="CODEREF" computeExpression="esql://routine/nz.huon.retrievepolicyhome.pa#NZ_RetrievePolicyHome_Reply_v2_TransForm_Reply.Main" computeMode="destinationAndMessage">
+        <translation xmi:type="utility:ConstantString" string="TransForm Reply"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="536,69" computeExpression="esql://routine/nz.huon.retrievepolicyhome.pa#NZ_RetrievePolicyHome_Reply_v2_Format_Error.Main">
+        <translation xmi:type="utility:ConstantString" string="Format Error"/>
+      </nodes>
+      <nodes xmi:type="ComIbmThrow.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="530,229" messageNumber="3005" messageText="Error occurred in NZ Home PA flow">
+        <translation xmi:type="utility:ConstantString" string="Flow Failure"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_10" location="588,286" computeExpression="esql://routine/nz.huon.retrievepolicyhome.pa#NZ_RetrievePolicyHome_Reply_v2_SetTheEnviornment.Main" computeMode="destinationAndMessage">
+        <translation xmi:type="utility:ConstantString" string="SetTheEnviornment"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input">
+        <bendPoints>63,109,-121,-9</bendPoints>
+      </connections>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input">
+        <bendPoints>44,-98,-93,-8</bendPoints>
+      </connections>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input">
+        <bendPoints>68,-3,-17,-86</bendPoints>
+      </connections>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in">
+        <bendPoints>15,-74,-69,4</bendPoints>
+      </connections>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_10" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_10" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_11" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_10" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in">
+        <bendPoints>133,-8,-72,104</bendPoints>
+      </connections>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard/>
+  </eClassifiers>
+</ecore:EPackage>

@@ -1,0 +1,26 @@
+BROKER SCHEMA DateFunc
+
+---------------------------------------------------------	
+	CREATE FUNCTION GetCurrentDateCCYYMMDD() RETURNS CHAR 
+---------------------------------------------------------	
+--
+--  Return current date in CCYYMMDD format
+-- 
+--  Author : John Yih
+--  Date   : 22/04/2004
+--
+	BEGIN
+		
+		DECLARE chrCurrentTimeStamp CHAR;
+		DECLARE chrCCYY             CHAR;
+		DECLARE chrMM               CHAR;
+		DECLARE chrDD               CHAR;
+
+		SET chrCurrentTimeStamp = CAST(CURRENT_TIMESTAMP AS CHAR);
+		SET chrCCYY = SUBSTRING(chrCurrentTimeStamp FROM 12 FOR 4);
+		SET chrMM   = SUBSTRING(chrCurrentTimeStamp FROM 17 FOR 2);
+		SET chrDD   = SUBSTRING(chrCurrentTimeStamp FROM 20 FOR 2);	
+
+		RETURN chrCCYY || chrMM || chrDD;
+		
+	END;

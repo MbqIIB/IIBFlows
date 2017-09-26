@@ -1,0 +1,31 @@
+BROKER SCHEMA DateFunc
+
+---------------------------------------------------------------------------------	
+	CREATE FUNCTION ConvertTimeStampToInt(tmeTimeStamp TIMESTAMP) RETURNS INTEGER 
+---------------------------------------------------------------------------------	 
+--
+--   Convert date in "TIMESTAMP 'CCYY-MM-DD HH:MM:SS.TTT'" 
+--   to CCYYMMDDHHMMSSTTT
+--
+--   Author : John Yih
+--   Date   : 23/09/2004
+--
+	BEGIN
+		
+		DECLARE chrDate      CHAR;
+		DECLARE chrTime      CHAR;
+		DECLARE chrTimeStamp CHAR;		
+		DECLARE intTimeStamp INTEGER;
+
+		SET chrTimeStamp = CAST(tmeTimeStamp AS CHAR);		
+		SET chrDate      = SUBSTRING(chrTimeStamp FROM 12 FOR 10);
+		SET chrTime      = SUBSTRING(chrTimeStamp FROM 23 FOR 12);
+		SET chrDate      = REPLACE(chrDate,'-','');			
+		SET chrTime      = REPLACE(chrTime,':','');
+		SET chrTime      = REPLACE(chrTime,'.','');
+		SET chrDate      = chrDate || chrTime;
+		SET intTimeStamp = CAST(chrDate AS INTEGER);
+
+		RETURN intTimeStamp;
+		
+	END;

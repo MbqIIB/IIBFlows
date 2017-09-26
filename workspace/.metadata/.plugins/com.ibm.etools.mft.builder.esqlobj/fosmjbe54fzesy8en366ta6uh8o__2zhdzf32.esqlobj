@@ -1,0 +1,14 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+		
+ 		declare refIn reference to Root.XMLNSC;
+		declare refRespRet reference to refIn.icl:findClaimDetailsResponse.icl:return;
+		declare refRespInfo reference to refRespRet.pogo:CCServiceResponseInfo;
+		
+		if refRespInfo.cc:ResponseCode = CED_OK then
+			return true;
+		else
+			return false;
+		end if;
+		
+	END;

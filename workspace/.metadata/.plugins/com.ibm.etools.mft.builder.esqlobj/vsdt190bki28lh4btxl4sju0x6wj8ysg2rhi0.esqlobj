@@ -1,0 +1,48 @@
+CREATE COMPUTE MODULE ConstructSoapErrorMessage
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		SET OutputRoot.HTTPReplyHeader			 						                 = Environment.HTTPInputHeader;
+		
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		DECLARE ResponseRef REFERENCE TO OutputRoot;
+		SET OutputRoot.XMLNSC.soapenv:Envelope.(XMLNSC.NamespaceDecl)xmlns:soapenv = soapenv;
+		SET J = CARDINALITY(Environment.Header.*[]);
+
+			WHILE I <= J DO
+				IF CONTAINS(FIELDVALUE(Environment.Header.*[I]), 'http://') THEN
+					--Do Nothing
+				ELSE
+					SET OutputRoot.XMLNSC.soapenv:Envelope.soapenv:Header.(XMLNSC.NamespaceDecl)xmlns:esbhdr = esbhdr;
+					IF CARDINALITY(Environment.Header.*[I].*[]) > 0 THEN
+						CREATE LASTCHILD OF OutputRoot.XMLNSC.soapenv:Envelope.soapenv:Header.esbhdr:Header AS ResponseRef NAMESPACE esbhdr 
+						NAME FIELDNAME(Environment.Header.*[I]);
+    					SET ResponseRef = Environment.Header.*[I];
+					ELSE
+						CREATE LASTCHILD OF OutputRoot.XMLNSC.soapenv:Envelope.soapenv:Header.esbhdr:Header AS ResponseRef NAMESPACE esbhdr 
+						NAME FIELDNAME(Environment.Header.*[I]) 
+						VALUE FIELDVALUE(Environment.Header.*[I]);
+					END IF;
+				END IF;
+				SET I = I + 1;
+			END WHILE;
+		SET OutputRoot.XMLNSC.soapenv:Envelope.soapenv:Body.soapenv:Fault.(XMLNSC.NamespaceDecl)xmlns:soapenv = soapenv;
+		
+		IF (InputRoot.XMLNSC.esberr:Error.esberr:severity = 'ERROR') THEN  
+
+			SET OutputRoot.XMLNSC.soapenv:Envelope.soapenv:Body.soapenv:Fault.faultcode = 'soapenv' ||':' ||'Client';
+		ELSEIF (InputRoot.XMLNSC.esberr:Error.esberr:severity = 'FATAL') THEN  
+			SET OutputRoot.XMLNSC.soapenv:Envelope.soapenv:Body.soapenv:Fault.faultcode = 'soapenv' ||':' ||'Server';	
+		ELSE
+			SET OutputRoot.XMLNSC.soapenv:Envelope.soapenv:Body.soapenv:Fault.faultcode = 'soapenv' ||':' ||'Server';
+		END IF;	
+		SET OutputRoot.XMLNSC.soapenv:Envelope.soapenv:Body.soapenv:Fault.faultstring 			                    			 = InputRoot.XMLNSC.esberr:Error.esberr:message;
+		SET OutputRoot.XMLNSC.soapenv:Envelope.soapenv:Body.soapenv:Fault.faultactor 			                    			 = InputRoot.XMLNSC.esberr:Error.esberr:system;	
+		SET OutputRoot.XMLNSC.soapenv:Envelope.soapenv:Body.soapenv:Fault.detail.esberr:Error.(XMLNSC.NamespaceDecl)xmlns:esberr = esberr;
+		SET OutputRoot.XMLNSC.soapenv:Envelope.soapenv:Body.soapenv:Fault.detail.esberr:Error.esberr:code	                     = InputRoot.XMLNSC.esberr:Error.esberr:code;
+		SET OutputRoot.XMLNSC.soapenv:Envelope.soapenv:Body.soapenv:Fault.detail.esberr:Error.esberr:message	                 = InputRoot.XMLNSC.esberr:Error.esberr:message;
+		SET OutputRoot.XMLNSC.soapenv:Envelope.soapenv:Body.soapenv:Fault.detail.esberr:Error.esberr:severity	                 = InputRoot.XMLNSC.esberr:Error.esberr:severity;
+		SET OutputRoot.XMLNSC.soapenv:Envelope.soapenv:Body.soapenv:Fault.detail.esberr:Error.esberr:system	                     = InputRoot.XMLNSC.esberr:Error.esberr:system;
+		RETURN TRUE;
+	END;
+END MODULE;

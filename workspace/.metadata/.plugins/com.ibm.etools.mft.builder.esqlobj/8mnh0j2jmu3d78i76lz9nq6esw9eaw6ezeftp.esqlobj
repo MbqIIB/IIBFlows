@@ -1,0 +1,7 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+		CALL AddEnvelope();
+		RETURN TRUE;
+	END;
+	
+	CREATE PROCEDURE AddEnvelope()

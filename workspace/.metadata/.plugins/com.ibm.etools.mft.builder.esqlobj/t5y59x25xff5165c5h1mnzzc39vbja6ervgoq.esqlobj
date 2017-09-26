@@ -1,0 +1,71 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+			END IF;
+		END IF;
+
+		DECLARE inRefCust REFERENCE TO Environment.RequestState.XMLNSC.GetCustomer;
+		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'GetCustomerResponse';
+		DECLARE ref REFERENCE TO OutputRoot.XMLNSC.GetCustomerResponse;
+		
+		SET ref.CustomerId = inRefCust.CustomerId;
+		SET ref.CompanyName = inRefCust.Name;
+		SET ref.Contact = inRefCust.Contact;				
+		SET ref.Title = inRefCust.Title;
+		
+		-- Address
+		CREATE LASTCHILD OF ref NAME 'Address';
+		DECLARE refAddr REFERENCE TO ref.Address;
+		DECLARE inAddr REFERENCE TO inRefCust.Address;
+		DECLARE inAddrLine REFERENCE TO inAddr.AddressLine[>];
+		
+		X : WHILE LASTMOVE(inAddrLine)
+		DO
+			CREATE LASTCHILD OF refAddr NAME 'AddressLine' VALUE FIELDVALUE(inAddrLine);	
+			MOVE inAddrLine NEXTSIBLING REPEAT NAME;	
+			
+		END WHILE;
+		SET refAddr.PostCode = inAddr.PostCode;
+		SET refAddr.City = inAddr.City;
+		SET refAddr.Country = inAddr.Country;
+
+		-- Telephone
+		CREATE LASTCHILD OF ref NAME 'Telephone';
+		DECLARE refTel REFERENCE TO refCust.Telephone;
+		DECLARE inTel REFERENCE TO inRef.TelephoneNumbers.Number[>];
+		
+		X : WHILE LASTMOVE(inTel)
+		DO
+			CREATE LASTCHILD OF refTel NAME 'Number';
+			DECLARE refNo REFERENCE TO refTel.Number[<];
+			SET refNo.(XMLNSC.Attribute) = inTel.(XMLNSC.Attribute)type;
+			SET refNo.value = FIELDVALUE(inTel);
+			
+			MOVE inTel NEXTSIBLING REPEAT NAME;	
+			
+		END WHILE;
+		
+		-- eMail
+		CREATE LASTCHILD OF ref NAME 'emailAddress';
+		DECLARE refeMail REFERENCE TO ref.emailAddress;
+		DECLARE ineMail REFERENCE TO inRef.emailAddress.email[>];
+		
+		E : WHILE LASTMOVE(ineMail)
+		DO
+			CREATE LASTCHILD OF refeMail NAME 'email' VALUE FIELDVALUE(ineMail);				
+			MOVE ineMail NEXTSIBLING REPEAT NAME;	
+			
+		END WHILE;
+		
+		RETURN TRUE;
+
+
+
+	END;

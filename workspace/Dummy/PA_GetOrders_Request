@@ -1,0 +1,44 @@
+{
+"ordersRequest":{
+    "customerId":"1234"
+    }
+}
+
+
+{
+"ordersResponse":{
+    "customerId":"1234",
+    "order":{
+        "orderId":"ord001",
+        "status":"open",
+        "description":"car",
+        "price":25000.00
+        },
+    "order":{
+        "orderId":"ord002",
+        "status":"open",
+        "description":"Laptop",
+        "price":1234.00
+        }
+    }
+}
+
+{"ordersResponse":{"customerId":"YYYY","Error":{"code":"E0101","TimeStamp":"20170820T10:00:01.1234","Details":"Error occurred reading orders database","Application":"O12345","Severity":"Major", "SourceSystem":"Orders"}}}
+
+{
+"ordersResponse":{
+    "customerId":"1234",
+    "order":{
+        "orderId":"ord001",
+        "status":"open",
+        "description":"car",
+        "price":25000.00
+        },
+    "order":{
+        "orderId":"ord002",
+        "status":"open",
+        "description":"Laptop",
+        "price":1234.00
+        }
+    }
+}

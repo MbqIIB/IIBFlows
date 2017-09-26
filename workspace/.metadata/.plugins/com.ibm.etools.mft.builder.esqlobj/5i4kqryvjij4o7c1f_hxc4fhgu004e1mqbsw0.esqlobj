@@ -1,0 +1,28 @@
+CREATE COMPUTE MODULE OrderAPI_Reply_v1_Add_HTTP_Header
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		SET OutputRoot.Properties = InputRoot.Properties;
+		SET OutputRoot.HTTPReplyHeader."Content-Type" = 'text/json';
+	--	SET OutputRoot.HTTPReplyHeader."Status" = 501;
+		SET OutputRoot.JSON.Data = InputRoot.XMLNSC; 
+		
+	--	SET OutputLocalEnvironment.Destination.HTTP.RequestIdentifier = 
+	--		CAST(InputRoot.XMLNSC."CustomerGetResponse".Header.extensionList.extension.value AS BLOB);
+		      				
+		SET OutputLocalEnvironment.Destination.HTTP.RequestIdentifier = 
+			CAST(InputRoot.MQRFH2.usr.UserIdentifier AS BLOB);
+
+	--	SET OutputLocalEnvironment.Destination.HTTP.ReplyStatusCode = 201;
+		
+		DECLARE refCorr REFERENCE TO InputRoot.MQRFH2.usr;
+		IF LASTMOVE(refCorr) THEN
+			SET OutputRoot.HTTPReplyHeader."X-Message-Transaction-Correlation-Id" 
+					= CAST(refCorr.xMessageTransId AS BLOB);
+		END IF;
+		
+		
+		RETURN TRUE;
+		
+	END;
+END MODULE;

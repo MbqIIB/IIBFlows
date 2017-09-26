@@ -1,0 +1,8 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+		
+		DECLARE inRef REFERENCE TO Root.JSON.Data.CustomerResponse;
+		
+		RETURN TRUE;
+	END;
+

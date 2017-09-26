@@ -1,0 +1,11 @@
+CREATE COMPUTE MODULE Customer_Reply_term_v1_BuildResponse
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		
+
+
+
+	END;
+END MODULE;

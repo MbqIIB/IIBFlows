@@ -1,0 +1,495 @@
+BROKER SCHEMA di.crods.customer.pa
+
+
+CREATE COMPUTE MODULE SetupReply
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		DECLARE refInput 			REFERENCE TO InputRoot.XMLNSC.ctrans:CustomerTransaction.ctrans:Body.ctrans:CustomerRecord;
+		DECLARE prefixTitle			CHAR;
+		DECLARE status 				CHAR;
+		DECLARE gender				CHAR;
+		DECLARE extraType			CHAR '';
+		DECLARE extraNumber			CHAR '';
+		DECLARE FloorType           CHAR '';
+		DECLARE buildingTypeFlag    CHARACTER ' ';
+		DECLARE addressLines		INT 0;
+		DECLARE chrDate,chrField    CHARACTER ' ';
+		DECLARE intI, intJ		    INTEGER 0;
+
+
+		-- Create MQMD	
+		SET OutputRoot.MQMD.Version             			= MQMD_CURRENT_VERSION; 
+		SET OutputRoot.MQMD.MsgType             			= MQMT_REPLY;  
+		SET OutputRoot.MQMD.Format              			= MQFMT_STRING;
+		SET OutputRoot.MQMD.CorrelId						= Environment.RequestState.MQMD.MsgId; 
+		-- SET OutputRoot.MQMD.Expiry              			= -1; -- Unlimited
+		SET OutputRoot.MQMD.Expiry              			= 600;  
+
+		SET OutputRoot.MQMD.Encoding						= MQENC_NATIVE;
+		SET OutputRoot.MQMD.CodedCharSetId					= 1208;	
+		SET OutputRoot.MQMD.ReplyToQ		    			= Environment.RequestState.MQMD.ReplyToQ;  
+		SET OutputRoot.MQMD.ReplyToQMgr         			= Environment.RequestState.MQMD.ReplyToQMgr;
+		
+
+		--  Build ESBEnvelope Header
+		SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header		= Environment.RequestState.XMLNSC.esbenv:Envelope.esbhdr:Header;
+					
+		--  Check Response
+ 	    IF InputRoot.XMLNSC.ctrans:"CustomerTransaction".ctrans:Header.hdr:ReturnCode	= 'ERROR'
+	   	OR InputRoot.XMLNSC.ctrans:"CustomerTransaction".ctrans:Header.hdr:ReturnCode	= 'FATAL'
+	   	OR InputRoot.XMLNSC.ctrans:"CustomerTransaction".ctrans:Header.hdr:ReturnCode	= 'WARN' THEN
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:maxReturnLevel 	= InputRoot.XMLNSC.ctrans:"CustomerTransaction".ctrans:Header.hdr:ReturnCode;
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:code					= InputRoot.XMLNSC.ctrans:"CustomerTransaction".ctrans:Header.hdr:ErrorList.hdr:Error.hdr:Code;
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:message				= InputRoot.XMLNSC.ctrans:"CustomerTransaction".ctrans:Header.hdr:ErrorList.hdr:Error.hdr:Message;					    	
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:severity				= InputRoot.XMLNSC.ctrans:"CustomerTransaction".ctrans:Header.hdr:ErrorList.hdr:Error.hdr:Level;
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:system				= 'CRODS';
+		ELSE																
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:maxReturnLevel 	= 'OK';	
+		END IF; 
+
+
+
+
+		--  Build Response Payload
+		IF InputRoot.XMLNSC.ctrans:"CustomerTransaction".ctrans:Header.hdr:ReturnCode	= 'OK' THEN	
+			
+			CREATE LASTCHILD OF OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body										 NAME 'Party';
+			
+			DECLARE ResponseRef 		REFERENCE TO OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.Party;
+			DECLARE ResponseRefBase1	REFERENCE TO OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.Party;
+			DECLARE ResponseRefBase2	REFERENCE TO OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.Party;
+
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:xsi 			= 	xsi;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:agreement 		= 	agreement;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:event 			= 	event;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:party 			= 	party;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:physicalobjects	= 	physicalobjects;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:location		= 	location;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:moneyprov		= 	moneyprov;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:registration	= 	registration;
+
+
+			IF refInput.cil:CustomerType = 'ORGANISATION' THEN
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type				= 'party:Organisation';
+
+				SET ResponseRef.hasName.fullName				= refInput.cil:OrganisationCustomerInfo.cil:OrganisationNameList.cil:OrganisationNameDetails.cil:OrganisationName;
+				SET ResponseRef.hasName.nameType				= refInput.cil:OrganisationCustomerInfo.cil:OrganisationNameList.cil:OrganisationNameDetails.cil:OrganisationType;
+				
+				SET intI = 1;
+				IF LENGTH(refInput.cil:OrganisationCustomerInfo.cil:OrganisationNameList.cil:OrganisationNameDetails.cil:ABN) > 0 THEN
+					SET ResponseRef.partyRegistration.isIdentifiedBy.registrationId		= refInput.cil:OrganisationCustomerInfo.cil:OrganisationNameList.cil:OrganisationNameDetails.cil:ABN;
+					SET ResponseRef.partyRegistration.registrationType					= 'ABN';
+					SET intI = intI + 1;
+				END IF;
+				
+				IF LENGTH(refInput.cil:OrganisationCustomerInfo.cil:ACN) > 0 THEN
+					IF intI = 2 THEN
+						CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'partyRegistration';
+						SET ResponseRef.isIdentifiedBy.registrationId		= refInput.cil:OrganisationCustomerInfo.cil:ACN;
+						SET ResponseRef.registrationType					= 'ACN';
+						MOVE ResponseRef TO ResponseRefBase2;
+					ELSE
+						SET ResponseRef.partyRegistration.isIdentifiedBy.registrationId		= refInput.cil:OrganisationCustomerInfo.cil:ACN;
+						SET ResponseRef.partyRegistration.registrationType	= 'ACN';
+					END IF;	
+				END IF;
+			ELSE
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type				= 'party:Person';
+			END IF;
+
+
+			MOVE ResponseRefBase2 TO ResponseRef;
+
+	-- 	Address start
+
+		--  Setup Policy Number ready for Address matching - start
+			DECLARE refInputReq 		REFERENCE TO Environment.RequestState.XMLNSC.esbenv:Envelope.esbenv:Body.Party;
+			DECLARE refInputReqId 		REFERENCE TO Environment.RequestState.XMLNSC.esbenv:Envelope.esbenv:Body.Party.requestId;
+
+			DECLARE prefix CHAR;		
+			SET prefix = SUBSTRING((refInputReqId.(XMLNSC.Attribute)xsi:type) FROM 1 FOR (POSITION(':' IN (refInputReqId.(XMLNSC.Attribute)xsi:type))));
+
+			CALL getXTree(refInputReq, prefix||'PolicyIdentifier');
+
+			IF LENGTH(refInputReq.policyId) = 8 THEN
+				SET Environment.HubWorkArea.policyNumber  = refInputReq.productCode||'0'||refInputReq.policyId;
+			ELSEIF LENGTH(refInputReq.policyId) = 7 THEN
+				SET Environment.HubWorkArea.policyNumber  = refInputReq.productCode||'00'||refInputReq.policyId;
+			ELSEIF LENGTH(refInputReq.policyId) = 6 THEN
+				SET Environment.HubWorkArea.policyNumber  = refInputReq.productCode||'000'||refInputReq.policyId;
+			ELSEIF LENGTH(refInputReq.policyId) = 5 THEN
+				SET Environment.HubWorkArea.policyNumber  = refInputReq.productCode||'0000'||refInputReq.policyId;
+			ELSEIF LENGTH(refInputReq.policyId) = 4 THEN
+				SET Environment.HubWorkArea.policyNumber  = refInputReq.productCode||'00000'||refInputReq.policyId;
+			ELSEIF LENGTH(refInputReq.policyId) = 3 THEN
+				SET Environment.HubWorkArea.policyNumber  = refInputReq.productCode||'000000'||refInputReq.policyId;
+			ELSEIF LENGTH(refInputReq.policyId) = 2 THEN
+				SET Environment.HubWorkArea.policyNumber  = refInputReq.productCode||'0000000'||refInputReq.policyId;
+			ELSEIF LENGTH(refInputReq.policyId) = 1 THEN
+				SET Environment.HubWorkArea.policyNumber  = refInputReq.productCode||'00000000'||refInputReq.policyId;
+			ELSE
+				SET Environment.HubWorkArea.policyNumber  = refInputReq.productCode||refInputReq.policyId;
+			END IF;
+		--  Setup Policy Number ready for Address matching - end		
+
+			DECLARE refInAddress REFERENCE TO refInput.cil:AddressList.add:Address;
+
+		--  Find a single address for the client using the following algorithm
+			-- Best address is the one which is a mailing address for the policy (CurrentAddressRating = 3)
+			-- If we can't find the above we just select the first mailing address found (CurrentAddressRating = 2)		 	
+			-- If we can't find any of the above we just select the first address found (CurrentAddressRating = 1)	
+					
+			DECLARE CurrentAddressRating    	INTEGER 0;
+			DECLARE SelectedAddressRating    	INTEGER 0;
+			
+			SET SelectedAddressRating = 0;
+			
+			WHILE LASTMOVE (refInAddress) DO
+
+				SET CurrentAddressRating = 1;
+					
+				DECLARE refBusinessAssoc REFERENCE TO refInAddress.add:ListOfBusinessAssociation.prod:BusinessAssociation;
+
+				WHILE LASTMOVE (refBusinessAssoc) DO
+
+					IF refBusinessAssoc.prod:ReferenceNumber = Environment.HubWorkArea.policyNumber 
+					AND refBusinessAssoc.prod:IsMailAddress = 'Y' THEN	
+						SET CurrentAddressRating = 3;
+					END IF;	
+
+					IF refBusinessAssoc.prod:IsMailAddress = 'Y' 
+					AND CurrentAddressRating < 3 THEN		
+						SET CurrentAddressRating = 2;
+					END IF;	
+
+					MOVE refBusinessAssoc NEXTSIBLING REPEAT NAME;
+			   	
+			   	END WHILE;
+
+				IF CurrentAddressRating >  SelectedAddressRating THEN
+					
+					SET SelectedAddressRating = CurrentAddressRating;
+				
+				-- delete any lesser fit address that has already been built into the response	
+					MOVE ResponseRef TO ResponseRefBase2;
+					DELETE FIELD ResponseRef.contactedAt;
+
+				-- create address	
+					DECLARE refAddress REFERENCE TO refInAddress.add:AddressDetails.add:SCVAddressFormat;
+
+					IF refAddress.add:AddressFormat = 'P' THEN
+						CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+						SET ResponseRef.(XMLNSC.Attribute)xsi:type							='location:POBoxAddress';
+
+					ELSE
+						CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+						SET ResponseRef.(XMLNSC.Attribute)xsi:type							='location:StructuredPostalAddress';
+					END IF;
+				
+				
+					SET ResponseRef.isIdentifiedBy.componentId	= 'CRODS';
+					SET ResponseRef.isIdentifiedBy.locationId	= COALESCE(UPPER(refInAddress.add:AddressDetails.dls:DataLinkService.dls:DLSEntry.dls:ODSObjectID),'');
+					SET ResponseRef.suburb 						= COALESCE(UPPER(refAddress.add:LocalityName),'');  
+					SET ResponseRef.state 						= COALESCE(UPPER(refAddress.add:AdministrativeAreaName),''); 
+					SET ResponseRef.postCode 					= COALESCE(UPPER(refAddress.add:PostalCodeNumber),''); 
+					SET ResponseRef.country	 					= COALESCE(UPPER(refAddress.add:CountryNameCode),'');
+					SET ResponseRef.addresseeLine				= COALESCE(UPPER(refAddress.add:Attention),'');  
+
+				
+					IF refAddress.add:AddressFormat = 'P' THEN
+						SET ResponseRef.boxType					= COALESCE(UPPER(refAddress.add:PostalAddress.add:PostalType),'');  
+						SET ResponseRef.boxNumber				= COALESCE(UPPER(refAddress.add:PostalAddress.add:PostalNumber),'');  
+					END IF;
+
+				
+					IF refAddress.add:AddressFormat = 'S' THEN -- residential address
+						
+						SET buildingTypeFlag			= ' ';
+						
+						IF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type1 <> ' ' THEN	
+							IF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2 <> ' ' THEN
+							-- Both Type1 and Type2 were returned from CRODS		
+								-- Type2 is a Unit or Apartment - so we set the unitNumber to Number2 and string Type1,Number1 into the buildingType
+								IF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2 IN ('A','U') THEN
+									SET ResponseRef.unitNumber 		= COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number2,'');
+									IF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type1 IN ('B','G','M','UG','LG','CARE PO','CMA','CPA','WE') THEN
+										SET buildingTypeFlag			= 'T1CRODS';
+									ELSE
+										SET buildingTypeFlag			= 'T1Address';
+									END IF;
+								-- Type2 is a Floor or Level - so we set the floorNumber to Number2 and string Type1,Number1 into the buildingType
+								ELSEIF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2 IN ('FL','L') THEN
+									SET ResponseRef.floorNumber 		= COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number2,'');
+									IF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type1 IN ('B','G','M','UG','LG','CARE PO','CMA','CPA','WE') THEN
+										SET buildingTypeFlag			= 'T1CRODS';
+									ELSE
+										SET buildingTypeFlag			= 'T1Address';
+									END IF;
+								-- Type1 is a Unit or Apartment - so we set the unitNumber to Number1 and string Type2,Number2 into the buildingType
+								ELSEIF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type1 IN ('A','U') THEN
+									SET ResponseRef.unitNumber 		= COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number1,'');
+									IF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2 IN ('B','G','M','UG','LG','CARE PO','CMA','CPA','WE') THEN
+										SET buildingTypeFlag			= 'T2CRODS';
+									ELSE
+										SET buildingTypeFlag			= 'T2Address';
+									END IF;
+								-- Type1 is a Floor or Level - so we set the floorNumber to Number1 and string Type2,Number2 into the buildingType
+								ELSEIF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type1 IN ('FL','L') THEN
+									SET ResponseRef.floorNumber 		= COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number1,'');
+									IF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2 IN ('B','G','M','UG','LG','CARE PO','CMA','CPA','WE') THEN
+										SET buildingTypeFlag			= 'T2CRODS';
+									ELSE
+										SET buildingTypeFlag			= 'T2Address';
+									END IF;	
+								ELSE
+								-- Neither Type1 or Type2 is a Unit or Apartment or Floor or Level - so we string Type1,Number1,Type2,Number2 into the buildingType
+									IF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type1 IN ('B','G','M','UG','LG','CARE PO','CMA','CPA','WE') THEN	
+										IF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2 IN ('B','G','M','UG','LG','CARE PO','CMA','CPA','WE') THEN
+											SET buildingTypeFlag			= 'T1CRODS_T2CRODS';
+										ELSE	
+											SET buildingTypeFlag			= 'T1CRODS_T2Address';
+										END IF;	
+									ELSE		
+										IF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2 IN ('B','G','M','UG','LG','CARE PO','CMA','CPA','WE') THEN	
+											SET buildingTypeFlag			= 'T1Address_T2CRODS';
+										ELSE
+											SET buildingTypeFlag			= 'T1Address_T2Address';
+										END IF;
+									END IF;
+								END IF;
+							ELSE
+							-- Only Type1 was returned from CRODS		
+								-- Type1 is a Unit or Apartment - so we set the unitNumber to Number1
+								IF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type1 IN ('A','U') THEN
+									SET ResponseRef.unitNumber 			= COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number1,'');
+								-- Type1 is a Floor or Level - so we set the floorNumber to Number1
+								ELSEIF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type1 IN ('FL','L') THEN	
+									SET ResponseRef.floorNumber 		= COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number1,'');	
+								ELSE	
+								-- Type1 is neither a Unit or Apartment or Floor or Level - so we string Type1,Number1 into the buildingType
+									IF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type1 IN ('B','G','M','UG','LG','CARE PO','CMA','CPA','WE') THEN
+										SET buildingTypeFlag			= 'T1CRODS';
+									ELSE
+										SET buildingTypeFlag			= 'T1Address';
+									END IF;
+								END IF;
+							END IF;
+						ELSE
+							IF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2 <> ' ' THEN
+							-- Only Type2 was returned from CRODS		
+								-- Type2 is a Unit or Apartment - so we set the unitNumber to Number2
+								IF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2 IN ('A','U') THEN
+									SET ResponseRef.unitNumber 			= COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number2,'');
+								-- Type2 is a Floor or Level - so we set the floorNumber to Number2
+								ELSEIF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2 IN ('FL','L') THEN	
+									SET ResponseRef.floorNumber 		= COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number2,'');	
+								ELSE	
+								-- Type2 is neither a Unit or Apartment or Floor or Level - so we string Type2,Number2 into the buildingType
+									IF refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2 IN ('B','G','M','UG','LG','CARE PO','CMA','CPA','WE') THEN
+										SET buildingTypeFlag			= 'T2CRODS';
+									ELSE
+										SET buildingTypeFlag			= 'T2Address';
+									END IF;
+								END IF;
+							END IF;
+						END IF;		
+						
+						SET ResponseRef.streetNumber			=	COALESCE(refAddress.add:ResidentialAddress.add:StreetNumber,'');
+						SET ResponseRef.streetName				=	COALESCE(UPPER(refAddress.add:ResidentialAddress.add:StreetName),'');
+						IF LENGTH(refAddress.add:ResidentialAddress.add:StreetType) > 0 THEN
+							SET ResponseRef.streetType  		= 	GetRefDataLongTx('4060',TRIM(refAddress.add:ResidentialAddress.add:StreetType), 'streetType');
+						END IF;
+						SET ResponseRef.buildingName  			=	COALESCE(UPPER(refAddress.add:ExtraAddressDetail),'');		
+
+						CASE buildingTypeFlag
+						WHEN 'T1CRODS' THEN
+							SET ResponseRef.buildingType 	= COALESCE(mapCRODSIndicators(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type1),'') || ' ' || COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number1,'');
+						WHEN 'T1Address' THEN
+							SET ResponseRef.buildingType 	= COALESCE(mapAddressIndicator(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type1),'') || ' ' || COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number1,'');
+						WHEN 'T2CRODS' THEN
+							SET ResponseRef.buildingType 	= COALESCE(mapCRODSIndicators(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2),'') || ' ' || COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number2,'');
+						WHEN 'T2Address' THEN
+							SET ResponseRef.buildingType 	= COALESCE(mapAddressIndicator(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2),'') || ' ' || COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number2,'');
+						WHEN 'T1CRODS_T2CRODS' THEN	
+							SET ResponseRef.buildingType 	= COALESCE(mapCRODSIndicators(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type1),'') || ' ' || COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number1,'') || ' ' || COALESCE(mapCRODSIndicators(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2),'') || ' ' || COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number2,'');
+						WHEN 'T1CRODS_T2Address' THEN
+							SET ResponseRef.buildingType 	= COALESCE(mapCRODSIndicators(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type1),'') || ' ' || COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number1,'') || ' ' || COALESCE(mapAddressIndicator(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2),'') || ' ' || COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number2,'');		
+						WHEN 'T1Address_T2CRODS' THEN
+							SET ResponseRef.buildingType 	= COALESCE(mapAddressIndicator(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type1),'') || ' ' || COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number1,'') || ' ' || COALESCE(mapCRODSIndicators(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2),'') || ' ' || COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number2,'');
+						WHEN 'T1Address_T2Address' THEN		
+							SET ResponseRef.buildingType 	= COALESCE(mapAddressIndicator(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type1),'') || ' ' || COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number1,'') || ' ' || COALESCE(mapAddressIndicator(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Type2),'') || ' ' || COALESCE(refAddress.add:ResidentialAddress.add:Subdwelling.add:AtomicFormat.add:Number2,'');
+						END CASE;
+
+						IF LENGTH(refAddress.add:ResidentialAddress.add:StreetDirection) > 0 THEN
+							SET ResponseRef.streetDirection			= GetRefDataLongTx('20037',TRIM(refAddress.add:ResidentialAddress.add:StreetDirection), 'streetDirection');
+						END IF;
+					END IF;	
+
+				END IF;
+							
+				MOVE refInAddress NEXTSIBLING REPEAT NAME;
+			END WHILE; 
+
+	--  Address end
+
+			MOVE ResponseRef TO ResponseRefBase2;
+			
+		--	Mapping contact details	start
+			DECLARE refInContacts REFERENCE TO refInput.cil:ContactNumbers.cil:ContactNumber;
+		
+			WHILE LASTMOVE(refInContacts) DO
+					
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type							='location:TelephoneNumber';
+	
+					CASE refInContacts.(XMLNSC.Attribute)Type
+					WHEN 'MP' THEN
+						SET ResponseRef.usage				 					= 'mobile';
+						IF LENGTH(refInContacts.cil:AreaCode) > 0 THEN
+							SET ResponseRef.localNumber							= refInContacts.cil:AreaCode||refInContacts.cil:Number;
+						ELSE	
+							SET ResponseRef.localNumber							= refInContacts.cil:Number;
+						END IF;	
+					WHEN 'HP' THEN
+						SET ResponseRef.usage				 					= 'home';
+						IF LENGTH(refInContacts.cil:AreaCode) > 0 THEN
+							SET ResponseRef.localNumber							= refInContacts.cil:AreaCode||refInContacts.cil:Number;
+						ELSE							
+							SET ResponseRef.localNumber							= refInContacts.cil:Number;
+						END IF;		
+					WHEN 'WP' THEN
+						SET ResponseRef.usage				 					= 'business';
+						IF LENGTH(refInContacts.cil:AreaCode) > 0 THEN
+							SET ResponseRef.localNumber							= refInContacts.cil:AreaCode||refInContacts.cil:Number;
+						ELSE							
+							SET ResponseRef.localNumber							= refInContacts.cil:Number;
+						END IF;	
+					WHEN 'FX' THEN
+						SET ResponseRef.usage				 					= 'fax';
+						IF LENGTH(refInContacts.cil:AreaCode) > 0 THEN
+							SET ResponseRef.localNumber							= refInContacts.cil:AreaCode||refInContacts.cil:Number;
+						ELSE							
+							SET ResponseRef.localNumber							= refInContacts.cil:Number;
+						END IF;
+					END CASE;
+						
+				MOVE ResponseRef TO ResponseRefBase2;		
+				MOVE refInContacts NEXTSIBLING REPEAT NAME;
+				
+			END WHILE;
+		--	Mapping contact details	end			
+			
+			MOVE ResponseRef TO ResponseRefBase2;
+			
+		--	Mapping email	start
+			DECLARE refInEmail REFERENCE TO refInput.cil:EmailAddresses.cil:EmailAddress;
+			
+			WHILE LASTMOVE (refInEmail)DO
+					
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type							='location:EmailAddress';
+	
+					SET ResponseRef.emailAddress								= refInEmail.cil:EmailAddressText;
+						
+				MOVE ResponseRef TO ResponseRefBase2;		
+				MOVE refInEmail NEXTSIBLING REPEAT NAME;
+				
+			END WHILE;
+		--	Mapping email	end		
+			
+
+			MOVE ResponseRef TO ResponseRefBase2;
+
+			DECLARE refInPartyId REFERENCE TO refInput.dls:DataLinkService.dls:DLSEntry;
+			
+			WHILE LASTMOVE (refInPartyId)DO
+
+				IF refInPartyId.dls:SourceSystemName 	= 'HUON'
+				AND refInPartyId.dls:SourceSystemID		= Environment.RequestState.XMLNSC.esbenv:Envelope.esbenv:Body.Party.requestId.partyId THEN 	
+
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'isIdentifiedBy';
+
+					SET ResponseRef.componentId			 	= 'HUON';
+					SET ResponseRef.partyId			 		= refInPartyId.dls:SourceSystemID;
+
+					MOVE ResponseRef TO ResponseRefBase2;
+
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'isIdentifiedBy';
+
+					SET ResponseRef.componentId 			= 'CRODS';
+					SET ResponseRef.partyId 				= refInPartyId.dls:ODSObjectID;
+
+					MOVE ResponseRef TO ResponseRefBase2;
+
+				END IF;	
+
+				MOVE refInPartyId NEXTSIBLING REPEAT NAME;
+			
+			END WHILE;
+
+
+			
+			IF EXISTS(refInput.cil:IndividualCustomerInfo.cil:UserIDNumber[])  
+			OR EXISTS(refInput.cil:OrganisationCustomerInfo.cil:UserIDNumber[]) THEN 
+				SET ResponseRef.selfServiceAccess 			= 'Y';
+			ELSE
+				SET ResponseRef.selfServiceAccess 			= 'N';	
+			END IF;	
+
+			IF refInput.cil:CustomerType = 'INDIVIDUAL' THEN
+			
+				SET ResponseRef.birthDate 						= refInput.cil:IndividualCustomerInfo.cil:DateOfBirth.cil:Date;
+
+				CASE refInput.cil:IndividualCustomerInfo.cil:Gender
+				WHEN 'F' THEN
+					SET ResponseRef.gender						= 'Female';
+				WHEN 'M' THEN
+					SET ResponseRef.gender						= 'Male';
+				ELSE 
+					SET ResponseRef.gender  					= 'Unknown';
+				END CASE;
+			
+			
+				SET ResponseRef.personName.firstName			= refInput.cil:IndividualCustomerInfo.cil:IndividualName.cil:FirstName;
+				SET ResponseRef.personName.lastName				= refInput.cil:IndividualCustomerInfo.cil:IndividualName.cil:LastName;
+				SET ResponseRef.personName.middleNames			= refInput.cil:IndividualCustomerInfo.cil:IndividualName.cil:MiddleName;
+
+			
+				CASE refInput.cil:IndividualCustomerInfo.cil:Gender
+				WHEN 'F' THEN
+			 		IF TRIM(refInput.cil:IndividualCustomerInfo.cil:IndividualName.cil:Title) <> '' THEN
+					 	SET ResponseRef.personName.prefixTitles = GetRefDataLongTx('801225',TRIM(refInput.cil:IndividualCustomerInfo.cil:IndividualName.cil:Title), 'Title');
+				 	END IF;
+				WHEN 'M' THEN
+				 	IF TRIM(refInput.cil:IndividualCustomerInfo.cil:IndividualName.cil:Title) <> '' THEN
+				 		SET ResponseRef.personName.prefixTitles = GetRefDataLongTx('801224',TRIM(refInput.cil:IndividualCustomerInfo.cil:IndividualName.cil:Title), 'Title');
+				 	END IF;
+				END CASE;
+
+			END IF;
+
+		END IF;		
+		
+		-- Set Output Queue and Queue Manager 
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueName			= Environment.RequestState.MQMD.ReplyToQ; 
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueManagerName 	= Environment.RequestState.MQMD.ReplyToQMgr; 		
+
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE getXTree(
+			INOUT ref REFERENCE,
+			IN attribName CHAR
+			) BEGIN
+			
+			CREATE LASTCHILD OF Environment.getXTree DOMAIN 'XMLNSC' NAME attribName;
+			
+			SET Environment.getXTree.{attribName} = THE (SELECT ITEM X
+				FROM ref.[] AS X
+				WHERE X.(XMLNSC.Attribute)xsi:type = attribName);
+			MOVE ref TO Environment.getXTree.{attribName};
+	END;
+
+		
+END MODULE;

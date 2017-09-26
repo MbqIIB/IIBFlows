@@ -1,0 +1,64 @@
+CREATE COMPUTE MODULE GetCustomer_v1_Reply_BuildResponse
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.(XMLNSC.NamespaceDecl)xmlns:esbenv = esbenv;
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.(XMLNSC.NamespaceDecl)xmlns:esbhdr = esbhdr;
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.(XMLNSC.NamespaceDecl)xmlns:esberr = esberr;
+		
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+			END IF;
+		END IF;
+
+		DECLARE inref REFERENCE TO InputRoot.JSON.Data.CustomerResponse.Item[>];
+		
+		CALL GetElement(inref, 'Address');
+		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'GetCustomerResponse';
+		DECLARE refMsg REFERENCE TO OutputRoot.XMLNSC."GetCustomerResponse";
+			
+		SET refMsg.CustomerId = inref.CustomerId;
+		SET refMsg.Name = inref.Name;
+	--	SET refMsg.Contact = inref.ContactName;
+	--	SET refMsg.Title = inref.ContactTitle;
+		
+		-- Address details ...
+		CREATE LASTCHILD OF refMsg NAME 'Address';
+		DECLARE refAddr REFERENCE TO refMsg.Address;
+		CREATE LASTCHILD OF refAddr NAME 'AddressLine' VALUE inref.Address.AddressLine1;
+		CREATE LASTCHILD OF refAddr NAME 'AddressLine' VALUE inref.Address.AddressLine2;
+		CREATE LASTCHILD OF refAddr NAME 'AddressLine' VALUE inref.Address.AddressLine3;
+		
+		SET refAddr.PostCode = inref.Address.PostalCode;
+		SET refAddr.City = inref.Address.City;
+		SET refAddr.Country = inref.Address.Country;
+		
+		MOVE inref TO InputRoot.JSON.Data.CustomerResponse.Item[<].Contacts;
+		DECLARE refTel REFERENCE TO InputRoot;
+			
+		C : WHILE LASTMOVE(inref)
+			DO
+		
+				CREATE LASTCHILD OF refMsg NAME 'Contacts';
+				SET refMsg.Position = inref.ContactTitle;
+				SET refMsg.Name = inref.Name;
+				
+				MOVE refTel REFERENCE TO refTel.Telephone
+				T : WHILE LASTMOVE(refTel)
+					DO
+					
+						CREATE LASTCHILD OF refMsg NAME 'Telephone';
+						SET refMsg.Type = refTel.Type;
+						SET refMsg.Number = refTel.Number;
+					
+						MOVE refTel NEXTSIBLING REPEAT NAME;
+					
+					END;
+			
+			MOVE inref NEXTSIBLING REPEAT NAME;

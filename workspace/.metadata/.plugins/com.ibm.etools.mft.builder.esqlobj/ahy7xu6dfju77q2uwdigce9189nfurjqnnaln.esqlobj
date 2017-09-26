@@ -1,0 +1,11 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+--Set the SOAP Reply and HTTP Header for the response		
+
+		SET OutputRoot.HTTPReplyHeader													= Environment.HTTP;													
+		SET OutputRoot.XMLNSC.ser:RecordInsurancePolicyResponseSoapOut = InputRoot.XMLNSC.ser:RecordInsurancePolicyResponseSoapOut;
+	END;		
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmSOAPInput.msgnode="ComIbmSOAPInput.msgnode" xmlns:ComIbmSOAPReply.msgnode="ComIbmSOAPReply.msgnode" xmlns:ComIbmThrow.msgnode="ComIbmThrow.msgnode" xmlns:au_iag_wmb_common_mq_MQRequest.msgflow="au/iag/wmb/common/mq/MQRequest.msgflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:gen_sf_NZ_PolicyManagement.msgflow="gen/sf_NZ_PolicyManagement.msgflow"
+    xmlns:mbmonitor="http://www.ibm.com/wbi/2008/eflow_mbmonitor" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="NZ_PolicyManagement.msgflow"
+    nsPrefix="NZ_PolicyManagement.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="NZ_PolicyManagement" bundleName="NZ_PolicyManagement" pluginId="mfpNZ_PolicyManagement"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/mfpNZ_PolicyManagement/icons/full/obj16/NZ_PolicyManagement.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/mfpNZ_PolicyManagement/icons/full/obj30/NZ_PolicyManagement.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmSOAPReply.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="876,328" validateMaster="none">
+        <translation xmi:type="utility:ConstantString" string="SOAP Reply"/>
+        <monitorEvents eventSourceDescription="In terminal" eventSourceName="SOAP Reply.terminal.in" eventIdentity="SOAP Reply.InTerminal">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <applicationData dataLocation="$Root" isXPath="true" complexData="true"/>
+            <applicationData dataLocation="$ExceptionList" isXPath="true" complexData="true"/>
+            <globalTransactionCorrelator/>
+            <parentTransactionCorrelator/>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="SOAP Reply.InTerminal"/>
+            <eventFilter dataLocation="true()" isXPath="true"/>
+          </eventXMLDoc>
+        </monitorEvents>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_mq_MQRequest.msgflow:FCMComposite_1" xmi:id="FCMComposite_1_4" location="327,223" OutputQueue="ESB.POL.CALCULATE_PREMIUM.REQ" Reply-To-Queue="ESB.POL.CALCULATE_PREMIUM.REPLY" waitInterval="18000" messageDomainProperty="XMLNSC" messageSetProperty="mspWQL080">
+        <translation xmi:type="utility:ConstantString" string="CalculatePremium"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="686,327" computeExpression="esql://routine/#NZ_Set_Reply.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="NZ_Set_Reply"/>
+      </nodes>
+      <nodes xmi:type="gen_sf_NZ_PolicyManagement.msgflow:FCMComposite_1" xmi:id="FCMComposite_1_2" location="141,327">
+        <translation xmi:type="utility:ConstantString" string="sf_NZ_PolicyManagement"/>
+      </nodes>
+      <nodes xmi:type="ComIbmSOAPInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="26,331" wsdlFileName="mspNZ_PolicyManagement/nz/co/iag/www/soa/iagiaa/pm/v2/NZ_PolicyManagement.wsdl" selectedPortType="PolicyManagementServicePort" selectedBinding="PolicyManagementBinding" selectedPort="PolicyManagementServicePort" targetNamespace="http://www.iag.co.nz/soa/iagiaa/pm/v2" useHTTPTransport="true" urlSelector="/soa/iagiaa/pm/v2" maxClientWaitTime="19" messageSetProperty="mspNZ_PolicyManagement"
+          parserXmlnscBuildTreeUsingXMLSchema="false" validateMaster="none">
+        <translation xmi:type="utility:ConstantString" string="SOAP Input"/>
+        <monitorEvents eventSourceDescription="Transaction start" eventSourceName="SOAP Input.transaction.Start" eventIdentity="SOAP Input.TransactionStart">
+          <eventXMLDoc xmi:type="mbmonitor:MonitorEvent">
+            <applicationData dataLocation="$Root" isXPath="true" complexData="true"/>
+            <globalTransactionCorrelator/>
+            <parentTransactionCorrelator/>
+            <localTransactionCorrelator/>
+            <bitStreamData encoding="none" bitstreamContent="none"/>
+            <eventName literal="SOAP Input.TransactionStart"/>
+            <eventFilter dataLocation="true()" isXPath="true"/>
+          </eventXMLDoc>
+        </monitorEvents>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="337,121" computeExpression="esql://routine/#NZ_PolicyManagement_Reply_Failure.Main" computeMode="all">
+        <translation xmi:type="utility:ConstantString" string="Reply Failure"/>
+      </nodes>
+      <nodes xmi:type="ComIbmThrow.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="421,275" messageNumber="3002">
+        <translation xmi:type="utility:ConstantString" string="TimeOutCP"/>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_mq_MQRequest.msgflow:FCMComposite_1" xmi:id="FCMComposite_1_1" location="317,327" OutputQueue="ESB.POL.RECORD_INSURANCE_POLICY.REQ" Reply-To-Queue="ESB.POL.RECORD_INSURANCE_POLICY.REPLY" waitInterval="18000" messageDomainProperty="XMLNSC" messageSetProperty="mspWQL080">
+        <translation xmi:type="utility:ConstantString" string="RecordInsurancePolicy"/>
+      </nodes>
+      <nodes xmi:type="ComIbmThrow.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="421,373" messageNumber="3003">
+        <translation xmi:type="utility:ConstantString" string="TimeOutRIP"/>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_mq_MQRequest.msgflow:FCMComposite_1" xmi:id="FCMComposite_1_14" location="299,426" OutputQueue="ESB.POL.ALLOCATE_PAYMENT_TO_AGREEMENT.REQ" Reply-To-Queue="ESB.POL.ALLOCATE_PAYMENT_TO_AGREEMENT.REPLY" waitInterval="18000" messageDomainProperty="XMLNSC" messageSetProperty="mspBKORS260">
+        <translation xmi:type="utility:ConstantString" string="AllocatePaymentToAgreement"/>
+      </nodes>
+      <nodes xmi:type="ComIbmThrow.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_17" location="417,487" messageNumber="3004">
+        <translation xmi:type="utility:ConstantString" string="TimeOutAPTA"/>
+      </nodes>
+      <nodes xmi:type="ComIbmThrow.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_10" location="134,406">
+        <translation xmi:type="utility:ConstantString" string="HTTP Timeout"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_17" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_19" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.Output1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_21" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.Output2" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.Output1" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_1" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.CalculatePremiumSoapIn1" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.Output2" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_16" targetNode="FCMComposite_1_14" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_23" targetNode="FCMComposite_1_17" sourceNode="FCMComposite_1_14" sourceTerminalName="OutTerminal.Output2" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_24" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.Output1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_25" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_14" sourceTerminalName="OutTerminal.Output1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_10" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.timeout" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard/>
+  </eClassifiers>
+</ecore:EPackage>

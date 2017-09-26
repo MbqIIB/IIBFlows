@@ -1,0 +1,378 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		CALL BuildCalculatePremiumRequestHdr();
+		CALL BuildCalculatePremiumRequestBody();
+		
+		RETURN TRUE;
+	END;
+/***********************************************************************************************************************************************************************/
+CREATE PROCEDURE BuildCalculatePremiumRequestHdr() BEGIN
+
+-- Copy ESB headers to Environment.
+		CREATE LASTCHILD OF Environment 		DOMAIN 'XMLNSC' NAME 'Header';	
+		SET Environment.Header 					= InputRoot.XMLNSC.ser:CalculatePremiumSoapIn.Header;								
+		SET Environment.Msgid 					= InputRoot.MQMD.MsgId;			
+-- Save Reply to Queue for the response		
+	 	SET Environment.REPLY_TO_QUEUE 			= InputRoot.MQMD.ReplyToQ;	
+   		SET Environment.REPLY_TO_QUEUE_MANAGER	= InputRoot.MQMD.ReplyToQMgr;	
+-- Setup output request headers 
+		SET OutputRoot.Properties.MessageSet 	= 'F0H2ASG002001'; 
+		SET OutputRoot.Properties.MessageType 	= 'msg_WQL080RQ';
+		SET OutputRoot.Properties.MessageFormat = 'Binary1';
+-- Build MQMD					
+ 		CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN 'MQMD';
+ 		DECLARE refOut REFERENCE TO OutputRoot.MQMD;		
+ 		CALL Build_MQMD_Header (refOut, InputRoot.MQMD.CorrelId,' ',' ');			
+-- Build MRM Header
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'MRM';
+		MOVE refOut	 TO OutputRoot.MRM;
+		DECLARE refInput			   REFERENCE TO InputRoot.XMLNSC.ser:"CalculatePremiumSoapIn";				
+		CALL Build_MRM_Header (refOut, 'WQL080RQ', refInput);		
+
+END;
+/***********************************************************************************************************************************************************************/	
+CREATE PROCEDURE BuildCalculatePremiumRequestBody() BEGIN
+	
+		DECLARE Adx 			INTEGER 0;	
+		DECLARE Cdx 			INTEGER 0;			
+		DECLARE Ddx 			INTEGER 1;	
+		DECLARE Idx 			INTEGER 1;
+		DECLARE Odx 			INTEGER 1;
+		DECLARE Pdx 			INTEGER 0;
+		DECLARE Mdx 			INTEGER 0;
+		DECLARE Qdx 			INTEGER 0;
+		DECLARE Driver	 		CHAR 'D';
+		DECLARE Owner	 		CHAR 'O';							
+		DECLARE inRef 			REFERENCE TO InputRoot.XMLNSC.ser:CalculatePremiumSoapIn.Payload.CalculatePremium;		
+		DECLARE COVERAGE		REFERENCE TO inRef.ns:insurancePolicy.ns:contractComponents;
+		DECLARE RISKTYPE        REFERENCE TO inRef.ns:insurancePolicy.ns:contractComponents.ns:contractSpecification;				
+		DECLARE AUTOMOBILE 		REFERENCE TO COVERAGE;			
+		DECLARE DRIVERS			REFERENCE TO COVERAGE;	
+		DECLARE POLICY_HOLDER 	REFERENCE TO COVERAGE;				
+		DECLARE ROLE_IN_FSA 	REFERENCE TO COVERAGE;
+		DECLARE VEHICLE 		REFERENCE TO COVERAGE;
+		DECLARE VEHICLE_MODEL 	REFERENCE TO COVERAGE;
+		DECLARE RISK_LOCATION  	REFERENCE TO COVERAGE;
+		DECLARE PLACES		  	REFERENCE TO COVERAGE;	
+		DECLARE SUBURB		  	REFERENCE TO COVERAGE;
+		DECLARE SUM_INSURED	  	REFERENCE TO COVERAGE;		
+		DECLARE DISCOUNTS	  	REFERENCE TO COVERAGE;
+		DECLARE EXTENSIONS	  	REFERENCE TO COVERAGE;
+		DECLARE VEHICLE_MODS  	REFERENCE TO COVERAGE;	
+		DECLARE VEHICLE_DAMAGE 	REFERENCE TO COVERAGE;	
+											
+
+-- Navigate to Coverages 
+		CALL getXTree(COVERAGE, 'CoverageComponent');
+		
+		SET OutputRoot.MRM.RQ_BODY.RQ_OPERATION							= 'PRICE';
+		SET OutputRoot.MRM.RQ_BODY.RQ_DISTRIBUTOR						= 'STATE';	
+
+  		SET OutputRoot.MRM.RQ_BODY.RQ_RISKTYPE							= RISKTYPE.ns:kind;
+
+		SET OutputRoot.MRM.RQ_BODY.RQ_EFFECTDTE							= CAST((DateFunc.ConvertDateToCCYYMMDD(CAST(inRef.ns:effectiveDate AS CHAR))) AS INT);															
+
+-- Navigate to Suburb 
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_SUBURB			= '';
+
+		CALL getXTree(RISK_LOCATION, 'PlaceInvolvedInContract');
+		
+		MOVE PLACES TO RISK_LOCATION.ns:place;
+		MOVE PLACES TO PLACES.ns:relatedPlaces;
+		WHILE LASTMOVE(PLACES) DO
+  			IF PLACES.ns:administrativeLevel = 'Region' THEN
+				SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_SUBURB			= PLACES.ns:names;
+  				MOVE SUBURB TO PLACES.ns:relatedPlaces;
+  				IF SUBURB.ns:names <> '' THEN
+					SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_SUBURB		= SUBURB.ns:names;
+  				END IF;	
+			ELSE		
+  				IF PLACES.ns:administrativeLevel = 'Postal' THEN 
+  					SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_POSTCODE		= PLACES.ns:names;
+  				END IF;	
+  			END IF;		
+			MOVE PLACES NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+		
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_COUNTRY		= 'NZL';	
+		SET OutputRoot.MRM.RQ_BODY.RQ_RISK_ADDRESS.RQ_STATE			= 'NZL';																											
+
+-- Navigate to Policy Holder / Owners
+		DELETE FIELD Environment.getXTreeMany;							
+		MOVE POLICY_HOLDER TO inRef.ns:insurancePolicy;
+		CALL getXTreeMany(POLICY_HOLDER, 'Policyholder');				
+
+-- Map Policy Holders Owners. NOTE: variables Ddx,Odx,Cdx,Pdx,Idx and Adx are shared between Policy Holder Drivers and Additional Drivers
+		SET Adx 															= CARDINALITY(POLICY_HOLDER.*[]);	
+		MOVE POLICY_HOLDER TO POLICY_HOLDER.Policyholder;
+		WHILE LASTMOVE(POLICY_HOLDER) DO
+			CALL Drivers(POLICY_HOLDER,Ddx,Odx,Cdx,Pdx,Qdx,Idx,Adx,Owner);
+			SET Idx = Idx + 1;					
+			MOVE POLICY_HOLDER NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+		
+-- Navigate to AutomobileCoverage	
+		MOVE AUTOMOBILE TO COVERAGE.ns:contractComponents;
+		CALL getXTree(AUTOMOBILE, 'AutomobileCoverage');	
+
+-- Navigate to NamedDriver					
+		DELETE FIELD Environment.getXTreeMany;
+		MOVE DRIVERS TO AUTOMOBILE;
+		CALL getXTreeMany(DRIVERS, 'NamedDriver');			
+
+-- Map Additional Drivers (Risks). NOTE: variables Ddx,Odx,Cdx,Pdx,Idx and Adx are shared between Policy Holder Drivers and Additional Drivers
+		SET Adx 															= Adx + CARDINALITY(DRIVERS.*[]);	
+		MOVE DRIVERS TO DRIVERS.NamedDriver;
+		WHILE LASTMOVE(DRIVERS) DO
+			CALL Drivers(DRIVERS,Ddx,Odx,Cdx,Pdx,Qdx,Idx,Adx,Driver);	
+			SET Idx = Idx + 1;					
+			MOVE DRIVERS NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+		
+		SET OutputRoot.MRM.RQ_BODY.RQ_KNOCK_OUTS.RQ_OTHER_MODS 	= ' ';
+		SET OutputRoot.MRM.RQ_BODY.RQ_KNOCK_OUTS.RQ_DAMAGES 	= ' ';
+
+-- Navigate to FSA		
+		MOVE ROLE_IN_FSA TO AUTOMOBILE;
+		CALL getXTree(ROLE_IN_FSA, 'ObjectCoveredRoleInFsa');		
+
+-- Navigate to Vehicle		
+		MOVE VEHICLE TO ROLE_IN_FSA.ns:coveredPhysicalObjects;
+		CALL getXTree(VEHICLE, 'Vehicle');	
+
+-- Navigate to Vehicle Model
+		IF VEHICLE.ns:vehicleModelSpecification.(XMLNSC.Attribute)xsi:type = 'AutomobileModel' THEN
+			MOVE VEHICLE_MODEL TO VEHICLE.ns:vehicleModelSpecification;
+			CALL getXTree(VEHICLE_MODEL, 'AutomobileModel');
+		ELSE
+			MOVE VEHICLE_MODEL TO VEHICLE.ns:vehicleModelSpecification;
+			CALL getXTree(VEHICLE_MODEL, 'MotocycleModel');		
+		END IF;						
+
+-- Populate Vehicle ID								
+		SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_VMSID			= COALESCE(VEHICLE_MODEL.ns:objectReference.ns:objectId,0);		
+
+-- Navigate to Sum Insured		
+		MOVE SUM_INSURED TO AUTOMOBILE;
+		CALL getXTree(SUM_INSURED, 'MoneyProvisionInvolvedInContract');	
+		
+		IF SUM_INSURED.ns:rootType.ns:name = 'Sum Insured' THEN
+			SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_AGRVALUE = SUM_INSURED.ns:moneyProvision.ns:moneyProvisionElements.ns:baseAmount.ns:theAmount;	
+		END IF;
+
+-- Set RATMOD1 if Immobiliser exists
+		IF VEHICLE.ns:antiTheftDevice IS TRUE THEN
+			SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_RATMOD1 = 'SIMA';				
+		END IF;				
+		  
+-- Initialise MPD Indicator	
+ 		SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_MPDIND			= 'N';
+ 		
+-- Set MPD Indicator if exists 	
+		DELETE FIELD Environment.getXTreeMany;	
+		MOVE DISCOUNTS TO COVERAGE.ns:MoneyProvision;
+		CALL getXTreeMany(DISCOUNTS, 'MoneyProvisionInvolvedInContract');	
+		
+		MOVE DISCOUNTS TO DISCOUNTS.MoneyProvisionInvolvedInContract;
+		WHILE LASTMOVE(DISCOUNTS) DO
+  			IF DISCOUNTS.ns:moneyProvision.ns:adjustments.ns:reason = 'Multi Policy' THEN
+ 				SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_MPDIND			= '1';
+  			END IF;		
+			MOVE DISCOUNTS NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+
+-- Initialise Options Indicator	
+ 		SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_HIRECAROPT			= 'N';
+ 		SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_WSCRNOPT			= 'N';
+ 		SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_RDRESCUE			= 'N';
+ 							
+-- Navigate to Extensions					
+		DELETE FIELD Environment.getXTreeMany;
+		MOVE EXTENSIONS TO AUTOMOBILE;
+		CALL getXTreeMany(EXTENSIONS, 'Extension');				
+		
+		MOVE EXTENSIONS to EXTENSIONS.Extension;	
+		WHILE LASTMOVE(EXTENSIONS) DO
+  			IF EXTENSIONS.ns:contractSpecification.ns:name = 'Windscreen' THEN 
+  				SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_WSCRNOPT			= 'Y';
+  			END IF;	
+  			IF EXTENSIONS.ns:contractSpecification.ns:name = 'Hire Car' THEN
+				SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_HIRECAROPT			= 'Y';	
+  			END IF;	
+  			IF EXTENSIONS.ns:contractSpecification.ns:name = 'Roadside Rescue' THEN 
+				SET OutputRoot.MRM.RQ_BODY.RQ_MOTOR_RISK.RQ_RDRESCUE			= 'Y';											
+  			END IF;		
+			MOVE EXTENSIONS NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+																					 				
+-- Add Immobiliser to MODS if true
+		IF VEHICLE.ns:antiTheftDevice IS TRUE THEN
+			SET Mdx = 1;
+			SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_CNT = Mdx;
+			SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_DTL[Mdx].RQ_MODCODE = 'SIMA';
+			SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_DTL[Mdx].RQ_RATED = 'Y';
+			SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_DTL[Mdx].RQ_PURFIT = 'P';	
+			SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_DTL[Mdx].RQ_MODVALUE = 1;
+		END IF;				
+
+-- Navigate to Modifications
+		MOVE VEHICLE_MODS TO VEHICLE.ns:modifications;
+		WHILE LASTMOVE(VEHICLE_MODS) DO
+  			IF VEHICLE_MODS.ns:rootType.ns:name = 'Non-Standard Wheels' THEN
+				SET Mdx = Mdx + 1;			
+				SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_CNT = Mdx;
+				SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_DTL[Mdx].RQ_MODCODE = 'WHEL';
+				SET OutputRoot.MRM.RQ_BODY.RQ_MODS.RQ_MODS_DTL[Mdx].RQ_MODVALUE = VEHICLE_MODS.ns:value.ns:theAmount;				
+			END IF;	
+  			IF VEHICLE_MODS.ns:rootType.ns:name = 'Other' THEN
+				SET OutputRoot.MRM.RQ_BODY.RQ_KNOCK_OUTS.RQ_OTHER_MODS = 'Y';
+			END IF;				
+ 			MOVE VEHICLE_MODS NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+		
+-- Navigate to Damages
+		MOVE VEHICLE_DAMAGE TO VEHICLE.ns:physicalConditions;
+ 		IF VEHICLE_DAMAGE.ns:conditionComponents.ns:description is not null THEN 					
+			SET OutputRoot.MRM.RQ_BODY.RQ_KNOCK_OUTS.RQ_DAMAGES = 'Y';
+ 		END IF;		
+ 				
+END; 
+
+/***********************************************************************************************************************************************************************/ 
+CREATE PROCEDURE Drivers(IN DRIVERS REFERENCE, INOUT Ddx INT, INOUT Odx INT, INOUT Cdx INT, INOUT Pdx INT, INOUT Qdx INT, INOUT Idx INT, IN Adx INT, IN DriverType CHAR) BEGIN
+-- Common procedure to map policy owners who are drivers, and additional drivers (risks)							
+		DECLARE DRIVING_EXP 	REFERENCE TO DRIVERS;
+		DECLARE DRIVING_LIC 	REFERENCE TO DRIVERS;	
+		DECLARE INCIDENTS 		REFERENCE TO DRIVERS;	
+		DECLARE OFFENCES 		REFERENCE TO DRIVERS;	
+		DECLARE PERSON 			REFERENCE TO DRIVERS;
+		DECLARE REFUSALS 		REFERENCE TO DRIVERS;
+		DECLARE Owner	 		CHAR 'O';											
+		
+
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_CNT										= Adx;				
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_DRIVERSEQ					= COALESCE(DRIVERS.ns:objectReference.ns:objectId,0);
+-- Customer ID (client number)	
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_SEQCLTNO 					= COALESCE(DRIVERS.ns:rolePlayer.ns:objectReference.ns:objectId,0);		
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_TYPEOFCLT					= 'I';	
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_OWNER_DRIVER				= DriverType;										
+-- Navigate to Person					
+		MOVE PERSON TO DRIVERS;
+		CALL getXTree(PERSON, 'Person');
+-- Gender	
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_GENDER = 
+		    CASE PERSON.ns:gender
+		    	WHEN 'Male'  THEN 'M'
+		    	WHEN 'Female'  THEN 'F'
+		    END;		
+-- Date of Birth
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_BIRTHDTE					= DateFunc.ConvertDateToCCYYMMDD(COALESCE(PERSON.ns:birthDate,'9999-12-31'));										
+-- Navigate to Driving experience					
+		MOVE DRIVING_EXP TO PERSON;
+		CALL getXTree(DRIVING_EXP, 'Driving');			
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_DRIVEXP						= COALESCE(DRIVING_EXP.ns:yearsDriving,0);
+-- Navigate to Driving License				
+		MOVE DRIVING_LIC TO PERSON;
+		CALL getXTree(DRIVING_LIC, 'DrivingLicense');						
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS.RQ_DRIVER_DTL[Idx].RQ_LICTYPE						= COALESCE(DRIVING_LIC.ns:drivingLicenseType,' ');		
+-- Navigate to Incidents	
+		MOVE INCIDENTS TO PERSON;
+		CALL getXTreeManyChild(INCIDENTS, 'RoadEvent');
+		
+		SET Cdx																					= Cdx + CARDINALITY(INCIDENTS.*[]);	
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_INCIDENTS.RQ_INCDNT_CNT							= Cdx;	
+-- Read through incidents							
+		MOVE INCIDENTS TO INCIDENTS.RoadEvent;
+		WHILE LASTMOVE(INCIDENTS) DO			
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_INCIDENTS.RQ_INCDNT_DTL[Ddx].RQ_DRIVERSEQ		= COALESCE(DRIVERS.ns:objectReference.ns:objectId,0);	
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_INCIDENTS.RQ_INCDNT_DTL[Ddx].RQ_SEQCLTNO 		= COALESCE(DRIVERS.ns:rolePlayer.ns:objectReference.ns:objectId,0);		
+-- Format start date
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_INCIDENTS.RQ_INCDNT_DTL[Ddx].RQ_LOSSDTE		= DateFunc.ConvertDateToCCYYMMDD(COALESCE(INCIDENTS.ns:startDate,'9999-12-31'));										
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_INCIDENTS.RQ_INCDNT_DTL[Ddx].RQ_LOSSCDE		= COALESCE(INCIDENTS.ns:rootType.ns:name,0);																				
+			SET Ddx = Ddx + 1;	
+			MOVE INCIDENTS NEXTSIBLING REPEAT NAME;			
+		END WHILE;
+-- Navigate to Offences	
+		MOVE OFFENCES TO PERSON;
+		CALL getXTreeManyChild(OFFENCES, 'OffenceEvent');
+		
+		SET Pdx																					= Pdx + CARDINALITY(OFFENCES.*[]);	
+		SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_OFFENCES.RQ_OFFENCE_CNT							= Pdx;	
+-- Read through Offences							
+		MOVE OFFENCES TO OFFENCES.OffenceEvent;
+		WHILE LASTMOVE(OFFENCES) DO			
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_OFFENCES.RQ_OFFENCE_DTL[Odx].RQ_DRIVERSEQ		= COALESCE(DRIVERS.ns:objectReference.ns:objectId,0);
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_OFFENCES.RQ_OFFENCE_DTL[Odx].RQ_SEQCLTNO 		= COALESCE(DRIVERS.ns:rolePlayer.ns:objectReference.ns:objectId,0);		
+-- Format start date
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_OFFENCES.RQ_OFFENCE_DTL[Odx].RQ_CONVCTDTE		= DateFunc.ConvertDateToCCYYMMDD(COALESCE(OFFENCES.ns:startDate,'9999-12-31'));										
+			SET OutputRoot.MRM.RQ_BODY.RQ_DRIVERS_OFFENCES.RQ_OFFENCE_DTL[Odx].RQ_CONVCTCDE		= COALESCE(OFFENCES.ns:rootType.ns:name,'');																				
+			SET Odx = Odx + 1;	
+			MOVE OFFENCES NEXTSIBLING REPEAT NAME;			
+		END WHILE; 
+		
+-- Check for criminal offence
+		IF DriverType = Owner THEN
+			MOVE OFFENCES TO PERSON;
+			CALL getXTreeManyChild(OFFENCES, 'CriminalOffence');
+			IF EXISTS (OFFENCES.CriminalOffence[]) THEN 
+				SET OutputRoot.MRM.RQ_BODY.RQ_KNOCK_OUTS.RQ_OFFENCES = 'Y';	
+			END IF;	
+		END IF;
+		
+-- Navigate to Refusals	
+		IF DriverType = Owner THEN
+			MOVE REFUSALS TO PERSON;
+			CALL getXTreeManyChild(REFUSALS, 'InsuranceEvent');
+			MOVE REFUSALS TO REFUSALS.InsuranceEvent;
+			WHILE LASTMOVE(REFUSALS) DO			
+				IF REFUSALS.ns:startDate IS NULL THEN 
+-- Refusal exists, if it contains no other details(for example 'start date') then it is an existence check and the respective knock-out flag needs to be set
+					SET OutputRoot.MRM.RQ_BODY.RQ_KNOCK_OUTS.RQ_REFCANS = 'Y';	
+				END IF;	
+				MOVE REFUSALS NEXTSIBLING REPEAT NAME;			
+			END WHILE; 
+		END IF;		
+   
+END;	
+/***********************************************************************************************************************************************************************/ 
+CREATE PROCEDURE getXTree(
+		INOUT ref REFERENCE,
+		IN attribName CHAR
+		) BEGIN
+		
+		CREATE LASTCHILD OF Environment.getXTree DOMAIN 'XMLNSC' NAME attribName;
+		
+		SET Environment.getXTree.{attribName} = THE (SELECT ITEM X
+			FROM ref.[] AS X
+			WHERE X.(XMLNSC.Attribute)xsi:type = attribName);
+		MOVE ref TO Environment.getXTree.{attribName};
+		END;
+/***********************************************************************************************************************************************************************/ 
+CREATE PROCEDURE getXTreeMany(
+		INOUT ref REFERENCE,
+		IN attribName CHAR
+		) BEGIN
+
+		CREATE LASTCHILD OF Environment.getXTreeMany DOMAIN 'XMLNSC' NAME attribName;
+		
+		SET Environment.getXTreeMany.{attribName}[] = SELECT ITEM X
+			FROM ref.[] AS X
+			WHERE X.(XMLNSC.Attribute)xsi:type = attribName;
+		MOVE ref TO Environment.getXTreeMany;
+		END;
+/***********************************************************************************************************************************************************************/ 
+CREATE PROCEDURE getXTreeManyChild(
+		INOUT ref REFERENCE,
+		IN attribName CHAR
+		) BEGIN
+			
+		DELETE FIELD Environment.getXTreeManyChild;
+		CREATE LASTCHILD OF Environment.getXTreeManyChild DOMAIN 'XMLNSC' NAME attribName;
+		
+		SET Environment.getXTreeManyChild.{attribName}[] = SELECT ITEM X
+			FROM ref.[] AS X
+			WHERE X.(XMLNSC.Attribute)xsi:type = attribName;
+		MOVE ref TO Environment.getXTreeManyChild;
+		END;			
+

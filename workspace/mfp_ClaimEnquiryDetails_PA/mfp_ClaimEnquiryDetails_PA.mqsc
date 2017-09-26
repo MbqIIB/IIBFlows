@@ -1,0 +1,1 @@
+DEFINE QLOCAL('EAI.CMT.ENQUIRY_DETAILS.REQ') LIKE(SYSTEM.DEFAULT.LOCAL.QUEUE) DESCR('Claim Details Enquiry Provider service request queue') REPLACE

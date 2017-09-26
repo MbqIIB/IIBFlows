@@ -1,0 +1,7 @@
+<wmb>
+	<project>mfp_HUN_NZ_RetrievePolicy_Motor_PA</project>
+	<app>
+		<name>RetrieveInsurancePolicy</name>
+		<executionGroup>egPolicy</executionGroup>
+	</app>
+</wmb>

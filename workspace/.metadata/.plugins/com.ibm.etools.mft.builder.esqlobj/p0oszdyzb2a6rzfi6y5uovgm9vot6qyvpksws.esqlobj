@@ -1,0 +1,12 @@
+CREATE COMPUTE MODULE CustomerAPI_Reply_v1_Add_HTTP_Header
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		SET OutputRoot.HTTPReplyHeader."Content-Type" = 'text/xml';
+		SET OutputRoot.XMLNSC = InputRoot.XMLNSC; 
+		
+		SET OutputLocalEnvironment.Destination.HTTP.RequestIdentifier = CAST(InputRoot.XMLNS.A.MessageID AS BLOB);
+
+	END;
+END MODULE;

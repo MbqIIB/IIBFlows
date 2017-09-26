@@ -1,0 +1,13 @@
+CREATE COMPUTE MODULE RetrieveInsurancePolicyDetails_Reply_v2_Set_CorrelId
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		set OutputRoot.Properties = InputRoot.Properties;
+		
+		set OutputRoot.MQMD = InputRoot.ComIbmAggregateReplyBody.HUON.MQMD;
+		set OutputRoot.XMLNSC = InputRoot.XMLNSC;
+		
+		
+		return true;
+	END;
+END MODULE;

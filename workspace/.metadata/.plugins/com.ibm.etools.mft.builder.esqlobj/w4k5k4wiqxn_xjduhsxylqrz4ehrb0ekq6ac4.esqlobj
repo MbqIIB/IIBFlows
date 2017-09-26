@@ -1,0 +1,43 @@
+CREATE COMPUTE MODULE GetCustomer_v1_Request_BuildErrorResponse
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.(XMLNSC.NamespaceDecl)xmlns:esbenv = esbenv;
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.(XMLNSC.NamespaceDecl)xmlns:esbhdr = esbhdr;
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.(XMLNSC.NamespaceDecl)xmlns:esberr = esberr;
+		
+		IF EXISTS(InputRoot.MQMD[]) THEN
+			SET OutputRoot.MQMD = InputRoot.MQMD;
+			IF EXISTS(InputRoot.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = InputRoot.MQRFH2;
+			END IF;
+		END IF;
+
+		DECLARE inref REFERENCE TO InputRoot.XMLNSC.CustomerGetResponse.Error[>];
+		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'Error';
+		DECLARE refErr REFERENCE TO OutputRoot.XMLNSC."Error";
+			
+		SET refErr.Code = inref.code;
+		SET refErr.Description = inref.message;
+		SET refErr.TimeStamp = CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyyMMdd-HHmmss';
+		SET refErr.Application = inref.Application;			
+		SET refErr.SourceSystem = inref.system;
+		SET refErr.Severity = inref.severity;
+
+--		SET refErr.Code = inref.Code;
+--		SET refErr.Description = inref.Details;
+--		SET refErr.TimeStamp = inref.TimeStamp;
+--		SET refErr.Application = inref.Application;
+--		SET refErr.SourceSystem = inref.SourceSystem;
+--		SET refErr.Severity = inref.Severity;
+		
+
+		RETURN TRUE;
+
+
+
+	END;
+END MODULE;

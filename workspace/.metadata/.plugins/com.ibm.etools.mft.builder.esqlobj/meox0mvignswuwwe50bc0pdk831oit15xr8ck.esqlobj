@@ -1,0 +1,31 @@
+CREATE COMPUTE MODULE GetOrders_v1_Request_BuildRequest
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+	--	SET OutputRoot.MQMD = InputRoot.MQMD;
+	--	SET OutputRoot.MQMD.ReplyToQ = 'EAI.GET_ORDERS_PA.REPLY';
+	--	SET OutputRoot.MQRFH2 = InputRoot.MQRFH2;
+		
+		DECLARE refInBody REFERENCE TO InputRoot.XMLNSC."ordersRequest";
+		
+		-- Copy input message
+	--	CREATE FIELD OutputLocalEnvironment.OriginalMessage;
+	--	DECLARE refIn REFERENCE TO OutputLocalEnvironment.OriginalMessage;
+	--	SET refIn.[] = refInBody.[];
+		
+		-- Start building the MQ JSON Customer request 
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'JSON' NAME 'JSON';
+		CREATE FIELD OutputRoot.JSON.Data IDENTITY (JSON.Object)Data;
+		
+		CREATE LASTCHILD OF OutputRoot.JSON.Data NAME 'ordersRequest'; 	  		
+		DECLARE refReq REFERENCE TO OutputRoot.JSON.Data."ordersRequest";
+
+		SET refReq.customerId = refInBody.customerId;
+			
+		RETURN TRUE;
+
+
+	END;
+END MODULE;

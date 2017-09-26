@@ -1,0 +1,140 @@
+CREATE COMPUTE MODULE RetrievePersonDetails_Response
+	CREATE FUNCTION Main() RETURNS BOOLEAN BEGIN
+		
+		DECLARE inRefHdr					REFERENCE TO InputRoot.XMLNSC.party:"RetrievePersonDetailsResponseV1_0".ResponseHeader;
+		DECLARE inRef    					REFERENCE TO InputRoot.XMLNSC.party:"RetrievePersonDetailsResponseV1_0".Payload.customerDetails;
+		DECLARE MAILING_ADDRESS				REFERENCE TO inRef.mailingAddressAndPolicyAssociation.address;
+		DECLARE ROLEPLAYER					REFERENCE TO inRef.customerInfo.partyRoles.rolePlayer;
+		DECLARE CONTACT_POINTS				REFERENCE TO ROLEPLAYER;
+		DECLARE ADDRESS						REFERENCE TO inRef.mailingAddressAndPolicyAssociation;
+		
+		
+		IF inRefHdr.maxReturnLevel <> 'OK' THEN
+			SET Environment.RetrievePersonDetailsErrmsg = inRefHdr.errorList.errorInfo.message||'('||inRefHdr.errorList.errorInfo.code||')';
+			PROPAGATE TO TERMINAL 'out1';
+		ELSE
+			SET Environment.clientNo 			= COALESCE(ROLEPLAYER.objectReference.objectId,0);
+			SET Environment.externalReference 	= COALESCE(ROLEPLAYER.externalReference,0);
+			SET Environment.CRODSClientNo 		= COALESCE(inRef.customerInfo.partyRoles.objectReference.objectId,0);
+			
+			DELETE FIELD Environment.title;
+			DELETE FIELD Environment.homePhone;
+			DELETE FIELD Environment.workPhone;
+			DELETE FIELD Environment.mobilePhone;
+			DELETE FIELD Environment.emailAddress;
+			DELETE FIELD Environment.marketingConsentInd;
+			DELETE FIELD Environment.StaffMemberInd;
+			DELETE FIELD Environment.FlyBuys;
+			DELETE FIELD Environment.LifeReferral;
+			DELETE FIELD Environment.firstName;
+			DELETE FIELD Environment.lastName;
+			DELETE FIELD Environment.gender;
+			DELETE FIELD Environment.birthDate;
+			DELETE FIELD Environment.address;
+			
+			SET Environment.homePhoneIdx = 0;
+			SET Environment.workPhoneIdx = 0;
+			SET Environment.mobilePhoneIdx = 0;
+			SET Environment.emailAddressIdx = 0;
+			SET Environment.addressIdx = 0;
+			
+			SET Environment.title = ROLEPLAYER.personName.prefixTitles.PrefixTitles;
+			SET Environment.marketingConsentInd = ROLEPLAYER.marketingConsentIndicator;
+			SET Environment.StaffMemberInd = ROLEPLAYER.StaffMemberIndicator;
+			SET Environment.FlyBuys = ROLEPLAYER.FlyBuys;
+			SET Environment.LifeReferral = ROLEPLAYER.LifeReferral;
+			SET Environment.firstName = ROLEPLAYER.personName.firstName;
+			SET Environment.lastName = ROLEPLAYER.personName.lastName;
+			SET Environment.gender = ROLEPLAYER.gender.Gender;
+			SET Environment.birthDate = ROLEPLAYER.birthDate;
+			
+			SET Environment.homePhone.areaCode = ' ';
+			SET Environment.homePhone.localNumber = ' ';
+			SET Environment.workPhone.areaCode = ' ';
+			SET Environment.workPhone.localNumber = ' ';
+			SET Environment.mobilePhone.areaCode = ' ';
+			SET Environment.mobilePhone.localNumber = ' ';
+			SET Environment.emailAddress.contactPointAsString = ' ';
+	
+-- Navigate to Customers Contact Points
+			MOVE CONTACT_POINTS TO ROLEPLAYER.contactPreferences.contactPoints;
+			WHILE LASTMOVE(CONTACT_POINTS) DO
+				IF CONTACT_POINTS.electronicType.TelephoneElectronicType = 'Home Phone' THEN
+					SET Environment.homePhoneIdx = Environment.homePhoneIdx + 1;
+					SET Environment.homePhone[Environment.homePhoneIdx]	= CONTACT_POINTS;
+					IF Environment.homePhone[Environment.homePhoneIdx].areaCode IS NULL THEN
+						SET Environment.homePhone[Environment.homePhoneIdx].areaCode = ' ';
+					END IF;	 
+					IF Environment.homePhone[Environment.homePhoneIdx].localNumber IS NULL THEN
+						SET Environment.homePhone[Environment.homePhoneIdx].localNumber = ' ';
+					END IF;
+				ELSE		
+					IF CONTACT_POINTS.electronicType.TelephoneElectronicType = 'Work Phone' THEN
+						SET Environment.workPhoneIdx = Environment.workPhoneIdx + 1;
+						SET Environment.workPhone[Environment.workPhoneIdx] = CONTACT_POINTS;
+						IF Environment.workPhone[Environment.workPhoneIdx].areaCode IS NULL THEN
+							SET Environment.workPhone[Environment.workPhoneIdx].areaCode = ' ';
+						END IF;
+						IF Environment.workPhone[Environment.workPhoneIdx].localNumber IS NULL THEN
+							SET Environment.workPhone[Environment.workPhoneIdx].localNumber = ' ';
+						END IF;
+					ELSE
+						IF CONTACT_POINTS.electronicType.TelephoneElectronicType = 'Mobile Phone' THEN
+							SET Environment.mobilePhoneIdx = Environment.mobilePhoneIdx + 1;
+							SET Environment.mobilePhone[Environment.mobilePhoneIdx] = CONTACT_POINTS;
+							IF Environment.mobilePhone[Environment.mobilePhoneIdx].areaCode IS NULL THEN
+								SET Environment.mobilePhone[Environment.mobilePhoneIdx].areaCode = ' ';
+							END IF;
+							IF Environment.mobilePhone[Environment.mobilePhoneIdx].localNumber IS NULL THEN
+								SET Environment.mobilePhone[Environment.mobilePhoneIdx].localNumber = ' ';
+							END IF;
+						ELSE
+							IF CONTACT_POINTS.contactPointAsString IS NOT NULL THEN
+								SET Environment.emailAddressIdx = Environment.emailAddressIdx + 1;
+								SET Environment.emailAddress[Environment.emailAddressIdx] = CONTACT_POINTS;
+								IF Environment.emailAddress[Environment.emailAddressIdx].contactPointAsString IS NULL THEN
+									SET Environment.emailAddress[Environment.emailAddressIdx].contactPointAsString = ' ';
+								END IF;	
+							END IF;	
+						END IF;		
+  					END IF;
+  				END IF;		
+ 				MOVE CONTACT_POINTS NEXTSIBLING REPEAT NAME;			
+			END WHILE; 
+
+-- Store all Customer's Address DPIDs
+			MOVE ADDRESS TO inRef.mailingAddressAndPolicyAssociation;
+			WHILE LASTMOVE(ADDRESS) DO
+				SET Environment.addressIdx = Environment.addressIdx + 1;
+				IF ADDRESS.address.objectReference.objectId IS NOT NULL THEN
+					SET Environment.address.DPID[Environment.addressIdx] = ADDRESS.address.objectReference.objectId;
+				ELSE
+					SET Environment.address.DPID[Environment.addressIdx] = ' ';
+				END IF;						
+ 				MOVE ADDRESS NEXTSIBLING REPEAT NAME;			
+			END WHILE; 
+
+-- Remove any null values to make field comparisons more straightforward		
+			IF Environment.title IS NULL THEN
+				SET Environment.title = ' ';
+			END IF;
+
+			IF Environment.marketingConsentInd IS NULL THEN
+				SET Environment.marketingConsentInd = ' ';
+			END IF;
+
+			IF Environment.FlyBuys IS NULL THEN
+				SET Environment.FlyBuys = ' ';
+			END IF;
+			
+			IF Environment.homePhoneIdx > 1 OR Environment.workPhoneIdx	> 1 OR Environment.mobilePhoneIdx > 1 OR Environment.emailAddressIdx > 1 THEN
+				SET Environment.multipleUpdates = true;
+			ELSE
+				SET Environment.multipleUpdates = false;
+			END IF;		
+
+		END IF;	
+
+		RETURN TRUE;
+	END;
+END MODULE;

@@ -1,0 +1,35 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.(XMLNSC.NamespaceDecl)xmlns:esbenv = esbenv;
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.(XMLNSC.NamespaceDecl)xmlns:esbhdr = esbhdr;
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.(XMLNSC.NamespaceDecl)xmlns:esberr = esberr;
+		
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+			END IF;
+		END IF;
+
+		DECLARE inref REFERENCE TO InputRoot.JSON.Data.ordersResponse."error"[>];
+		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'Error';
+		DECLARE refErr REFERENCE TO OutputRoot.XMLNSC."Error";
+			
+		SET refErr.Code = inref.Code;
+		SET refErr.Description = inref.Details;
+		SET refErr.TimeStamp = inref.TimeStamp;
+		SET refErr.Application = inref.Application;
+		SET refErr.SourceSystem = inref.SourceSystem;
+		SET refErr.Severity = inref.Severity;
+		
+
+		RETURN TRUE;
+
+
+
+
+	END;

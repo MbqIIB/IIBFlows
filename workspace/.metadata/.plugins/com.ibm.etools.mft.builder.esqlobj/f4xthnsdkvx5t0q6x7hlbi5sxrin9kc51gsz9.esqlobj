@@ -1,0 +1,48 @@
+CREATE COMPUTE MODULE Customer_Reply_term_v1_BuildResponse
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+			END IF;
+		END IF;
+
+		DECLARE inRef REFERENCE TO InputRoot.XMLNSC.GetCustomerResponse[>];
+		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'GetCustomer';
+		DECLARE refErr REFERENCE TO OutputRoot.XMLNSC."GetCustomer";
+		DECLARE ref REFERENCE TO OutputRoot.XMLNSC.GetCustomer;
+		
+		SET ref.CustomerId = inRef.CustomerId;
+		SET ref.CompanyName = inRef.Name;
+		SET ref.Contact = inRef.Contact;				
+		SET ref.Title = inRef.Title;
+			
+		CREATE LASTCHILD OF ref NAME 'Address';
+		DECLARE refAddr REFERENCE TO ref.Address;
+		
+		DECLARE inAddr REFERENCE TO inRef.Address;
+		DECLARE inAddrLine REFERENCE TO inAddr.AddressLine[>];
+		
+		X : WHILE LASTMOVE(inAddrLine)
+		DO
+			CREATE LASTCHILD OF refAddr NAME 'AddressLine' VALUE FIELDVALUE(inAddrLine);	
+			MOVE inAddrLine NEXTSIBLING REPEAT NAME;	
+			
+		END WHILE;
+
+		SET refAddr.PostCode = inAddr.PostCode;
+		SET refAddr.City = inAddr.City;
+		SET refAddr.Country = inAddr.Country;
+
+		
+		RETURN TRUE;
+
+
+
+	END;
+END MODULE;

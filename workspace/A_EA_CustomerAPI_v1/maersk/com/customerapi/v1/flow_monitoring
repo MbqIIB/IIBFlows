@@ -1,0 +1,8 @@
+
+
+# Set
+mqsireportflowmonitoring TSTIPD01 -c active -e egCustomer -k A_EA_CustomerAPI_v1 -f maersk.com.customerapi.v1.CustomerAPI_Request_v1
+
+# Report
+mqsireportflowmonitoring TSTIPD01 -e egCustomer -k A_EA_CustomerAPI_v1 -f maersk.com.customerapi.v1.CustomerAPI_Request_v1
+

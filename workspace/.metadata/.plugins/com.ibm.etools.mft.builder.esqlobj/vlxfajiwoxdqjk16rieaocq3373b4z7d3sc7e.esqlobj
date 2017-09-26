@@ -1,0 +1,38 @@
+CREATE COMPUTE MODULE GetCustomerOrders_WS_v1_BuildRequest
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		DECLARE refOut REFERENCE TO OutputRoot;
+		
+		SET Environment.Variables.Properties = InputRoot.Properties;
+		SET Environment.Variables.MQMD = InputRoot.MQMD;
+		SET Environment.Variables.MQRFH2 = InputRoot.MQRFH2;
+		
+		IF TRIM(Environment.ServiceProperties.REQUESTURL1) > ' ' THEN
+			SET OutputLocalEnvironment.De
+			SET OutputLocalEnvironment.Destination.HTTP.Request.Transport.HTTP.WebServiceURL = TRIM(Environment.ServiceProperties.REQUESTURL1);
+		ELSE
+			SET OutputLocalEnvironment.Destination.HTTP.Request.Transport.HTTP.WebServiceURL = TRIM(Environment.ServiceProperties.REQUESTURL2);
+		END IF;
+		
+		
+		DECLARE conversationId CHARACTER '';
+		SET conversationId = UUIDASCHAR;
+
+		DECLARE messageId BLOB;
+		SET messageId = UUIDASBLOB;
+		
+		CALL maersk.iib.common.http.v1.SetUpHTTPHeaders_v1(refOut, conversationId, messageId);
+		
+		DECLARE refIn REFERENCE TO InputRoot.XMLNSC.orderRequest;
+		
+		CREATE FIELD OutputRoot.JSON.Data IDENTITY(JSON.Object)Data;
+		CREATE LASTCHILD OF OutputRoot.JSON.Data NAME 'orderRequest';
+		DECLARE refOrd REFERENCE TO OutputRoot.JSON.Data."orderRequest";
+		
+		SET refOrd.customerId = refIn.customerId;
+
+
+
+	END;
+END MODULE;

@@ -1,0 +1,19 @@
+CREATE COMPUTE MODULE RetrieveInsurancePolicyDetails_Request_v2_StopTimer
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+	
+		set OutputRoot.Properties = InputRoot.Properites; 
+		set OutputRoot.MQMD = InputRoot.MQMD;
+			 
+		set OutputLocalEnvironment.TimeoutRequest.Action = 'CANCEL'; 
+        set OutputLocalEnvironment.TimeoutRequest.Identifier = 'HUON_timeout';   
+
+		-- Indicate we are come through the timer control and save the header
+	 	set Environment.MQTimerControl = 'Y';
+ 	 	set Environment.Original.esbenv:Envelope.esbhdr:Header[] = InputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header[];
+	 	
+		return true;	
+	
+	
+	END;
+END MODULE;

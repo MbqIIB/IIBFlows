@@ -1,0 +1,61 @@
+CREATE COMPUTE MODULE ClaimEnquiryDetails_Request_v1_ClaimEnquiryDetails_Request
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+ 		
+		declare refOut reference to OutputRoot;
+		set OutputRoot = null;
+		
+		-- Get the service details from the database ....	
+		Create firstchild of Environment domain 'XMLNSC' name 'ServiceProperties';
+		declare refServiceProperties reference to Environment.ServiceProperties;
+		CALL GetProperties(refServiceProperties, SERVICE_NAME, MessageFlowLabel, BrokerName);
+	 
+		IF TRIM(Environment.ServiceProperties.REQUESTURL1) > ' ' THEN
+			SET OutputLocalEnvironment.Destination.SOAP.Request.Transport.HTTP.WebServiceURL = TRIM(Environment.ServiceProperties.REQUESTURL1);
+		ELSE
+			SET OutputLocalEnvironment.Destination.SOAP.Request.Transport.HTTP.WebServiceURL = TRIM(Environment.ServiceProperties.REQUESTURL2);
+		END IF;
+	 
+	    declare conversationId character;
+	    set conversationId = Environment.Header.esbhdr:conversationId;
+	    
+		--Set up HTTP Headers
+		CALL au.iag.wmb.common.http.v1.SetUpHTTP(refOut, Environment.Header.esbhdr:conversationId, Environment.MQMD.MsgId);
+	
+		declare refInEnv reference to InputRoot.XMLNSC.soapenv1:Envelope;
+		declare refInBody reference to InputRoot.XMLNSC.defns:retrieveClaimDetailsReq;
+		
+		-- Copy input message
+		create field OutputLocalEnvironment.OriginalMessage;
+		declare refInMsg reference to OutputLocalEnvironment.OriginalMessage;
+		set refInMsg.[] = refInBody.[];
+		
+		-- Start building the IClaimEnquiryAPI request message
+		create lastchild of OutputRoot domain 'XMLNSC' name 'XMLNSC';
+	   	
+	   	create lastchild of OutputRoot.XMLNSC namespace soapenv name 'Envelope'; 	  		
+		declare refEnv reference to OutputRoot.XMLNSC.soapenv:Envelope;
+		set refEnv.(XMLNSC.NamespaceDecl)xmlns:soapenv = soapenv; 
+		set refEnv.(XMLNSC.NamespaceDecl)xmlns:soap1 = soap1;  	
+		set refEnv.(XMLNSC.NamespaceDecl)xmlns:icl = icl;  	
+	 	
+		create lastchild of refEnv namespace soapenv name 'Header';
+		declare refHead reference to refEnv.soapenv:Header;
+		set refHead.soap1:locale = '';
+		set refHead.soap1:authentication.soap1:username = TRIM(Environment.ServiceProperties.REQUESTUSERID1);
+		set refHead.soap1:authentication.soap1:password = TRIM(Environment.ServiceProperties.REQUESTPASSWORD1);
+				
+		-- Create the body and root 
+		create lastchild of refEnv identity(XMLNSC.Element)soapenv:Body;
+		declare refBody reference to refEnv.soapenv:Body;
+		
+		create lastchild of refBody namespace icl name 'findClaimDetails';
+		declare refclaim reference to refBody.icl:findClaimDetails;
+		
+		-- set the value from the input message
+		set refclaim.icl:claimNumber = trim(refInBody.claimNumber.claimId);
+	
+		return true;
+			
+	END;
+END MODULE;

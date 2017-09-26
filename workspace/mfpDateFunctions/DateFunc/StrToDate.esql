@@ -1,0 +1,133 @@
+BROKER SCHEMA DateFunc
+
+
+-- Validate if an input string is a date of the format YYYYMMDD
+-- and convert it to a real date
+
+CREATE FUNCTION StrToDate (InDate CHARACTER) RETURNS DATE
+BEGIN
+	DECLARE Valid       BOOLEAN;
+	DECLARE InYear      INTEGER;
+	DECLARE InMonth     INTEGER;
+	DECLARE InDay       INTEGER;
+	DECLARE MonthLength CHARACTER;
+	DECLARE TempDate    DATE;
+	
+	SET TempDate = NULL;
+	SET Valid    = TRUE;
+	
+    -- acertain if the input date is numeric first
+    IF IsNumeric(InDate) = FALSE THEN
+    	SET Valid   = FALSE;
+    ELSE
+		SET InYear  = CAST(SUBSTRING(InDate FROM 1 FOR 4) AS INTEGER);
+		SET InMonth = CAST(SUBSTRING(InDate FROM 5 FOR 2) AS INTEGER);	
+		SET InDay   = CAST(SUBSTRING(InDate FROM 7 FOR 2) AS INTEGER);
+			
+		-- Check the month first
+		IF (InMonth < 1 OR InMonth > 12) THEN
+			SET Valid = FALSE;		
+		ELSE
+			-- set up lengths of months for later manipulation
+			SET MonthLength = '312831303130313130313031';		
+			IF InMonth = 2 THEN
+				IF IsLeapYear(InYear) = TRUE THEN
+					SET MonthLength = '312931303130313130313031'; 
+				END IF;
+			END IF;
+	
+			-- Check the day against length of month
+			IF ((InDay < 1) OR (InDay > CAST(SUBSTRING(MonthLength FROM (InMonth*2 - 1) FOR 2) AS INTEGER))) THEN
+				SET Valid = FALSE;
+			ELSE
+				SET Valid = TRUE;
+			END IF;
+		END IF;    		
+    END IF;
+
+
+	IF Valid = TRUE THEN
+		-- Convert input string to a real date
+		SET TempDate = SUBSTRING(InDate FROM 1 FOR 4) ||
+						 '-' || SUBSTRING(InDate FROM 5 FOR 2) || 
+						 '-' || SUBSTRING(InDate FROM 7 FOR 2);
+						 	
+        -- Check if the date is within range of a .NET date
+        IF (TempDate < DATE '1753-01-01') OR (TempDate > DATE '9998-12-31') THEN
+        	SET TempDate = NULL;
+        END IF;
+	ELSE
+		-- Special Case
+		IF IsNumeric(InDate) = TRUE THEN
+			IF InDate = 99999999 THEN
+				SET TempDate = DATE '9999-12-31';
+			END IF;
+		END IF;
+	END IF;
+	
+	RETURN (TempDate);
+
+END;  -- StrToDate
+
+
+-- ======================================================================================
+
+--  Check if a year is a leap year
+
+CREATE FUNCTION IsLeapYear (IYear INTEGER) RETURNS BOOLEAN
+BEGIN
+	DECLARE Result BOOLEAN;
+	
+	IF (MOD(IYear, 4) <> 0) THEN
+		SET Result = FALSE;    -- year not divisible by 4
+	ELSE
+	IF (MOD(IYear, 400) = 0) THEN
+		SET Result = TRUE;     -- year divisible by 400
+	ELSE 
+	IF (MOD(IYear, 100) = 0) THEN
+		SET Result = FALSE;    -- year divisible by 100
+	ELSE
+		SET Result = TRUE;	
+	END IF;
+	END IF;
+	END IF;
+			
+	RETURN (Result);
+END;    -- IsLeapYear
+
+
+-- ======================================================================================
+
+-- Check if a string is numeric
+
+CREATE FUNCTION IsNumeric (InString CHARACTER) RETURNS BOOLEAN
+BEGIN
+	DECLARE IsNum       BOOLEAN;
+	DECLARE I, StrLen INTEGER;
+	DECLARE TempChar  CHARACTER;
+	
+	SET IsNum = TRUE;
+	SET I = 1;
+	SET StrLen = LENGTH(InString);
+	
+    -- Null string is not numeric!
+	IF StrLen <= 0 THEN
+		SET IsNum = FALSE;
+	END IF;
+	 
+	WHILE (I <= StrLen) AND (IsNum = TRUE) DO
+		SET TempChar = SUBSTRING(InString FROM I FOR 1);
+
+		IF TempChar < '0' OR TempChar > '9' THEN		
+			SET IsNum = FALSE;
+		END IF;	
+		SET I = I + 1;
+	END WHILE;
+			
+	RETURN (IsNum);
+
+END;    -- IsNumeric
+
+
+
+

@@ -1,0 +1,119 @@
+/***********************************************************************************************************************************************************************/
+/*  New Zealand Policy Management Gateway                                                                                                                		       */
+/*  This service accepts incoming policy management SOAP requests from New Zealand State, and passes the operations downstream to separate message flows.       	   */
+/*                                                                                                                                                                     */
+/*  Author: Paul Milburn                                                                                                                                               */
+/*  Date:   24th July 2012                                                                                                                                             */
+/***********************************************************************************************************************************************************************/
+-- Keywords Start
+-- $MQSI_URL= $URL: http://sdc1as356:8080/svn/integration/branches/NZ_State_Integration/mfpNZ_PolicyManagement/NZ_PolicyManagement.esql $ SVN Path MQSI$
+-- $MQSI_Author= $Author: auiag\s45276 $ Developers name MQSI$
+-- $MQSI_Version=$Revision: 4295 $ MQSI$
+-- Keywords End
+/***********************************************************************************************************************************************************************/
+CREATE COMPUTE MODULE NZ_Set_CP_Reply
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+--Set the SOAP Reply and HTTP Header for the response		
+
+		SET OutputRoot.HTTPReplyHeader													= Environment.HTTP;													
+		SET OutputRoot.XMLNSC.ser:CalculatePremiumResponseSoapOut = InputRoot.XMLNSC.ser:CalculatePremiumResponseSoapOut;
+	END;		
+END MODULE; 
+/***********************************************************************************************************************************************************************/
+CREATE COMPUTE MODULE NZ_PolicyManagement_Reply_Failure
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN		
+
+			DECLARE inRef  			REFERENCE TO InputRoot.SOAP.Body.*[<];	
+			DECLARE outRef 			REFERENCE TO OutputRoot;		
+			DECLARE outOperation 	CHAR ' ';	
+			DECLARE start 			REFERENCE TO InputExceptionList.*[1];										
+-- Determine the input operation
+			WHILE start.Number IS NOT NULL DO 
+				IF start.Number = 3001 THEN		
+-- HTTP Timeout						
+					SET OutputRoot = InputRoot;
+				ELSE		
+					SET outOperation		= 
+	     		    CASE FIELDNAME(InputRoot.SOAP.Body.*[<])
+				  	  	WHEN 'CalculatePremiumSoapIn'  						 THEN 'CalculatePremiumResponseSoapOut'		
+				  	  	WHEN 'RecordInsurancePolicySoapIn'  				 THEN 'RecordInsurancePolicyResponseSoapOut'		    		
+		  	  			WHEN 'AllocatePaymentToAgreementSoapIn'  			 THEN 'AllocatePaymentToAgreementResponseSoapOut'		    		
+		  	  		END;
+		  	  
+		  	 		IF outOperation IS NULL THEN
+		  	 			SET outOperation		= ' ';
+		  	 		END IF;	
+		  	  
+-- Copy the HTTP Header
+					SET OutputRoot.HTTPReplyHeader							= InputRoot.HTTPInputHeader;
+
+-- Create the exeception based on the output operation
+	   				CREATE LASTCHILD OF OutputRoot DOMAIN 'XMLNSC' NAME 'XMLNSC';
+					MOVE outRef TO OutputRoot.XMLNSC;	    			
+					CREATE LASTCHILD OF outRef AS outRef NAMESPACE ser  NAME outOperation;   	
+						   			
+					SET outRef.(XMLNSC.Attribute)xmlns:xsi 					= 	'http://www.w3.org/2001/XMLSchema-instance';
+					SET outRef.(XMLNSC.Attribute)xmlns:xsd					=	'http://www.w3.org/2001/XMLSchema';
+					SET outRef.(XMLNSC.Attribute)xmlns:ns1					=	'http://www.iag.co.nz/soa/iagiaa/pm/v2';
+					SET outRef.(XMLNSC.Attribute)xmlns:ns2					=	'http://www.iag.co.nz/soa/iagiaa/v2';				
+					SET outRef.(XMLNSC.Attribute)xmlns:esb					=	'http://iag.com.au/di/esb/soa/meta-data';  			
+
+-- Map Error code in Response Header 
+					SET outRef.ResponseHeader.Header 						= inRef.Header;	
+					SET outRef.ResponseHeader.maxReturnLevel 				= 'ERROR';
+					SET outRef.ResponseHeader.errorList.errorInfo.level 	= 'ERROR';	
+					SET outRef.ResponseHeader.errorList.errorInfo.system 	= 'WMB';						
+
+					IF start.Number = 3002 THEN			
+						SET outRef.ResponseHeader.errorList.errorInfo.code 				= 'PE01';
+						SET outRef.ResponseHeader.errorList.errorInfo.message 			= 'NZ Policy Management (CalculatePremium) Timeout';						
+					ELSE 				
+						IF start.Number = 3003 THEN			
+							SET outRef.ResponseHeader.errorList.errorInfo.code 			= 'PE01';
+							SET outRef.ResponseHeader.errorList.errorInfo.message 		= 'NZ Policy Management (RecordInsurancePolicy) Timeout';						
+						ELSE 				
+							IF start.Number = 3004 THEN			
+								SET outRef.ResponseHeader.errorList.errorInfo.code 		= 'PE01';
+								SET outRef.ResponseHeader.errorList.errorInfo.message 	= 'NZ Policy Management (Allocate Payment To Agreement) Timeout';						
+							ELSE 				
+								SET outRef.ResponseHeader.errorList.errorInfo.code 		= 'PE02';
+								SET outRef.ResponseHeader.errorList.errorInfo.message 	= 'NZ Policy Management Call Exception';	
+							END IF;
+						END IF;
+					END IF;	
+				END IF;			
+
+-- Move start to the last child of the field to which it currently points 
+				MOVE start LASTCHILD;
+			END WHILE;		
+
+		RETURN TRUE;
+	END;
+END MODULE;
+/***********************************************************************************************************************************************************************/
+CREATE COMPUTE MODULE NZ_Set_RIP_Reply
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+--Set the SOAP Reply and HTTP Header for the response		
+
+		SET OutputRoot.HTTPReplyHeader													= Environment.HTTP;													
+		SET OutputRoot.XMLNSC.ser:RecordInsurancePolicyResponseSoapOut = InputRoot.XMLNSC.ser:RecordInsurancePolicyResponseSoapOut;
+	END;		
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+/***********************************************************************************************************************************************************************/
+CREATE COMPUTE MODULE NZ_Set_Reply
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+--Set the SOAP Reply and HTTP Header for the response		
+
+		SET OutputRoot.HTTPReplyHeader													= Environment.HTTP;													
+		SET OutputRoot.XMLNSC.*[<]														= InputRoot.XMLNSC.*[<];
+	END;		
+END MODULE; 

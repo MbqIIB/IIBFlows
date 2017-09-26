@@ -1,0 +1,28 @@
+CREATE FUNCTION GetErrMsgTx(ErrNum CHAR, ErrSysCode CHAR) RETURNS CHAR
+--------------------------------------------------------------------------
+--
+--  Obtain Error Message Text from ERR_MSG DB2 Table
+--
+--  Author : Tony Devitt
+--  Date   : 20/10/2004
+--
+--  VA: 26/11/2008 - Changed Null checking; using the IN keyword was not detecting NULL correctly
+--
+BEGIN
+	DECLARE ErrMsgTx CHARACTER;
+	SET ErrMsgTx =
+	THE (SELECT ITEM T.ERR_MSG_TX FROM Database.MQMBUSER.ERR_MSG AS T WHERE
+	T.ERR_NUM = ErrNum and T.ERR_SYS_CODE = ErrSysCode);
+	IF SQLCODE <> 0 THEN
+		SET ErrMsgTx =
+		' Error accessing Error Message Table - ' ||
+		' SQL STATE ' || SQLSTATE ||
+		' SQL ERROR TEXT ' || SQLERRORTEXT ||
+		' SQL CODE ' || CAST (SQLCODE AS CHARACTER) ||
+		' SQL NATIVE ERROR ' || CAST(SQLNATIVEERROR AS CHARACTER);
+	END IF;
+	IF ErrMsgTx IS NULL OR ErrMsgTx = '' THEN
+		SET ErrMsgTx = 'UNKNOWN ERROR MESSAGE CODE FOR SYSTEM ' || ErrSysCode;
+	END IF;
+	RETURN ErrMsgTx;
+END;

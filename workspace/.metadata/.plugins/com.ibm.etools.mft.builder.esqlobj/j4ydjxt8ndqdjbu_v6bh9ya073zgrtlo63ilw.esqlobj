@@ -1,0 +1,29 @@
+CREATE FUNCTION ExceptionTypeExists(IN refExceptionList REFERENCE, IN chrExceptionType CHARACTER) RETURNS BOOLEAN
+BEGIN
+	-- Author: Gil Alava
+	-- This procedure removes empty XML tags from the tree reference passed to it
+	--
+	-- ExemptionList expected structure
+	-- 
+	-- ExemptionList
+	--    ExemptField (Occurs multiple times)
+	-- 
+	-- The ExemptionList contains those fields which will not be deleted even if they are empty
+	--	
+	DECLARE refInnerException REFERENCE TO refExceptionList;
+	WHILE LASTMOVE(refExceptionList) DO
+		CASE
+		WHEN FIELDNAME(refExceptionList) = chrExceptionType THEN
+			RETURN TRUE;
+		WHEN EXISTS(refExceptionList.*[]) THEN
+			MOVE refInnerException TO refExceptionList;
+			IF ExceptionTypeExists(refInnerException.*[1], chrExceptionType) THEN
+				RETURN TRUE;
+			END IF;
+			MOVE refExceptionList NEXTSIBLING;
+		ELSE
+			MOVE refExceptionList NEXTSIBLING;
+		END CASE;
+	END WHILE;
+	RETURN FALSE;
+END;

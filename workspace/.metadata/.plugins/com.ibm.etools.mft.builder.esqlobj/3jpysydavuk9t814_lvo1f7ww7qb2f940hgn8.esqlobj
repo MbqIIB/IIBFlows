@@ -1,0 +1,16 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+		
+		SET OutputRoot.Properties = InputRoot.Properties;
+		SET OutputRoot.HTTPReplyHeader."Content-Type" = 'text/json';
+		SET OutputRoot.JSON.Data = InputRoot.XMLNSC; 
+		
+	--	SET OutputLocalEnvironment.Destination.HTTP.RequestIdentifier = 
+	--		CAST(InputRoot.XMLNSC."CustomerGetResponse".Header.extensionList.extension.value AS BLOB);
+		      				
+		SET OutputLocalEnvironment.Destination.HTTP.RequestIdentifier = 
+			CAST(InputRoot.MQRFH2.usr.UserIdentifier AS BLOB);
+		
+		RETURN TRUE;
+		
+	END;

@@ -1,0 +1,31 @@
+CREATE FUNCTION S_GetRefDataMiscTx(chrRefDataId CHAR, chrCodeVal CHAR) RETURNS CHAR
+-----------------------------------------------------------------------------------------------------------------	
+BEGIN		
+	CASE chrCodeVal
+	WHEN NULL THEN
+		RETURN NULL;
+	WHEN '' THEN
+		RETURN '';
+	END CASE;
+	
+	DECLARE chrRefDataMiscTx CHAR;
+	SET chrRefDataMiscTx
+	= THE (SELECT ITEM A.REF_MISC_TX FROM Database.MQMBUSER.REF_DATA AS A
+	WHERE A.REF_DATA_ID = chrRefDataId
+	AND A.REF_DATA_CODE_VAL = chrCodeVal);
+	
+	IF SQLCODE <> 0 THEN
+		SET chrRefDataMiscTx =
+		' Error accessing Error Message Table - ' ||
+		' SQL STATE ' || SQLSTATE ||
+		' SQL ERROR TEXT ' || SQLERRORTEXT ||
+		' SQL CODE ' || CAST (SQLCODE AS CHARACTER) ||
+		' SQL NATIVE ERROR ' || CAST(SQLNATIVEERROR AS CHARACTER);
+		THROW USER EXCEPTION VALUES('Fail to get RefDataMiscTx from database: '||chrRefDataMiscTx);
+	END IF;
+	IF chrRefDataMiscTx IS NULL OR chrRefDataMiscTx = '' THEN
+		SET chrRefDataMiscTx = 'MISC_TX NOT FOUND FOR CODEVAL ' || chrCodeVal;
+	END IF;
+	   				    
+	RETURN chrRefDataMiscTx;
+END;

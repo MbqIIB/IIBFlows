@@ -1,0 +1,26 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		set OutputRoot = InputRoot;
+
+		-- Create MQMD 	
+		set OutputRoot.MQMD.Version             			= MQMD_CURRENT_VERSION; 
+		set OutputRoot.MQMD.MsgType             			= MQMT_REPLY;  
+		set OutputRoot.MQMD.Format              			= MQFMT_STRING;
+
+		-- When the timer fires, use the input message msgid, otherwise, the saved state correlid
+		if (Environment.MQTimerControl = 'Y') then
+			set OutputRoot.MQMD.CorrelId						= InputRoot.MQMD.MsgId;
+		else
+			set OutputRoot.MQMD.CorrelId						= Environment.StateMQMD.CorrelId;
+
+		end if;
+
+		-- reset the header
+		if exists(Environment.Original.esbenv:Envelope[]) then
+			set OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.*[] = Environment.Original.esbenv:Envelope.esbhdr:Header.*[];
+		end if;
+		
+		RETURN TRUE;
+
+	END;

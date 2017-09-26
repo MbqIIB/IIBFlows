@@ -1,0 +1,19 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+			END IF;
+		END IF;
+
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'XMLNSC' NAME 'CustomerResponse';
+		DECLARE ref REFERENCE TO OutputRoot.XMLNSC."CustomerResponse";
+		SET ref.CustomerID = 'ABCD';
+		
+		RETURN TRUE;
+
+	END;

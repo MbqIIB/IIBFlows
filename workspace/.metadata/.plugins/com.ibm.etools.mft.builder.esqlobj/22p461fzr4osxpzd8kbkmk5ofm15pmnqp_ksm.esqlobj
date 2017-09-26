@@ -1,0 +1,68 @@
+CREATE COMPUTE MODULE NZ_RecordInsurancePolicy_Error
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN	
+		DECLARE start 			REFERENCE TO InputExceptionList.*[1];	  
+-- Create HTTP Header   		 
+   		SET OutputRoot.HTTPReplyHeader						= Environment.HTTP;	
+-- Build MQMD					
+ 		CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN 'MQMD';
+ 		DECLARE refOut REFERENCE TO OutputRoot.MQMD;					
+ 		CALL Build_MQMD_Header (refOut,InputRoot.MQMD.MsgId,InputRoot.MQMD.ReplyToQ,InputRoot.MQMD.ReplyToQMgr);	
+-- HTTP Header		
+		SET Environment.HTTP																						= InputRoot.HTTPInputHeader;		
+		SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.Header 						= InputRoot.XMLNSC.ser:RecordInsurancePolicySoapIn.Header;
+		SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.maxReturnLevel 				= 'ERROR';
+		SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.level 	= 'ERROR';
+		SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.system 	= 'WMB';				
+-- Map Error code in ResponseHeader 		
+		WHILE start.Number IS NOT NULL DO 
+			CASE start.Number
+				WHEN 3001 THEN		
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE05';
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Record Insurance Policy - Create Person Service Call Exception';
+				WHEN 3002 THEN		
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE06';
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Record Insurance Policy - Create Person Service Error - '||Environment.CreatePersonErrmsg;				
+				WHEN 3003 THEN		
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE07';
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Record Insurance Policy - Create Person Service Timeout';				
+				WHEN 3004 THEN		
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE08';
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Record Insurance Policy - Retrieve Person Details Service Call Exception';
+				WHEN 3005 THEN		
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE09';
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Record Insurance Policy - Retrieve Person Details Service Error - '||Environment.RetrievePersonDetailsErrmsg;				
+				WHEN 3006 THEN		
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE10';
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Record Insurance Policy - Retrieve Person Details Service Timeout';				
+				WHEN 3007 THEN		
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE11';
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Record Insurance Policy - Amend Person Details Service Call Exception';
+				WHEN 3008 THEN		
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE12';
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Record Insurance Policy - Amend Person Details Service Error - '||Environment.AmendPersonDetailsErrmsg;				
+				WHEN 3009 THEN		
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE13';
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Record Insurance Policy - Amend Person Details Service Timeout';				
+				WHEN 3010 THEN		
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE14';
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Record Insurance Policy Service Exception';				
+				WHEN 3011 THEN		
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE15';
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Record Insurance Policy Service Timeout';				
+--> WRK125949
+				WHEN 3012 THEN		
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE16';
+					SET OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Record Insurance Policy - Multiple Payment Frequencys found';				
+--< WRK125949
+			END CASE;
+
+-- Move start to the last child of the field to which it currently points 
+			MOVE start LASTCHILD;
+		END WHILE;					
+-- 	Set destination				
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueManagerName 	= InputRoot.MQMD.ReplyToQMgr;
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueName 		= InputRoot.MQMD.ReplyToQ;	
+
+	END;
+END MODULE;

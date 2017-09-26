@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmThrow.msgnode="ComIbmThrow.msgnode" xmlns:au_iag_wmb_common_mq_MQRequest.msgflow="au/iag/wmb/common/mq/MQRequest.msgflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="NZ_AllocatePaymentToAgreement.msgflow"
+    nsPrefix="NZ_AllocatePaymentToAgreement.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="NZ_AllocatePaymentToAgreement" bundleName="NZ_AllocatePaymentToAgreement" pluginId="mfpNZ_PolicyManagement"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/mfpNZ_PolicyManagement/icons/full/obj16/NZ_AllocatePaymentToAgreement.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/mfpNZ_PolicyManagement/icons/full/obj30/NZ_AllocatePaymentToAgreement.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="271,232" computeExpression="esql://routine/#NZ_AllocatePaymentToAgreement_Request.Main" computeMode="destinationAndMessage">
+        <translation xmi:type="utility:ConstantString" string="AllocatePaymentToAgreement_Request"/>
+      </nodes>
+      <nodes xmi:type="ComIbmThrow.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="601,275" messageNumber="3002">
+        <translation xmi:type="utility:ConstantString" string="Receipting Service Timeout"/>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_mq_MQRequest.msgflow:FCMComposite_1" xmi:id="FCMComposite_1_10" location="515,233" OutputQueue="EAI.PCI.RECEIPT_SERVICE_WEB.REQ" Reply-To-Queue="EAI.PCI.RECEIPT_SERVICE.REPLY" waitInterval="17000" messageDomainProperty="MRM" messageSetProperty="mspBKORS260" messageTypeProperty="{}:msg_IMS_OREC_REPLY" messageFormatProperty="Binary1">
+        <translation xmi:type="utility:ConstantString" string="MQRequest"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_11" location="939,234" destinationMode="list">
+        <translation xmi:type="utility:ConstantString" string="ESB.POL.ALLOCATE_PAYMENT_TO_AGREEMENT.REPLY"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_12" location="714,233" computeExpression="esql://routine/#NZ_AllocatePaymentToAgreement_Response.Main" computeMode="destinationAndMessage">
+        <translation xmi:type="utility:ConstantString" string="AllocatePaymentToAgreement_Response"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_13" location="2,232" queueName="ESB.POL.ALLOCATE_PAYMENT_TO_AGREEMENT.REQ" messageDomainProperty="XMLNSC" messageSetProperty="mspBKORS260">
+        <translation xmi:type="utility:ConstantString" string="ESB.POL.ALLOCATE_PAYMENT_TO_AGREEMENT.REQ"/>
+      </nodes>
+      <nodes xmi:type="ComIbmThrow.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_14" location="604,190">
+        <translation xmi:type="utility:ConstantString" string="Receipting Service Error"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_15" location="279,100" computeExpression="esql://routine/#NZ_AllocatePaymentToAgreement_Error.Main" computeMode="destinationAndMessage">
+        <translation xmi:type="utility:ConstantString" string="APTA_Error"/>
+      </nodes>
+      <nodes xmi:type="ComIbmThrow.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="893,300" messageNumber="9999">
+        <translation xmi:type="utility:ConstantString" string="Error Returned From Receipting Service"/>
+      </nodes>
+      <nodes xmi:type="ComIbmThrow.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="420,176" messageNumber="3003">
+        <translation xmi:type="utility:ConstantString" string="Invalid Policy Status"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_11" sourceNode="FCMComposite_1_12" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_14" sourceNode="FCMComposite_1_10" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_15" sourceNode="FCMComposite_1_13" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_10" targetNode="FCMComposite_1_11" sourceNode="FCMComposite_1_15" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_11" targetNode="FCMComposite_1_15" sourceNode="FCMComposite_1_13" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_12" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_13" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_14" targetNode="FCMComposite_1_12" sourceNode="FCMComposite_1_10" sourceTerminalName="OutTerminal.Output1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_15" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_10" sourceTerminalName="OutTerminal.Output2" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_10" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_1" sourceNode="FCMComposite_1_12" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard/>
+  </eClassifiers>
+</ecore:EPackage>

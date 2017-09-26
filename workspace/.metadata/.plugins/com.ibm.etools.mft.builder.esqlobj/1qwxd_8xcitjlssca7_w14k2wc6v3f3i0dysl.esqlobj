@@ -1,0 +1,13 @@
+CREATE COMPUTE MODULE sfSaveStateMessage_v1_Transform_MQMD
+
+	DECLARE setExpiry EXTERNAL INTEGER 1800;	
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		SET OutputRoot = InputRoot;
+       	SET OutputRoot.MQMD.Expiry = setExpiry;
+		RETURN TRUE;
+		
+    END;
+
+END MODULE;

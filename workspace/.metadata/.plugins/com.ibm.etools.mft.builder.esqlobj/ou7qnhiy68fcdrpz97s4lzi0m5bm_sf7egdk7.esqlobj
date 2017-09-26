@@ -1,0 +1,37 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+		
+		SET OutputRoot.Properties = InputRoot.Properties;
+
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.(XMLNSC.NamespaceDecl)xmlns:esbenv = esbenv;
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.(XMLNSC.NamespaceDecl)xmlns:esbhdr = esbhdr;
+	--	SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.(XMLNSC.NamespaceDecl)xmlns:esberr = esberr;
+		
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+			END IF;
+		END IF;
+
+		DECLARE inref REFERENCE TO InputRoot.JSON.Data."Error"[>];
+		
+	--	CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'Error';
+	--	set OutputRoot.XMLNSC."Error".code 				= 'GCC01';
+	--	set OutputRoot.XMLNSC."Error".message 			= 'desc';
+	--	set OutputRoot.XMLNSC."Error".system 				= 'CLAIMS';	
+	--	set OutputRoot.XMLNSC."Error".severity 			= 'ERROR';	
+	--	set Environment.Header.maxReturnLevel							= 'ERROR';			
+		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'Error';
+		DECLARE refErr REFERENCE TO OutputRoot.XMLNSC."Error";
+			
+		SET ref.code = 'TEST';
+		SET ref.Description = 'DESC';
+	--	SET ref.Application = inref.Application;
+	--	SET ref.SourceSystem = inref.SourceSystem;
+	--	SET ref.Severity = inref.Severity;
+		
+
+		RETURN TRUE;
+	END;

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?><MessageBroker name="libGetCustomer_v1">
+  <XSDCollection href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd" prefix="" targetNamespace="">
+    <element href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//extension;XSDElementDeclaration" name="extension" type="mlib://libGetCustomer_v1#/-/complexType{}ExtensionType"/>
+    <element href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//operationName;XSDElementDeclaration=1" name="operationName" type="mlib://libGetCustomer_v1#/-/simpleType{http://www.w3.org/2001/XMLSchema}string"/>
+    <element href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//timestamp;XSDElementDeclaration=2" name="timestamp" type="mlib://libGetCustomer_v1#/-/simpleType{http://www.w3.org/2001/XMLSchema}string"/>
+    <element href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//sourceSystem;XSDElementDeclaration=3" name="sourceSystem" type="mlib://libGetCustomer_v1#/-/simpleType{http://www.w3.org/2001/XMLSchema}string"/>
+    <element href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//userId;XSDElementDeclaration=4" name="userId" type="mlib://libGetCustomer_v1#/-/simpleType{http://www.w3.org/2001/XMLSchema}string"/>
+    <element href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//Header;XSDElementDeclaration=5" name="Header" type="mlib://libGetCustomer_v1#/-/complexType{}HeaderType"/>
+    <element href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//GetCustomerResponse;XSDElementDeclaration=6" name="GetCustomerResponse" type="mlib://libGetCustomer_v1#/-/complexType{}GetCustomerResponseType"/>
+    <element href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//Error;XSDElementDeclaration=7" name="Error" type="mlib://libGetCustomer_v1#/-/complexType{}ErrorType"/>
+    <element href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//CustomerId;XSDElementDeclaration=8" name="CustomerId" type="mlib://libGetCustomer_v1#/-/simpleType{http://www.w3.org/2001/XMLSchema}string"/>
+    <element href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//CompanyName;XSDElementDeclaration=9" name="CompanyName" type="mlib://libGetCustomer_v1#/-/simpleType{http://www.w3.org/2001/XMLSchema}string"/>
+    <element href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//Address;XSDElementDeclaration=10" name="Address" type="mlib://libGetCustomer_v1#/-/complexType{}AddressType"/>
+    <element href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//Body;XSDElementDeclaration=11" name="Body" type="mlib://libGetCustomer_v1#/-/complexType{}BodyType"/>
+    <element href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//Telephone;XSDElementDeclaration=12" name="Telephone" type="mlib://libGetCustomer_v1#/-/complexType{}TelephoneType"/>
+    <element href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//Number;XSDElementDeclaration=13" name="Number" type="mlib://libGetCustomer_v1#/-/complexType{}NumberType"/>
+    <complexType baseType="mlib://libGetCustomer_v1#/-/complexType{http://www.w3.org/2001/XMLSchema}anyType" href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//ExtensionListType;XSDComplexTypeDefinition" name="ExtensionListType"/>
+    <complexType baseType="mlib://libGetCustomer_v1#/-/complexType{http://www.w3.org/2001/XMLSchema}anyType" href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//ExtensionType;XSDComplexTypeDefinition=1" name="ExtensionType"/>
+    <complexType baseType="mlib://libGetCustomer_v1#/-/complexType{http://www.w3.org/2001/XMLSchema}anyType" href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//HeaderType;XSDComplexTypeDefinition=2" name="HeaderType"/>
+    <complexType baseType="mlib://libGetCustomer_v1#/-/complexType{http://www.w3.org/2001/XMLSchema}anyType" href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//ErrorType;XSDComplexTypeDefinition=3" name="ErrorType"/>
+    <complexType baseType="mlib://libGetCustomer_v1#/-/complexType{http://www.w3.org/2001/XMLSchema}anyType" href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//GetCustomerResponseType;XSDComplexTypeDefinition=4" name="GetCustomerResponseType"/>
+    <complexType baseType="mlib://libGetCustomer_v1#/-/complexType{http://www.w3.org/2001/XMLSchema}anyType" href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//AddressType;XSDComplexTypeDefinition=5" name="AddressType"/>
+    <complexType baseType="mlib://libGetCustomer_v1#/-/complexType{http://www.w3.org/2001/XMLSchema}anyType" href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//BodyType;XSDComplexTypeDefinition=6" name="BodyType"/>
+    <complexType baseType="mlib://libGetCustomer_v1#/-/complexType{http://www.w3.org/2001/XMLSchema}anyType" href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//TelephoneType;XSDComplexTypeDefinition=7" name="TelephoneType"/>
+    <complexType baseType="mlib://libGetCustomer_v1#/-/complexType{http://www.w3.org/2001/XMLSchema}anyType" href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//NumberType;XSDComplexTypeDefinition=8" name="NumberType"/>
+    <attribute href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerResponse.xsd#//type;XSDAttributeDeclaration" name="type"/>
+  </XSDCollection>
+  <XSDCollection href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerRequest_v1.xsd" prefix="" targetNamespace="">
+    <element href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerRequest_v1.xsd#//GetCustomer;XSDElementDeclaration" name="GetCustomer" type="mlib://libGetCustomer_v1#/-/complexType{}GetCustomerType"/>
+    <complexType baseType="mlib://libGetCustomer_v1#/-/complexType{http://www.w3.org/2001/XMLSchema}anyType" href="platform:/resource/libGetCustomer_v1/GetCustomer/GetCustomerRequest_v1.xsd#//GetCustomerType;XSDComplexTypeDefinition" name="GetCustomerType"/>
+  </XSDCollection>
+</MessageBroker>

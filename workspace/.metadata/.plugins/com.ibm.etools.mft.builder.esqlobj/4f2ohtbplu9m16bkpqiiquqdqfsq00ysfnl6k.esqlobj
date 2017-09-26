@@ -1,0 +1,19 @@
+CREATE FUNCTION StrippedString(IN string CHARACTER, INOUT refWorkingArea REFERENCE) RETURNS CHARACTER
+BEGIN
+	DECLARE chrStrippedString CHARACTER;
+	SET refWorkingArea.Temp.Field = string;
+	DECLARE blbString BLOB;
+	SET blbString = 
+		ASBITSTREAM(refWorkingArea.Temp ENCODING MQENC_NATIVE CCSID MQCCSI_Q_MGR OPTIONS FolderBitStream);
+	-- Substitute 'special' character for '?'
+	DECLARE newBLB BLOB REPLACE(blbString, X'00', X'3F');
+	SET blbString = newBLB;
+	-- Substitute 'special' for '?'
+	SET newBLB = REPLACE(blbString, X'01', X'3F');
+	CREATE LASTCHILD OF refWorkingArea.OutputString PARSE(newBLB ENCODING MQENC_NATIVE CCSID MQCCSI_Q_MGR OPTIONS FolderBitStream);
+	
+	SET chrStrippedString = refWorkingArea.OutputString.Temp.Field;
+	DELETE FIELD refWorkingArea.OutputString;
+	DELETE FIELD refWorkingArea.Temp;
+	RETURN chrStrippedString;
+END;

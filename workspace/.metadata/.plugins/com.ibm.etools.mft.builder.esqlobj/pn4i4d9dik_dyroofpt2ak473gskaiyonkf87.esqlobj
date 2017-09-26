@@ -1,0 +1,35 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		SET OutputRoot.Properties = Environment.Variables.Properties;
+		SET OutputRoot.MQMD = Environment.Variables.MQMD;
+		SET OutputRoot.MQRFH2 = Environment.Variables.MQRFH2;
+
+		DECLARE refIn REFERENCE TO InputRoot.JSON.Data."ordersResponse";
+		--
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'XMLNSC' NAME 'XMLNSC';
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'ordersResponse'; 	  		
+		DECLARE refResp REFERENCE TO OutputRoot.XMLNSC."ordersResponse";
+
+		DECLARE refInBody REFERENCE TO refIn.Body;
+		
+		SET refResp.CustomerId = refInBody.CustomerId;
+		
+		DECLARE refOrder REFERENCE TO refIn.Body.Orders[<];
+		O : WHILE LASTMOVE(refOrder)
+		DO
+			CREATE LASTCHILD OF refOrder NAME 'Orders';
+			DECLARE refO REFERENCE TO refOrder.Orders[>];
+			
+			SET refO.OrderId = refOrder.OrderId;
+			SET refO.Status = refOrder.Status;
+			SET refO.Description = refOrder.Description;
+			SET refO.Price = refOrder.Price;
+			
+			MOVE refOrder NEXTSIBLING REPEAT NAME;
+			
+		END WHILE;
+
+		RETURN TRUE;
+
+	END;

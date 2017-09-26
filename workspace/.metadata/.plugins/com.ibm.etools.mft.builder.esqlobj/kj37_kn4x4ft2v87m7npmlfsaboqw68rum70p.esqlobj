@@ -1,0 +1,21 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+			END IF;
+		END IF;
+		
+		--
+		SET OutputRoot.XMLNSC = InputRoot.XMLNSC;
+		
+		CALL UpdateState();
+		
+		RETURN TRUE;
+
+	END;
+	
+	CREATE PROCEDURE UpdateState()

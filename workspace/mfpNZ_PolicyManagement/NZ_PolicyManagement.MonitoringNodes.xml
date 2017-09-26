@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<eventSources>
+<Node>
+	<!--  SOAP INPUT Logs the request sent from HTTP Client -->
+	<Source>SOAP Input.transaction.Start</Source>
+	<Name>SOAP Input.TransactionStart</Name>
+	<CorrelId>$Root//X-Message-Transaction-Correlation-Id</CorrelId>
+	<ConversationId>$Root//*[local-name()='conversationId']</ConversationId>
+	<MsgId>$LocalEnvironment/Destination/SOAP/Reply/ReplyIdentifier</MsgId>
+	<Operation>$Root/SOAP/Context/@operation</Operation>
+	<UserId>$Root//Header/userId</UserId>
+	<Type>concat('REQUEST','')</Type>
+	<CustomerId>$Root//Payload/UserID</CustomerId>
+	<ReplyId>$LocalEnvironment/Destination/SOAP/Reply/ReplyIdentifier</ReplyId>
+	<UrlPath>substring-before( substring-after($Root//X-Original-HTTP-Command, 'POST'), 'HTTP')</UrlPath>
+	<Host>$Root/HTTPInputHeader/Host</Host>
+	<Client>$Root//X-Message-Origin-Application-Servername</Client>
+	<Status>$Root//maxReturnLevel</Status>
+	<Error>$Root//errorInfo/message</Error>
+</Node>
+<Node>
+	<!--  SOAP REPLY Logs the response sent to HTTP Client -->
+	<Source>SOAP Reply.terminal.in</Source>
+	<Name>SOAP Reply.InTerminal</Name>
+	<CorrelId>$Root//X-Message-Transaction-Correlation-Id</CorrelId>
+	<ConversationId>$Root//conversationId</ConversationId>
+	<MsgId>$Root//X-Message-Transaction-Correlation-Id</MsgId>
+	<Operation>local-name($Root/XMLNSC/*[1])</Operation>
+	<UserId>$Root//Header/userId</UserId>
+	<Type>concat('REPLY','')</Type>
+	<CustomerId></CustomerId>
+	<ReplyId></ReplyId>
+	<UrlPath>$Root//X-Original-HTTP-Command</UrlPath>
+	<Host>$Root/HTTPReplyHeader/Host</Host>
+	<Client>$Root//X-Message-Origin-Application-Servername</Client>
+	<Status>$Root//maxReturnLevel</Status>
+	<Error>$Root//errorInfo/message</Error>
+</Node>
+</eventSources>

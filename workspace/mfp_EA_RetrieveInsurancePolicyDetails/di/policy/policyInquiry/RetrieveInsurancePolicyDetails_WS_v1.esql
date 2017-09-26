@@ -1,0 +1,115 @@
+BROKER SCHEMA di.policy.policyInquiry
+DECLARE esbenv NAMESPACE 'http://iag.com.au/di/esb/envelope/v1/';
+DECLARE ret NAMESPACE 'http://iag.com.au/di/PolicyInquiry/RetrieveInsurancePolicyDetails/v1/';
+DECLARE esbhdr NAMESPACE 'http://iag.com.au/di/esb/header/v1/';
+DECLARE ns NAMESPACE 'http://schemas.xmlsoap.org/soap/envelope/';
+DECLARE esberr NAMESPACE 'http://iag.com.au/di/esb/error/v1/';
+
+
+CREATE COMPUTE MODULE SetupRequest_EA
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+	
+		-- Setup MQMD
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'MQMD';
+		SET OutputRoot.MQMD.MsgId           = MQMI_NONE;
+		SET OutputRoot.MQMD.Version 		= MQMD_CURRENT_VERSION;
+		SET OutputRoot.MQMD.Format 			= MQFMT_STRING;
+		SET OutputRoot.MQMD.MsgType 		= MQMT_REQUEST;
+		SET OutputRoot.MQMD.Encoding 		= MQENC_NATIVE;
+		SET OutputRoot.MQMD.CodedCharSetId 	= MQCCSI_Q_MGR;	
+		SET OutputRoot.MQMD.CorrelId		= CAST(InputRoot.HTTPInputHeader."X-Message-Transaction-Correlation-Id" AS BLOB);	
+
+		-- Setup RFH2 Header
+		SET OutputRoot.MQRFH2.(MQRFH2.Field)Version 		= 2;
+		SET OutputRoot.MQRFH2.(MQRFH2.Field)CodedCharSetId 	= 1208;	
+		SET OutputRoot.MQRFH2.(MQRFH2.Field)Format 			= MQFMT_NONE;
+		SET OutputRoot.MQRFH2.(MQRFH2.Field)NameValueCCSID 	= 1208; 
+
+		-- Save the HTTP Header for the response		
+		SET Environment.HTTP								= InputRoot.HTTPInputHeader;				
+
+		-- Copy SOAP Header into ESBEnvelope
+		SET OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Header  = InputLocalEnvironment.SOAP.Envelope.InRequest.RetrieveInsurancePolicyDetailsBinding.SOAP.Header;
+		
+		-- Copy SOAP Body into ESBEnvelope
+		SET OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsReq = InputRoot.XMLNSC.ret:retrieveInsurancePolicyDetailsReq;
+		
+		RETURN TRUE;
+	END;
+END MODULE;
+
+
+CREATE COMPUTE MODULE SetupReply_EA
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		--Set the HTTP Header for the response		
+		SET OutputRoot.HTTPReplyHeader					  		= Environment.HTTP;	
+
+		--Set the SOAP Header for the response		
+		SET OutputRoot.SOAP.Header = InputRoot.XMLNSC.esbenv:Envelope.esbenv:Header;
+
+		--Set the SOAP Reply for the response		
+		IF InputRoot.XMLNSC.esbenv:Envelope.esbenv:Header.esbhdr:header.esbhdr:maxReturnLevel = 'OK' THEN
+			SET OutputRoot.SOAP.Body.ret:retrieveInsurancePolicyDetailsResp = InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsResp;	
+		ELSE
+			IF EXISTS(InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.esberr:Error[]) THEN
+				IF NOT EXISTS(InputRoot.XMLNSC.esbenv:Envelope.esbenv:Header.esbhdr:header.esbhdr:maxReturnLevel[]) THEN
+					SET OutputRoot.SOAP.Header.esbhdr:header.esbhdr:maxReturnLevel = 'FATAL';
+				END IF;
+				SET OutputRoot.SOAP.Body.ns:Fault.faultcode 			= InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.esberr:Error.esberr:code;
+				SET OutputRoot.SOAP.Body.ns:Fault.faultstring 			= InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.esberr:Error.esberr:message;
+				SET OutputRoot.SOAP.Body.ns:Fault.faultactor 			= InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.esberr:Error.esberr:system;
+			END IF;
+		END IF;
+
+		RETURN TRUE;
+	END;
+
+END MODULE;	
+
+CREATE COMPUTE MODULE SetupFailureReply
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN		
+
+			DECLARE inRef  			REFERENCE TO InputRoot.SOAP.Header.*[<];	
+			DECLARE outRef 			REFERENCE TO OutputRoot;		
+			DECLARE outOperation 	CHAR ' ';											
+			DECLARE start 			REFERENCE TO InputExceptionList.*[1];													
+-- Determine the input operation
+			SET outOperation		= 'retrieveInsurancePolicyDetailsResp';
+--		  	  CASE FIELDNAME(InputRoot.SOAP.Body.*[<])
+--		  	  	WHEN 'retrieveInsurancePolicyDetailsReq' THEN 'retrieveInsurancePolicyDetailsResp'
+--		  	  END;
+		  	  
+-- Copy the HTTP Header
+			SET OutputRoot.HTTPReplyHeader							= InputRoot.HTTPInputHeader;
+
+-- Create the exeception based on the output operation
+	   		CREATE LASTCHILD OF OutputRoot DOMAIN 'XMLNSC' NAME 'XMLNSC';
+			MOVE outRef TO OutputRoot.XMLNSC;	    			
+			CREATE LASTCHILD OF outRef AS outRef NAMESPACE ret NAME outOperation;   	
+						   			
+-- Map Error code in Response Header 
+			SET outRef.ResponseHeader.Header 						= inRef.Header;	
+			SET outRef.ResponseHeader.maxReturnLevel 				= 'ERROR';
+			SET outRef.ResponseHeader.errorList.errorInfo.level 	= 'ERROR';	
+			SET outRef.ResponseHeader.errorList.errorInfo.system 	= 'WMB';						
+
+			WHILE start.Number IS NOT NULL DO 
+				IF start.Number > 3000 THEN			
+					SET outRef.ResponseHeader.errorList.errorInfo.code 		= start.Number;
+					SET outRef.ResponseHeader.errorList.errorInfo.message 	= start.Insert.Text;						
+				END IF;
+
+-- Move start to the last child of the field to which it currently points 
+				MOVE start LASTCHILD;
+			END WHILE;	
+
+		RETURN TRUE;
+	END;
+
+END MODULE;
+
+

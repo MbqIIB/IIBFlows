@@ -1,0 +1,15 @@
+CREATE COMPUTE MODULE GetCustomerOrders_WS_v1_BuildRequest
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		DECLARE refOut REFERENCE TO OutputRoot;
+		
+		DECLARE conversationId CHARACTER '';
+		SET conversationId = UUIDASCHAR;
+		
+		CALL maersk.iib.common.http.v1.SetUpHTTPHeaders_v1(refOut,
+
+
+
+	END;
+END MODULE;

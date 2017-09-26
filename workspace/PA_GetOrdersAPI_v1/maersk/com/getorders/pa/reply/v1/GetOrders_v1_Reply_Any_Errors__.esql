@@ -1,0 +1,19 @@
+BROKER SCHEMA maersk.com.getorders.pa.reply.v1
+
+
+CREATE FILTER MODULE GetOrders_v1_Reply_Any_Errors__
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		DECLARE inRef REFERENCE TO Root.JSON.Data.ordersResponse;		
+		DECLARE errRef REFERENCE TO inRef.error[>];
+		
+		IF LASTMOVE(errRef) THEN
+			RETURN TRUE;
+		ELSE
+			RETURN FALSE;
+		END IF;
+	
+	END;
+
+END MODULE;

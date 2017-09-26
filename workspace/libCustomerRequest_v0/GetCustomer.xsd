@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema elementFormDefault="unqualified" xmlns:xsd="http://www.w3.org/2001/XMLSchema" >
+
+    <xsd:complexType name="GetCustomerType">
+    	<xsd:sequence>
+    		<xsd:element name="CustomerId" type="xsd:string"></xsd:element>
+    	</xsd:sequence>
+    </xsd:complexType>
+
+    <xsd:element name="GetCustomer" type="GetCustomerType"></xsd:element>
+</xsd:schema>

@@ -1,0 +1,23 @@
+CREATE FUNCTION ConvertToTimeStamp(chrDate CHAR, chrTime CHAR) RETURNS CHAR 
+--------------------------------------------------------------------------------
+--
+--   Convert date (CCYYMMDD) and time (HHMMSSUU) to TimeStamp (CCYY-MM-DDTHH:MM:SS.UU)
+--
+--   Author : Bonnie Javier
+--   Date   : 12/05/2005
+--
+	BEGIN
+		
+		DECLARE chrTimeStamp CHAR;
+		
+		SET chrTimeStamp = 	SUBSTRING(chrDate FROM 1 FOR 4) || '-' || 
+							SUBSTRING(chrDate FROM 5 FOR 2) || '-' ||
+							SUBSTRING(chrDate FROM 7 FOR 2) || 'T' || 
+							SUBSTRING(chrTime FROM 1 FOR 2) || ':' || 
+							SUBSTRING(chrTime FROM 3 FOR 2) || ':' || 
+							SUBSTRING(chrTime FROM 5 FOR 2) || '.' || 							
+							SUBSTRING(chrTime FROM 7 FOR 2);
+
+		RETURN chrTimeStamp;
+		
+	END;

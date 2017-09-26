@@ -1,0 +1,57 @@
+CREATE PROCEDURE ExceptionHTTPFormat()
+	BEGIN
+		
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'XMLNSC';
+		DECLARE chrFile CHAR;
+		DECLARE chrFunction CHAR;
+		DECLARE chrType CHAR;
+		DECLARE chrName CHAR;
+		DECLARE chrLabel CHAR;
+		DECLARE chrText CHAR;
+		DECLARE chrCatalog CHAR;
+		DECLARE intSeverity INTEGER;
+		DECLARE intNumber INTEGER;
+		DECLARE intLine INTEGER;
+		
+		SET chrLabel = '';
+		CALL RetrieveMostInnerChild(InputExceptionList, chrFile, intLine, chrFunction, chrType, 
+			chrName, chrLabel, chrText, chrCatalog, intSeverity, intNumber);
+
+		IF EXISTS(Environment.RequestState.esbenv:Envelope.esbhdr:Header[]) THEN
+			SET OutputRoot.XMLNSC.http.header = 
+					Environment.RequestState.esbenv:Envelope.esbhdr:Header;
+		
+		ELSEIF EXISTS(Environment.esbhdr:Header[]) THEN
+			SET OutputRoot.XMLNSC.http.header = Environment.esbhdr:Header;
+			
+		ELSEIF EXISTS(InputRoot.SOAP.Header.esbhdr:Header[]) THEN
+			SET OutputRoot.XMLNSC.http.header = InputRoot.SOAP.Header.esbhdr:Header;
+		
+		ELSE
+
+				SET OutputRoot.XMLNSC.http.header.operationName = MessageFlowLabel;
+				IF EXISTS(OutputRoot.MQMD[]) THEN 
+ 					SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:messageId = 
+ 							CAST(InputRoot.MQMD.MsgId AS CHAR);
+ 					 					
+				ELSEIF EXISTS(InputRoot.HTTPInputHeader[]) THEN 
+ 					SET OutputRoot.XMLNSC.http.header.messageId = 
+ 							CAST(InputRoot.HTTPInputHeader."X-Message-Transaction-Correlation-Id" AS CHAR); 
+ 					 					
+				ELSE
+					SET OutputRoot.XMLNSC.http.header.messageId = CAST('000000000000000000000000000000000000000000000000' AS CHAR);
+					
+				END IF;
+				SET OutputRoot.XMLNSC.http.header.timestamp    = CAST(CURRENT_TIMESTAMP AS CHARACTER);
+				SET OutputRoot.XMLNSC.http.header.sourceSystem = 'ESB';
+				SET OutputRoot.XMLNSC.http.header.userId 		= 'IIB';
+
+		END IF;		
+		
+		
+		SET OutputRoot.XMLNSC.http.error.code = intNumber;
+		SET OutputRoot.XMLNSC.http.error.message = chrText;
+		SET OutputRoot.XMLNSC.http.error.severity = SeverityText;
+		SET OutputRoot.XMLNSC.http.error.system = SystemText;
+
+	END;

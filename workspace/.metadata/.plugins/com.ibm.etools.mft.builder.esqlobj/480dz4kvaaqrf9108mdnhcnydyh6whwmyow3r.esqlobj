@@ -1,0 +1,484 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		-- Create MQMD 	
+		SET OutputRoot.MQMD.Version             			= MQMD_CURRENT_VERSION; 
+		SET OutputRoot.MQMD.MsgType             			= MQMT_REPLY;  
+		SET OutputRoot.MQMD.Format              			= MQFMT_STRING;
+		SET OutputRoot.MQMD.CorrelId						= InputRoot.ComIbmAggregateReplyBody.HUON.MQMD.MsgId; 
+		SET OutputRoot.MQMD.Expiry              			= -1; -- Unlimited
+		SET OutputRoot.MQMD.Encoding						= MQENC_NATIVE;
+		SET OutputRoot.MQMD.CodedCharSetId					= 1208;	
+		SET OutputRoot.MQMD.ReplyToQ		    			= InputRoot.ComIbmAggregateReplyBody.HUON.MQMD.ReplyToQ;  
+		SET OutputRoot.MQMD.ReplyToQMgr         			= InputRoot.ComIbmAggregateReplyBody.HUON.MQMD.ReplyToQMgr;
+
+	
+--		-- Copy ESBEnvelope header	
+		SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header	= InputRoot.ComIbmAggregateReplyBody.HUON.XMLNSC.esbenv:Envelope.esbhdr:Header;
+--
+
+
+		DECLARE refInputBody 		REFERENCE TO InputRoot;
+		DECLARE refInputBody2 		REFERENCE TO InputRoot;
+		DECLARE ResponseRef 		REFERENCE TO InputRoot;
+		DECLARE ResponseRef1 		REFERENCE TO InputRoot;
+		DECLARE ResponseRef2 		REFERENCE TO InputRoot;
+
+		declare refOutHeader reference to OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header;
+		
+		if (refOutHeader.esbhdr:brand = 'STATE') then
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.retv2:retrieveInsurancePolicyDetailsResp = InputRoot.ComIbmAggregateReplyBody.HUON.XMLNSC.esbenv:Envelope.esbenv:Body.retv2:retrieveInsurancePolicyDetailsResp;
+			move refInputBody 		to InputRoot.ComIbmAggregateReplyBody.CRODS.XMLNSC.esbenv:Envelope.esbenv:Body.Party;
+			move refInputBody2 		to InputRoot.ComIbmAggregateReplyBody;
+			move ResponseRef 		to OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.retv2:retrieveInsurancePolicyDetailsResp.insurancePolicy.rolesInContract;
+			move ResponseRef1 		to OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.retv2:retrieveInsurancePolicyDetailsResp.insurancePolicy.rolesInContract;
+			move ResponseRef2 		to OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.retv2:retrieveInsurancePolicyDetailsResp.insurancePolicy.rolesInContract;
+
+		else
+--		-- Copy HUON data to ESBEnvelope body	
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsResp = InputRoot.ComIbmAggregateReplyBody.HUON.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsResp;
+			move refInputBody 		to InputRoot.ComIbmAggregateReplyBody.CRODS.XMLNSC.esbenv:Envelope.esbenv:Body.Party;
+			move refInputBody2 		to InputRoot.ComIbmAggregateReplyBody;
+			move ResponseRef 		to OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsResp.insurancePolicy.rolesInContract;
+			move ResponseRef1 		to OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsResp.insurancePolicy.rolesInContract;
+			move ResponseRef2 		to OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsResp.insurancePolicy.rolesInContract;
+
+		end if;
+		
+		SET ResponseRef.(XMLNSC.Attribute)xmlns:xsi 			= 	xsi;
+		SET ResponseRef.(XMLNSC.Attribute)xmlns:agreement 		= 	agreement;
+		SET ResponseRef.(XMLNSC.Attribute)xmlns:event 			= 	event;
+		SET ResponseRef.(XMLNSC.Attribute)xmlns:party 			= 	party;
+		SET ResponseRef.(XMLNSC.Attribute)xmlns:physicalobjects	= 	physicalobjects;
+		SET ResponseRef.(XMLNSC.Attribute)xmlns:location		= 	location;
+		SET ResponseRef.(XMLNSC.Attribute)xmlns:moneyprov		= 	moneyprov;
+		SET ResponseRef.(XMLNSC.Attribute)xmlns:registration	= 	registration;
+
+
+		WHILE LASTMOVE(ResponseRef) DO
+
+		--	Merger Person details from CRODS
+			IF ResponseRef.(XMLNSC.Attribute)xsi:type = 'party:Person' THEN
+
+				CREATE LASTCHILD OF Environment DOMAIN 'XMLNSC' NAME 'Person';
+				SET Environment.Person[] = 	
+				SELECT X.XMLNSC.esbenv:Envelope.esbenv:Body.Party FROM InputRoot.ComIbmAggregateReplyBody.CRODS[] AS X 
+					WHERE 	(ResponseRef.isIdentifiedBy.partyId = X.XMLNSC.esbenv:Envelope.esbenv:Body.Party.isIdentifiedBy.partyId)  					
+					AND 	(X.XMLNSC.esbenv:Envelope.esbenv:Body.Party.isIdentifiedBy.componentId = 'HUON')
+					AND 	(X.XMLNSC.esbenv:Envelope.esbenv:Body.Party.(XMLNSC.Attribute)xsi:type = 'party:Person');
+					
+				--	Mapping contact details	start
+				DECLARE refInContacts REFERENCE TO Environment.Person.Party.contactedAt;
+			
+				MOVE ResponseRef2 TO ResponseRef.playsRole;
+			
+				WHILE LASTMOVE(refInContacts) DO
+					
+					CASE refInContacts.(XMLNSC.Attribute)xsi:type
+					
+					WHEN 'location:StructuredPostalAddress' THEN
+						CREATE PREVIOUSSIBLING OF ResponseRef2  AS ResponseRef2         NAME 'contactedAt';
+						SET ResponseRef2.(XMLNSC.Attribute)xsi:type							='location:StructuredPostalAddress';
+						SET ResponseRef2.isIdentifiedBy.componentId = refInContacts.isIdentifiedBy.componentId;
+						SET ResponseRef2.isIdentifiedBy.locationId 	= refInContacts.isIdentifiedBy.locationId;
+						SET ResponseRef2.suburb 				= refInContacts.suburb;
+						SET ResponseRef2.state 					= refInContacts.state;
+						SET ResponseRef2.postCode 				= refInContacts.postCode;
+						SET ResponseRef2.country 				= refInContacts.country;
+						IF LENGTH(refInContacts.addresseeLine) > 0 THEN
+							SET ResponseRef2.addresseeLine			= refInContacts.addresseeLine;
+						END IF;	
+						SET ResponseRef2.unitNumber				= refInContacts.unitNumber;
+						SET ResponseRef2.floorNumber			= refInContacts.floorNumber;
+						SET ResponseRef2.streetNumber			= refInContacts.streetNumber;
+						SET ResponseRef2.streetName				= refInContacts.streetName;
+						SET ResponseRef2.streetType				= refInContacts.streetType;
+						IF LENGTH(refInContacts.buildingName) > 0 THEN
+							SET ResponseRef2.buildingName		= refInContacts.buildingName;
+						END IF;	
+						IF LENGTH(refInContacts.buildingType) > 0 THEN
+							SET ResponseRef2.buildingType		= refInContacts.buildingType;
+						END IF;
+						IF LENGTH(refInContacts.streetDirection) > 0 THEN
+							SET ResponseRef2.streetDirection	= refInContacts.streetDirection;
+						END IF;																																					
+
+					WHEN 'location:POBoxAddress' THEN
+						CREATE PREVIOUSSIBLING OF ResponseRef2  AS ResponseRef2         NAME 'contactedAt';
+						SET ResponseRef2.(XMLNSC.Attribute)xsi:type							='location:POBoxAddress';
+						SET ResponseRef2.isIdentifiedBy.componentId = refInContacts.isIdentifiedBy.componentId;
+						SET ResponseRef2.isIdentifiedBy.locationId 	= refInContacts.isIdentifiedBy.locationId;
+						SET ResponseRef2.suburb 				= refInContacts.suburb;
+						SET ResponseRef2.state 					= refInContacts.state;
+						SET ResponseRef2.postCode 				= refInContacts.postCode;
+						SET ResponseRef2.country 				= refInContacts.country;
+						IF LENGTH(refInContacts.addresseeLine) > 0 THEN
+							SET ResponseRef2.addresseeLine			= refInContacts.addresseeLine;
+						END IF;	
+						SET ResponseRef2.boxType				= refInContacts.boxType;
+						SET ResponseRef2.boxNumber				= refInContacts.boxNumber;
+					
+					WHEN 'location:TelephoneNumber' THEN
+						CREATE PREVIOUSSIBLING OF ResponseRef2  AS ResponseRef2         NAME 'contactedAt';
+						SET ResponseRef2.(XMLNSC.Attribute)xsi:type							='location:TelephoneNumber';
+						SET ResponseRef2.usage 					= refInContacts.usage;	
+						SET ResponseRef2.localNumber 			= refInContacts.localNumber;	
+					
+					WHEN 'location:EmailAddress' THEN
+						CREATE PREVIOUSSIBLING OF ResponseRef2  AS ResponseRef2         NAME 'contactedAt';
+						SET ResponseRef2.(XMLNSC.Attribute)xsi:type							='location:EmailAddress';
+						SET ResponseRef2.emailAddress 			= refInContacts.emailAddress;	
+						
+					END CASE;
+	
+					MOVE refInContacts NEXTSIBLING REPEAT NAME;
+				
+				END WHILE;
+			--	Mapping contact details	end			
+
+			--	Map Self Service Indicator
+
+				CREATE NEXTSIBLING OF ResponseRef.isIdentifiedBy		NAME 'selfServiceAccess'	VALUE Environment.Person.Party.selfServiceAccess;
+					
+			--	Map Birthdate and Gender
+
+				IF LENGTH(Environment.Person.Party.birthDate) > 0 THEN
+					CREATE PREVIOUSSIBLING OF ResponseRef.employmentPosition NAME 'birthDate'	VALUE Environment.Person.Party.birthDate;
+					CREATE NEXTSIBLING OF ResponseRef.birthDate	 			NAME 'gender'		VALUE Environment.Person.Party.gender;
+				ELSE
+					CREATE PREVIOUSSIBLING OF ResponseRef.employmentPosition NAME 'gender'		VALUE Environment.Person.Party.gender;
+				END IF;	
+
+			--	Map Name details
+
+				CREATE NEXTSIBLING OF ResponseRef.gender 					NAME 'personName';
+
+				IF LENGTH(Environment.Person.Party.personName.firstName) > 0 THEN
+					CREATE LASTCHILD OF ResponseRef.personName 				NAME 'firstName' 	VALUE Environment.Person.Party.personName.firstName;
+				END IF;
+				IF LENGTH(Environment.Person.Party.personName.lastName) > 0 THEN
+					CREATE LASTCHILD OF ResponseRef.personName 				NAME 'lastName' 	VALUE Environment.Person.Party.personName.lastName;
+				END IF;
+				IF LENGTH(Environment.Person.Party.personName.middleNames) > 0 THEN
+					CREATE LASTCHILD OF ResponseRef.personName 				NAME 'middleNames' 	VALUE Environment.Person.Party.personName.middleNames;
+				END IF;
+				IF LENGTH(Environment.Person.Party.personName.prefixTitles) > 0 THEN
+					CREATE LASTCHILD OF ResponseRef.personName 				NAME 'prefixTitles'	VALUE Environment.Person.Party.personName.prefixTitles;
+				END IF;
+
+
+
+			--	Map CRODS Party Id
+
+				MOVE ResponseRef1 TO ResponseRef.isIdentifiedBy;
+				CREATE NEXTSIBLING OF ResponseRef1  AS ResponseRef1         NAME 'isIdentifiedBy';
+				
+				DECLARE refInIdentifiedBy REFERENCE TO Environment.Person.Party.isIdentifiedBy;
+				WHILE LASTMOVE(refInIdentifiedBy) DO
+					IF refInIdentifiedBy.componentId 	= 'CRODS' THEN
+						SET ResponseRef1.componentId 	= refInIdentifiedBy.componentId;
+						SET ResponseRef1.partyId 		= refInIdentifiedBy.partyId;
+					END IF;
+					MOVE refInIdentifiedBy NEXTSIBLING REPEAT NAME;
+				END WHILE;
+
+				
+				DELETE FIELD Environment.Person;
+				
+			END IF;
+			
+		--	Merge Organisation details from CRODS
+
+			IF ResponseRef.(XMLNSC.Attribute)xsi:type = 'party:Organisation' 
+			AND ResponseRef.playsRole.(XMLNSC.Attribute)xsi:type = 'party:Driver' THEN
+
+				CREATE LASTCHILD OF Environment DOMAIN 'XMLNSC' NAME 'Organisation';
+
+				SET Environment.Organisation[] = 	
+				SELECT X.XMLNSC.esbenv:Envelope.esbenv:Body.Party FROM InputRoot.ComIbmAggregateReplyBody.CRODS[] AS X 
+					WHERE 	(ResponseRef.isIdentifiedBy.partyId = X.XMLNSC.esbenv:Envelope.esbenv:Body.Party.isIdentifiedBy.partyId)  					
+					AND 	(X.XMLNSC.esbenv:Envelope.esbenv:Body.Party.isIdentifiedBy.componentId = 'HUON')
+					AND 	(X.XMLNSC.esbenv:Envelope.esbenv:Body.Party.(XMLNSC.Attribute)xsi:type = 'party:Organisation');
+
+				MOVE ResponseRef1 TO ResponseRef;
+				CREATE FIRSTCHILD OF ResponseRef1  AS ResponseRef1         NAME 'hasName';
+
+				SET ResponseRef1.fullName 				= Environment.Organisation.Party.hasName.fullName;
+				SET ResponseRef1.nameType 				= Environment.Organisation.Party.hasName.nameType;
+			
+				DECLARE refInRegistrations REFERENCE TO Environment.Organisation.Party.partyRegistration;
+				WHILE LASTMOVE(refInRegistrations) DO
+
+--					MOVE ResponseRef1 TO ResponseRef;
+
+					CREATE NEXTSIBLING OF ResponseRef1		AS ResponseRef1				NAME 'partyRegistration';
+					SET ResponseRef1.(XMLNSC.Attribute)xsi:type							='registration:CompanyRegistration';
+
+					SET ResponseRef1.isIdentifiedBy.registrationId 		= refInRegistrations.isIdentifiedBy.registrationId;
+					SET ResponseRef1.registrationType 					= refInRegistrations.registrationType;
+					MOVE refInRegistrations NEXTSIBLING REPEAT NAME;
+
+				END WHILE;
+					
+			--	Mapping contact details	start
+
+				DECLARE refInContacts REFERENCE TO Environment.Organisation.Party.contactedAt;
+			
+				MOVE ResponseRef2 TO ResponseRef.playsRole;
+			
+				WHILE LASTMOVE(refInContacts) DO
+					
+					CASE refInContacts.(XMLNSC.Attribute)xsi:type
+					
+					WHEN 'location:StructuredPostalAddress' THEN
+						CREATE PREVIOUSSIBLING OF ResponseRef2  AS ResponseRef2         NAME 'contactedAt';
+						SET ResponseRef2.(XMLNSC.Attribute)xsi:type							='location:StructuredPostalAddress';
+						SET ResponseRef2.isIdentifiedBy.componentId = refInContacts.isIdentifiedBy.componentId;
+						SET ResponseRef2.isIdentifiedBy.locationId 	= refInContacts.isIdentifiedBy.locationId;
+						SET ResponseRef2.suburb 				= refInContacts.suburb;
+						SET ResponseRef2.state 					= refInContacts.state;
+						SET ResponseRef2.postCode 				= refInContacts.postCode;
+						SET ResponseRef2.country 				= refInContacts.country;
+						IF LENGTH(refInContacts.addresseeLine) > 0 THEN
+							SET ResponseRef2.addresseeLine			= refInContacts.addresseeLine;
+						END IF;	
+						SET ResponseRef2.unitNumber				= refInContacts.unitNumber;
+						SET ResponseRef2.floorNumber			= refInContacts.floorNumber;
+						SET ResponseRef2.streetNumber			= refInContacts.streetNumber;
+						SET ResponseRef2.streetName				= refInContacts.streetName;
+						SET ResponseRef2.streetType				= refInContacts.streetType;
+						IF LENGTH(refInContacts.buildingName) > 0 THEN
+							SET ResponseRef2.buildingName		= refInContacts.buildingName;
+						END IF;	
+						IF LENGTH(refInContacts.buildingType) > 0 THEN
+							SET ResponseRef2.buildingType		= refInContacts.buildingType;
+						END IF;
+						IF LENGTH(refInContacts.streetDirection) > 0 THEN
+							SET ResponseRef2.streetDirection	= refInContacts.streetDirection;
+						END IF;																																					
+
+					WHEN 'location:POBoxAddress' THEN
+						CREATE PREVIOUSSIBLING OF ResponseRef2  AS ResponseRef2         NAME 'contactedAt';
+						SET ResponseRef2.(XMLNSC.Attribute)xsi:type							='location:POBoxAddress';
+						SET ResponseRef2.isIdentifiedBy.componentId = refInContacts.isIdentifiedBy.componentId;
+						SET ResponseRef2.isIdentifiedBy.locationId 	= refInContacts.isIdentifiedBy.locationId;
+						SET ResponseRef2.suburb 				= refInContacts.suburb;
+						SET ResponseRef2.state 					= refInContacts.state;
+						SET ResponseRef2.postCode 				= refInContacts.postCode;
+						SET ResponseRef2.country 				= refInContacts.country;
+						IF LENGTH(refInContacts.addresseeLine) > 0 THEN
+							SET ResponseRef2.addresseeLine			= refInContacts.addresseeLine;
+						END IF;	
+						SET ResponseRef2.boxType				= refInContacts.boxType;
+						SET ResponseRef2.boxNumber				= refInContacts.boxNumber;
+					
+					WHEN 'location:TelephoneNumber' THEN
+						CREATE PREVIOUSSIBLING OF ResponseRef2  AS ResponseRef2         NAME 'contactedAt';
+						SET ResponseRef2.(XMLNSC.Attribute)xsi:type							='location:TelephoneNumber';
+						SET ResponseRef2.usage 					= refInContacts.usage;	
+						SET ResponseRef2.localNumber 			= refInContacts.localNumber;	
+					
+					WHEN 'location:EmailAddress' THEN
+						CREATE PREVIOUSSIBLING OF ResponseRef2  AS ResponseRef2         NAME 'contactedAt';
+						SET ResponseRef2.(XMLNSC.Attribute)xsi:type							='location:EmailAddress';
+						SET ResponseRef2.emailAddress 			= refInContacts.emailAddress;	
+						
+					END CASE;
+	
+					MOVE refInContacts NEXTSIBLING REPEAT NAME;
+				
+				END WHILE;
+			--	Mapping contact details	end			
+
+			--	Map Self Service Indicator
+
+				CREATE NEXTSIBLING OF ResponseRef.isIdentifiedBy		NAME 'selfServiceAccess'	VALUE Environment.Organisation.Party.selfServiceAccess;
+
+			--	Map CRODS Party Id
+
+				MOVE ResponseRef1 TO ResponseRef.isIdentifiedBy;
+				CREATE NEXTSIBLING OF ResponseRef1  AS ResponseRef1         NAME 'isIdentifiedBy';
+				
+				DECLARE refInIdentifiedBy REFERENCE TO Environment.Organisation.Party.isIdentifiedBy;
+				WHILE LASTMOVE(refInIdentifiedBy) DO
+					IF refInIdentifiedBy.componentId 	= 'CRODS' THEN
+						SET ResponseRef1.componentId 	= refInIdentifiedBy.componentId;
+						SET ResponseRef1.partyId 		= refInIdentifiedBy.partyId;
+					END IF;
+					MOVE refInIdentifiedBy NEXTSIBLING REPEAT NAME;
+				END WHILE;
+
+				
+				DELETE FIELD Environment.Organisation;
+				
+			END IF;
+			
+			/* If we are NZ - get the details of any financial services*/
+			if (refOutHeader.esbhdr:brand = 'STATE') then
+			
+				if ResponseRef.(XMLNSC.Attribute)xsi:type = 'party:Organisation' 
+					and ResponseRef.playsRole.(XMLNSC.Attribute)xsi:type = 'party:FinancialServicesRole' then
+	
+					create lastchild of Environment domain 'XMLNSC' name 'Organisation';
+
+					set Environment.Organisation[] = 	
+					select X.XMLNSC.esbenv:Envelope.esbenv:Body.Party from InputRoot.ComIbmAggregateReplyBody.CRODS[] as X 
+						where 	(ResponseRef.isIdentifiedBy.partyId = X.XMLNSC.esbenv:Envelope.esbenv:Body.Party.isIdentifiedBy.partyId)  					
+						and 	(X.XMLNSC.esbenv:Envelope.esbenv:Body.Party.isIdentifiedBy.componentId = 'HUON')
+						and 	(X.XMLNSC.esbenv:Envelope.esbenv:Body.Party.(XMLNSC.Attribute)xsi:type = 'party:Organisation');
+
+					-- set the Finance Name
+					declare refrc reference to ResponseRef;
+					create firstchild of refrc name 'hasName';
+					declare refhn reference to refrc.hasName;
+					set refhn.fullName	= Environment.Organisation.Party.hasName.fullName;
+					
+					-- Set the CRODS identifier 
+					declare refIsId reference to ResponseRef.isIdentifiedBy[<];
+					if lastmove(refIsId) then
+						create nextsibling of refIsId name 'isIdentifiedBy';
+					else
+						create lastchild of ResponseRef name 'isIdentifiedBy';
+					end if;
+					declare refIsIdent reference to ResponseRef.isIdentifiedBy[<];
+					
+					declare refInIdentifiedBy reference to Environment.Organisation.Party.isIdentifiedBy;
+					x :while lastmove(refInIdentifiedBy) do
+						if refInIdentifiedBy.componentId 	= 'CRODS' then
+							set refIsIdent.componentId 	= refInIdentifiedBy.componentId;
+							set refIsIdent.partyId 		= refInIdentifiedBy.partyId;
+						end if;
+						move refInIdentifiedBy nextsibling repeat name;
+  					end while;
+					
+					-- Set the Finance type
+--					create lastchild of ResponseRef name 'providesFinancialServices';
+--					declare refFin reference to ResponseRef.providesFinancialServices;
+--					set refFin.(XMLNSC.Attribute)xsi:type = 'agreement:FinancialServicesAgreementComponent';
+--					set refFin.description = 'TBC';
+					--Environment.Organisation.Party.hasName.fullName;
+					
+				end if;
+				
+				-- Service Providers ....
+				if ResponseRef.(XMLNSC.Attribute)xsi:type = 'party:Organisation' 
+					and ResponseRef.playsRole.(XMLNSC.Attribute)xsi:type = 'party:ServiceProvider' then
+				
+					create lastchild of Environment domain 'XMLNSC' name 'Organisation';
+
+					set Environment.Organisation[] = 	
+					select X.XMLNSC.esbenv:Envelope.esbenv:Body.Party from InputRoot.ComIbmAggregateReplyBody.CRODS[] as X 
+						where 	(ResponseRef.isIdentifiedBy.partyId = X.XMLNSC.esbenv:Envelope.esbenv:Body.Party.isIdentifiedBy.partyId)  					
+						and 	(X.XMLNSC.esbenv:Envelope.esbenv:Body.Party.isIdentifiedBy.componentId = 'HUON')
+						and 	(X.XMLNSC.esbenv:Envelope.esbenv:Body.Party.(XMLNSC.Attribute)xsi:type = 'party:Organisation');
+				
+					declare refrc reference to ResponseRef;
+					create firstchild of refrc name 'hasName';
+					declare refhn reference to refrc.hasName;
+					set refhn.fullName	= Environment.Organisation.Party.hasName.fullName;
+					
+					-- Set the CRODS identifier 
+					declare refIsId reference to ResponseRef.isIdentifiedBy[<];
+					if lastmove(refIsId) then
+						create nextsibling of refIsId name 'isIdentifiedBy';
+					else
+						create lastchild of ResponseRef name 'isIdentifiedBy';
+					end if;
+					declare refIsIdent reference to ResponseRef.isIdentifiedBy[<];
+					
+					declare refInIdentifiedBy reference to Environment.Organisation.Party.isIdentifiedBy;
+					x :while lastmove(refInIdentifiedBy) do
+						if refInIdentifiedBy.componentId 	= 'CRODS' then
+							set refIsIdent.componentId 	= refInIdentifiedBy.componentId;
+							set refIsIdent.partyId 		= refInIdentifiedBy.partyId;
+						end if;
+						move refInIdentifiedBy nextsibling repeat name;
+  					end while;
+  					
+					DECLARE refInContacts REFERENCE TO Environment.Organisation.Party.contactedAt;
+				
+					MOVE ResponseRef2 TO ResponseRef.playsRole;
+				
+					WHILE LASTMOVE(refInContacts) DO
+					
+						CASE refInContacts.(XMLNSC.Attribute)xsi:type
+						
+						WHEN 'location:StructuredPostalAddress' THEN
+							CREATE PREVIOUSSIBLING OF ResponseRef2  AS ResponseRef2         NAME 'contactedAt';
+							SET ResponseRef2.(XMLNSC.Attribute)xsi:type							='location:StructuredPostalAddress';
+							SET ResponseRef2.isIdentifiedBy.componentId = refInContacts.isIdentifiedBy.componentId;
+							SET ResponseRef2.isIdentifiedBy.locationId 	= refInContacts.isIdentifiedBy.locationId;
+							SET ResponseRef2.suburb 				= refInContacts.suburb;
+							SET ResponseRef2.state 					= refInContacts.state;
+							SET ResponseRef2.postCode 				= refInContacts.postCode;
+							SET ResponseRef2.country 				= refInContacts.country;
+							IF LENGTH(refInContacts.addresseeLine) > 0 THEN
+								SET ResponseRef2.addresseeLine			= refInContacts.addresseeLine;
+							END IF;	
+							SET ResponseRef2.unitNumber				= refInContacts.unitNumber;
+							SET ResponseRef2.floorNumber			= refInContacts.floorNumber;
+							SET ResponseRef2.streetNumber			= refInContacts.streetNumber;
+							SET ResponseRef2.streetName				= refInContacts.streetName;
+							SET ResponseRef2.streetType				= refInContacts.streetType;
+							IF LENGTH(refInContacts.buildingName) > 0 THEN
+								SET ResponseRef2.buildingName		= refInContacts.buildingName;
+							END IF;	
+							IF LENGTH(refInContacts.buildingType) > 0 THEN
+								SET ResponseRef2.buildingType		= refInContacts.buildingType;
+							END IF;
+							IF LENGTH(refInContacts.streetDirection) > 0 THEN
+								SET ResponseRef2.streetDirection	= refInContacts.streetDirection;
+							END IF;																																					
+	
+						WHEN 'location:POBoxAddress' THEN
+							CREATE PREVIOUSSIBLING OF ResponseRef2  AS ResponseRef2         NAME 'contactedAt';
+							SET ResponseRef2.(XMLNSC.Attribute)xsi:type							='location:POBoxAddress';
+							SET ResponseRef2.isIdentifiedBy.componentId = refInContacts.isIdentifiedBy.componentId;
+							SET ResponseRef2.isIdentifiedBy.locationId 	= refInContacts.isIdentifiedBy.locationId;
+							SET ResponseRef2.suburb 				= refInContacts.suburb;
+							SET ResponseRef2.state 					= refInContacts.state;
+							SET ResponseRef2.postCode 				= refInContacts.postCode;
+							SET ResponseRef2.country 				= refInContacts.country;
+							IF LENGTH(refInContacts.addresseeLine) > 0 THEN
+								SET ResponseRef2.addresseeLine			= refInContacts.addresseeLine;
+							END IF;	
+							SET ResponseRef2.boxType				= refInContacts.boxType;
+							SET ResponseRef2.boxNumber				= refInContacts.boxNumber;
+						
+						WHEN 'location:TelephoneNumber' THEN
+							CREATE PREVIOUSSIBLING OF ResponseRef2  AS ResponseRef2         NAME 'contactedAt';
+							SET ResponseRef2.(XMLNSC.Attribute)xsi:type							='location:TelephoneNumber';
+							SET ResponseRef2.usage 					= refInContacts.usage;	
+							SET ResponseRef2.localNumber 			= refInContacts.localNumber;	
+						
+						WHEN 'location:EmailAddress' THEN
+							CREATE PREVIOUSSIBLING OF ResponseRef2  AS ResponseRef2         NAME 'contactedAt';
+							SET ResponseRef2.(XMLNSC.Attribute)xsi:type							='location:EmailAddress';
+							SET ResponseRef2.emailAddress 			= refInContacts.emailAddress;	
+							
+						END CASE;
+		
+						MOVE refInContacts NEXTSIBLING REPEAT NAME;
+					
+					END WHILE;
+  					
+				end if;				
+				
+				
+				
+				
+				move ResponseRef nextsibling repeat name;
+			end if;	
+			
+		END WHILE;	
+
+
+		-- Set ReplyToQueue and ReplyToQueueManager saved from input
+		--SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueName			= InputRoot.ComIbmAggregateReplyBody.HUON.MQMD.ReplyToQ; 
+		--SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueManagerName 	= InputRoot.ComIbmAggregateReplyBody.HUON.MQMD.ReplyToQMgr; 		
+
+	 
+					
+		RETURN TRUE;
+	END;
+		

@@ -1,0 +1,29 @@
+BROKER SCHEMA nz.huon.retrievepolicymotor.pa
+
+
+declare v2 namespace 'http://iag.com.au/di/PolicyInquiry/RetrieveInsurancePolicyDetails_v2_0/v2/';
+
+declare xsd namespace 'http://www.w3.org/2001/XMLSchema';
+declare xsi namespace 'http://www.w3.org/2001/XMLSchema-instance';
+declare esb namespace 'http://iag.com.au/di/esb/soa/meta-data';
+declare soapenv namespace	'http://schemas.xmlsoap.org/soap/envelope/';
+--declare soaphead namespace 'http://iag.com.au/di/esb/header/v1/'; 
+
+
+declare esbenv namespace 'http://iag.com.au/di/esb/envelope/v1/';
+declare esbhdr namespace 'http://iag.com.au/di/esb/header/v1/';
+declare esberr namespace 'http://iag.com.au/di/esb/error/v1/';
+
+
+declare retv2 		namespace 'http://iag.com.au/di/PolicyInquiry/RetrieveInsurancePolicyDetails_v2_0/v2/';
+declare agreement	namespace 'http://iag.com.au/di/Agreement/v1/';
+declare identifiers	namespace 'http://iag.com.au/di/Identifiers/v1/';
+declare moneyprov	namespace 'http://iag.com.au/di/MoneyProvision/v1/';
+declare party 		namespace 'http://iag.com.au/di/Party/v1/';
+declare physicalobjects namespace 'http://iag.com.au/di/PhysicalObject/v1/';
+declare coverage namespace 'http://iag.com.au/di/Coverage/v1/';
+declare location namespace 'http://iag.com.au/di/Location/v1/';
+declare registration namespace 'http://iag.com.au/di/Registration/v1/';
+declare event namespace 'http://iag.com.au/di/Event/v1/';
+
+

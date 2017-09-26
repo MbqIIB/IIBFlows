@@ -1,0 +1,19 @@
+CREATE COMPUTE MODULE CreatePerson_Response
+	CREATE FUNCTION Main() RETURNS BOOLEAN BEGIN
+		
+		DECLARE inRefHdr		REFERENCE TO InputRoot.XMLNSC.party:"CreatePersonResponseV1_0".ResponseHeader;
+		DECLARE inRef			REFERENCE TO InputRoot.XMLNSC.party:"CreatePersonResponseV1_0".Payload;
+		DECLARE HUONClient		REFERENCE TO inRef.customerDetails.partyRoles.rolePlayer.objectReference;
+		DECLARE CRODSClient		REFERENCE TO inRef.customerDetails.partyRoles.objectReference;
+		
+		IF inRefHdr.maxReturnLevel = 'OK' OR inRefHdr.maxReturnLevel = 'WARN' THEN
+			SET Environment.clientNo = COALESCE(HUONClient.objectId,0);
+		ELSE
+			SET Environment.CreatePersonErrmsg = inRefHdr.errorList.errorInfo.message||'('||inRefHdr.errorList.errorInfo.code||')';
+			PROPAGATE TO TERMINAL 'out1';
+		END IF;	
+				 
+		RETURN TRUE;
+	END;
+
+END MODULE;

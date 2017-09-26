@@ -1,0 +1,27 @@
+CREATE FUNCTION IsNumeric (InString CHARACTER) RETURNS BOOLEAN
+BEGIN
+	DECLARE IsNum       BOOLEAN;
+	DECLARE I, StrLen INTEGER;
+	DECLARE TempChar  CHARACTER;
+	
+	SET IsNum = TRUE;
+	SET I = 1;
+	SET StrLen = LENGTH(InString);
+	
+    -- Null string is not numeric!
+	IF StrLen <= 0 THEN
+		SET IsNum = FALSE;
+	END IF;
+	 
+	WHILE (I <= StrLen) AND (IsNum = TRUE) DO
+		SET TempChar = SUBSTRING(InString FROM I FOR 1);
+
+		IF TempChar < '0' OR TempChar > '9' THEN		
+			SET IsNum = FALSE;
+		END IF;	
+		SET I = I + 1;
+	END WHILE;
+			
+	RETURN (IsNum);
+
+END;

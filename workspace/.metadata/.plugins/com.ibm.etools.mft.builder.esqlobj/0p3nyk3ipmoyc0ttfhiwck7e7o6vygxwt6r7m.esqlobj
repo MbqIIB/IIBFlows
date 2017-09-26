@@ -1,0 +1,11 @@
+CREATE FUNCTION mapActionType (IN actionType CHAR) RETURNS CHARACTER
+	BEGIN
+		CASE actionType 
+		WHEN 'Add' 	THEN
+			RETURN 'CREATE';
+		WHEN 'Update' THEN
+			RETURN 'UPDATE';
+		WHEN 'Delete' THEN
+			RETURN 'DELETE';
+	END CASE;		
+END;

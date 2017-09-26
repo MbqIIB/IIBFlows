@@ -1,0 +1,57 @@
+CREATE FUNCTION ValidDate (InDate CHARACTER) RETURNS BOOLEAN
+BEGIN
+	DECLARE Valid       BOOLEAN;
+	DECLARE InYear      INTEGER;
+	DECLARE InMonth     INTEGER;
+	DECLARE InDay       INTEGER;
+	DECLARE MonthLength CHARACTER;
+	DECLARE TempDate    DATE;
+	
+	SET TempDate = NULL;
+	SET Valid    = TRUE;
+	
+    -- acertain if the input date is numeric first
+    IF IsNumeric(InDate) = FALSE THEN
+    	SET Valid   = FALSE;
+    ELSE
+		SET InYear  = CAST(SUBSTRING(InDate FROM 1 FOR 4) AS INTEGER);
+		SET InMonth = CAST(SUBSTRING(InDate FROM 5 FOR 2) AS INTEGER);	
+		SET InDay   = CAST(SUBSTRING(InDate FROM 7 FOR 2) AS INTEGER);
+			
+		-- Check the month first
+		IF (InMonth < 1 OR InMonth > 12) THEN
+			SET Valid = FALSE;		
+		ELSE
+			-- set up lengths of months for later manipulation
+			SET MonthLength = '312831303130313130313031';		
+			IF InMonth = 2 THEN
+				IF IsLeapYear(InYear) = TRUE THEN
+					SET MonthLength = '312931303130313130313031'; 
+				END IF;
+			END IF;
+	
+			-- Check the day against length of month
+			IF ((InDay < 1) OR (InDay > CAST(SUBSTRING(MonthLength FROM (InMonth*2 - 1) FOR 2) AS INTEGER))) THEN
+				SET Valid = FALSE;
+			ELSE
+				SET Valid = TRUE;
+			END IF;
+		END IF;    		
+    END IF;
+
+
+	IF Valid = TRUE THEN
+		-- Convert input string to a real date
+		SET TempDate = SUBSTRING(InDate FROM 1 FOR 4) ||
+						 '-' || SUBSTRING(InDate FROM 5 FOR 2) || 
+						 '-' || SUBSTRING(InDate FROM 7 FOR 2);
+						 	
+        -- Check if the date is within range of a .NET date
+        IF (TempDate < DATE '1753-01-01') OR (TempDate > DATE '9998-12-31') THEN
+        	SET Valid = FALSE;
+        END IF;
+	END IF;
+	
+	RETURN (Valid);
+
+END;

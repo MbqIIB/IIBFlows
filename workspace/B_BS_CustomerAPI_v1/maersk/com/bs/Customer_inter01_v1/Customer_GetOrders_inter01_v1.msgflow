@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmFlowOrder.msgnode="ComIbmFlowOrder.msgnode" xmlns:ComIbmMQHeader.msgnode="ComIbmMQHeader.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmRoute.msgnode="ComIbmRoute.msgnode" xmlns:ComIbmThrow.msgnode="ComIbmThrow.msgnode" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow"
+    xmlns:maersk_iib_common_state_v1_sfGetStateMessage.subflow="maersk/iib/common/state/v1/sfGetStateMessage.subflow" xmlns:maersk_iib_common_state_v1_sfSaveStateMessage_v1.subflow="maersk/iib/common/state/v1/sfSaveStateMessage_v1.subflow" xmlns:maersk_iib_errorhandler_v1_sfErrorHandler_v1.subflow="maersk/iib/errorhandler/v1/sfErrorHandler_v1.subflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="maersk/com/bs/Customer_inter01_v1/Customer_GetOrders_inter01_v1.msgflow" nsPrefix="maersk_com_bs_Customer_inter01_v1_Customer_GetOrders_inter01_v1.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="Customer_GetOrders_inter01_v1" bundleName="maersk/com/bs/Customer_inter01_v1/Customer_GetOrders_inter01_v1" pluginId="B_BS_CustomerAPI_v1"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/B_BS_CustomerAPI_v1/icons/full/obj16/Customer_GetOrders_inter01_v1.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/B_BS_CustomerAPI_v1/icons/full/obj30/Customer_GetOrders_inter01_v1.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="20,249" queueName="BS.CUSTOMER_GETORDERS_INTER01.REQ">
+        <translation xmi:type="utility:ConstantString" string="BS.CUSTOMER_GETORDERS_INTER01.REQ"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_common_state_v1_sfSaveStateMessage_v1.subflow:FCMComposite_1" xmi:id="FCMComposite_1_2" location="818,84" queueName="STATE.BS.QUEUE">
+        <translation xmi:type="utility:ConstantString" string="sfSaveStateMessage_v1"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQHeader.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="860,218" mqmdAAAOptions="Modify header" mqmdCodedCharSetId="Inherit" mqmdFormat="Inherit" mqmdMsgType="Inherit" mqmdExpiry="1800" mqmdFeedback="Inherit" mqmdMsgId="$Environment/StateMQMD/CorrelId" mqmdCorrelId="Inherit" mqmdReplyToQ="BS.CUSTOMER_REQUEST_TERM.REPLY" mqmdReplyToQMgr="Inherit">
+        <translation xmi:type="utility:ConstantString" string="MQ Header"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="978,222" queueName="EAI.GET_CUSTOMER_ORDERS_PA.REQ">
+        <translation xmi:type="utility:ConstantString" string="EAI.GET_CUSTOMER_ORDERS_PA.REQ"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_errorhandler_v1_sfErrorHandler_v1.subflow:FCMComposite_1" xmi:id="FCMComposite_1_6" location="222,359" Format="CUSTOM" ResponseName="GetCustomerResponse">
+        <translation xmi:type="utility:ConstantString" string="sfErrorHandler_v1"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="462,358" queueName="EA.GET_CUSTOMER_ERROR.IN" newMsgId="true" validateMaster="none">
+        <translation xmi:type="utility:ConstantString" string="EA.GET_CUSTOMER_ERROR.IN"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_common_state_v1_sfGetStateMessage.subflow:FCMComposite_1" xmi:id="FCMComposite_1_5" location="222,157" queueName="STATE.BS.QUEUE">
+        <translation xmi:type="utility:ConstantString" string="sfGetStateMessage"/>
+      </nodes>
+      <nodes xmi:type="ComIbmRoute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="427,157">
+        <outTerminals terminalNodeID="Match" dynamic="true" label="Match"/>
+        <translation xmi:type="utility:ConstantString" string="Route"/>
+        <filterTable filterPattern="$Root/XMLNSC/Error" routingOutputTerminal="Match"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQHeader.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_10" location="797,346" mqmdAAAOptions="Modify header" mqmdCodedCharSetId="Inherit" mqmdFormat="Inherit" mqmdMsgType="MQMT_DATAGRAM" mqmdExpiry="MQEI_UNLIMITED" mqmdFeedback="Inherit" mqmdMsgId="Inherit" mqmdCorrelId="Inherit" mqmdReplyToQ="Inherit" mqmdReplyToQMgr="Inherit">
+        <translation xmi:type="utility:ConstantString" string="Temp"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_11" location="927,349" queueName="STUB_TEST_RESPONSE">
+        <translation xmi:type="utility:ConstantString" string="TEMP.REQ"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_12" location="568,157" computeExpression="esql://routine/maersk.com.bs.Customer_inter01_v1#Customer_GetOrders_inter01_v1_BuildRequest.Main">
+        <translation xmi:type="utility:ConstantString" string="BuildRequest"/>
+      </nodes>
+      <nodes xmi:type="ComIbmFlowOrder.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_13" location="733,158">
+        <translation xmi:type="utility:ConstantString" string="Flow Order"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="444,257" computeExpression="esql://routine/maersk.com.bs.Customer_inter01_v1#Customer_GetOrders_inter01_v1_BuildErrorResponse.Main">
+        <translation xmi:type="utility:ConstantString" string="BuildErrorResponse"/>
+      </nodes>
+      <nodes xmi:type="ComIbmThrow.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_14" location="548,51" messageNumber="3999" messageText="Error test">
+        <translation xmi:type="utility:ConstantString" string="Throw"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_11" sourceNode="FCMComposite_1_10" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_12" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.default" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_10" targetNode="FCMComposite_1_13" sourceNode="FCMComposite_1_12" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_11" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_13" sourceTerminalName="OutTerminal.first" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_12" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_13" sourceTerminalName="OutTerminal.second" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_13" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_9" sourceTerminalName="Match" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard/>
+  </eClassifiers>
+</ecore:EPackage>

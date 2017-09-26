@@ -1,0 +1,29 @@
+BROKER SCHEMA DateFunc
+
+------------------------------------------------------------	
+	CREATE FUNCTION GetCurrentTimeStampInt() RETURNS INTEGER 
+------------------------------------------------------------	
+--
+--  Return current timestamp in format
+--  CCYYMMDDHHMMSSTTT
+-- 
+--  Author : John Yih
+--  Date   : 23/09/2004
+--
+	BEGIN
+		DECLARE tmeTmestamp CHAR CAST(CURRENT_TIMESTAMP AS CHAR);
+		DECLARE chrDate CHAR;
+		DECLARE chrTime CHAR;
+		DECLARE intDate INTEGER;
+		
+		SET chrDate = SUBSTRING(tmeTmestamp FROM 12 FOR 10);
+		SET chrTime = SUBSTRING(tmeTmestamp FROM 23 FOR 12);
+		SET chrTime = REPLACE(chrTime,':','');
+		SET chrTime = REPLACE(chrTime,'.','');
+		SET chrDate = REPLACE(chrDate,'-','');
+		SET chrDate = chrDate || chrTime;
+		SET intDate = CAST(chrDate AS INTEGER);
+		
+		RETURN intDate;
+		
+	END;

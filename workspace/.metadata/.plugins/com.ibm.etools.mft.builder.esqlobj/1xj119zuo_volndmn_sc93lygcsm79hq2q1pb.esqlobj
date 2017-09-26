@@ -1,0 +1,10 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN		
+		SET OutputRoot																= InputRoot;					
+-- Build MQMD					
+ 		CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN 'MQMD';
+ 		DECLARE refOut REFERENCE TO OutputRoot.MQMD;		
+ 		CALL Build_MQMD_Header (refOut, CAST(InputRoot.HTTPInputHeader."X-Message-Transaction-Correlation-Id" AS BLOB),' ',' ');
+-- Save the SOAP Reply and HTTP Header for the response		
+		SET Environment.HTTP												   = InputRoot.HTTPInputHeader;				
+	END;

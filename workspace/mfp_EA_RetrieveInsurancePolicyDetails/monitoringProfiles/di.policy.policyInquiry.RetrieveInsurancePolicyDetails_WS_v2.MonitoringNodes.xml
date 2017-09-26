@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="yes"?>
+<profile:monitoringProfile xmlns:profile="http://www.ibm.com/xmlns/prod/websphere/messagebroker/6.1.0.3/monitoring/profile" profile:version="2.0">
+<profile:eventSource profile:enabled="true" profile:eventSourceAddress="SOAP Input.transaction.Start">
+<profile:eventPointDataQuery>
+<profile:eventIdentity>
+<profile:eventName profile:literal="SOAP Input.TransactionStart"/>
+</profile:eventIdentity>
+<profile:eventCorrelation>
+<profile:localTransactionId profile:sourceOfId="automatic"/>
+<profile:parentTransactionId profile:sourceOfId="automatic"/>
+<profile:globalTransactionId profile:sourceOfId="automatic"/>
+</profile:eventCorrelation>
+<profile:eventFilter profile:queryText="true()"/>
+<profile:eventUOW profile:unitOfWork="none"/>
+</profile:eventPointDataQuery>
+<profile:applicationDataQuery>
+<profile:simpleContent profile:dataType="string" profile:name="Source">
+<profile:valueQuery profile:queryText="SOAP Input.transaction.Start"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Name">
+<profile:valueQuery profile:queryText="SOAP Input.TransactionStart"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="CorrelId">
+<profile:valueQuery profile:queryText="$Root/SOAP/Header/hdr:Header/hdr:messageId">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="ConversationId">
+<profile:valueQuery profile:queryText="$Root//*[local-name()='conversationId']"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="MsgId">
+<profile:valueQuery profile:queryText="$Root/SOAP/Header/hdr:Header/hdr:messageId">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Operation">
+<profile:valueQuery profile:queryText="$Root/SOAP/Context/@operation"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="UserId">
+<profile:valueQuery profile:queryText="$Root/SOAP/Header/hdr:Header/hdr:userId">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Type">
+<profile:valueQuery profile:queryText="concat('REQUEST','')"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="CustomerId">
+<profile:valueQuery profile:queryText="$Root//Payload/UserID"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="ReplyId">
+<profile:valueQuery profile:queryText="$LocalEnvironment/Destination/SOAP/Reply/ReplyIdentifier"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="URLPath">
+<profile:valueQuery profile:queryText="substring-before( substring-after($Root//X-Original-HTTP-Command, 'POST'), 'HTTP')"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Host">
+<profile:valueQuery profile:queryText="$Root/HTTPInputHeader/Host"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Client">
+<profile:valueQuery profile:queryText="$Root//X-Message-Origin-Application-Servername"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Status">
+<profile:valueQuery profile:queryText="$Root//maxReturnLevel"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Error">
+<profile:valueQuery profile:queryText="$Root//errorInfo/message"/>
+</profile:simpleContent>
+<profile:complexContent>
+<profile:payloadQuery profile:queryText="$Root"/>
+</profile:complexContent>
+<profile:complexContent>
+<profile:payloadQuery profile:queryText="$ExceptionList"/>
+</profile:complexContent>
+</profile:applicationDataQuery>
+</profile:eventSource>
+<profile:eventSource profile:enabled="true" profile:eventSourceAddress="SOAP Reply.terminal.in">
+<profile:eventPointDataQuery>
+<profile:eventIdentity>
+<profile:eventName profile:literal="SOAP Reply.terminal.in"/>
+</profile:eventIdentity>
+<profile:eventCorrelation>
+<profile:localTransactionId profile:sourceOfId="automatic"/>
+<profile:parentTransactionId profile:sourceOfId="automatic"/>
+<profile:globalTransactionId profile:sourceOfId="automatic"/>
+</profile:eventCorrelation>
+<profile:eventFilter profile:queryText="true()"/>
+<profile:eventUOW profile:unitOfWork="none"/>
+</profile:eventPointDataQuery>
+<profile:applicationDataQuery>
+<profile:simpleContent profile:dataType="string" profile:name="Source">
+<profile:valueQuery profile:queryText="SOAP Reply.terminal.in"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Name">
+<profile:valueQuery profile:queryText="SOAP Reply.terminal.in"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="CorrelId">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/soapenv:Envelope/soapenv:Header/hdr:Header/hdr:messageId">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+<profile:prefixMapping profile:prefix="soapenv" profile:URI="http://schemas.xmlsoap.org/soap/envelope/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="ConversationId">
+<profile:valueQuery profile:queryText="$Root//conversationId"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="MsgId">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/soapenv:Envelope/soapenv:Header/hdr:Header/hdr:messageId">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+<profile:prefixMapping profile:prefix="soapenv" profile:URI="http://schemas.xmlsoap.org/soap/envelope/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Operation">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/soapenv:Envelope/soapenv:Header/hdr:Header/hdr:operationName">
+<profile:prefixMapping profile:prefix="soapenv" profile:URI="http://schemas.xmlsoap.org/soap/envelope/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="UserId">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/soapenv:Envelope/soapenv:Header/hdr:Header/hdr:userId">
+<profile:prefixMapping profile:prefix="soapenv" profile:URI="http://schemas.xmlsoap.org/soap/envelope/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Type">
+<profile:valueQuery profile:queryText="concat('REPLY','')"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="URLPath">
+<profile:valueQuery profile:queryText="$Root//X-Original-HTTP-Command"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Host">
+<profile:valueQuery profile:queryText="$Root/HTTPReplyHeader/Host"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Client">
+<profile:valueQuery profile:queryText="$Root//X-Message-Origin-Application-Servername"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Status">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/soapenv:Envelope/Body/soapenv:Fault/detail/error:Error/error:severity">
+<profile:prefixMapping profile:prefix="soapenv" profile:URI="http://schemas.xmlsoap.org/soap/envelope/"/>
+<profile:prefixMapping profile:prefix="error" profile:URI="http://iag.com.au/di/esb/error/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Error">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/soapenv:Envelope/Body/soapenv:Fault/detail/error:Error/error:message">
+<profile:prefixMapping profile:prefix="soapenv" profile:URI="http://schemas.xmlsoap.org/soap/envelope/"/>
+<profile:prefixMapping profile:prefix="error" profile:URI="http://iag.com.au/di/esb/error/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:complexContent>
+<profile:payloadQuery profile:queryText="$Root"/>
+</profile:complexContent>
+<profile:complexContent>
+<profile:payloadQuery profile:queryText="$ExceptionList"/>
+</profile:complexContent>
+</profile:applicationDataQuery>
+</profile:eventSource>
+<profile:eventSource profile:enabled="true" profile:eventSourceAddress="sfFailureHandling.MonitorEvent.terminal.in">
+<profile:eventPointDataQuery>
+<profile:eventIdentity>
+<profile:eventName profile:literal="sfFailureHandling.MonitorEvent.InTerminal"/>
+</profile:eventIdentity>
+<profile:eventCorrelation>
+<profile:localTransactionId profile:sourceOfId="automatic"/>
+<profile:parentTransactionId profile:sourceOfId="automatic"/>
+<profile:globalTransactionId profile:sourceOfId="automatic"/>
+</profile:eventCorrelation>
+<profile:eventFilter profile:queryText="true()"/>
+<profile:eventUOW profile:unitOfWork="none"/>
+</profile:eventPointDataQuery>
+<profile:applicationDataQuery>
+<profile:simpleContent profile:dataType="string" profile:name="Source">
+<profile:valueQuery profile:queryText="sfFailureHandling.MonitorEvent.terminal.in"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Name">
+<profile:valueQuery profile:queryText="sfFailureHandling.MonitorEvent.InTerminal"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="MsgId">
+<profile:valueQuery profile:queryText="$Root/MQMD/MsgId"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="CorrelId">
+<profile:valueQuery profile:queryText="$Root/MQMD/CorrelId"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="ConversationId">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/env:Envelope/hdr:Header/hdr:conversationId">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="MessageTransactionCorrelationId">
+<profile:valueQuery profile:queryText="$Root/MQMD/msgId"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Operation">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/env:Envelope/hdr:Header/hdr:operationName">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="UserId">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/env:Envelope/hdr:Header/hdr:userId">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Type">
+<profile:valueQuery profile:queryText="concat('REQUEST','')"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="ReplyId">
+<profile:valueQuery profile:queryText="$LocalEnvironment/Destination/SOAP/Reply/ReplyIdentifier"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="URLPath">
+<profile:valueQuery profile:queryText="substring-before(substring-after($Root//X-Original-HTTP-Command, 'POST'), 'HTTP')"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Host">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/env:Envelope/err:Error/err:system">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+<profile:prefixMapping profile:prefix="err" profile:URI="http://iag.com.au/di/esb/error/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Client">
+<profile:valueQuery profile:queryText="$Root//X-Message-Origin-Application-Servername"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Status">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/env:Envelope/err:Error/err:severity">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+<profile:prefixMapping profile:prefix="err" profile:URI="http://iag.com.au/di/esb/error/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Error">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/env:Envelope/err:Error/err:message">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+<profile:prefixMapping profile:prefix="err" profile:URI="http://iag.com.au/di/esb/error/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:complexContent>
+<profile:payloadQuery profile:queryText="$Root"/>
+</profile:complexContent>
+<profile:complexContent>
+<profile:payloadQuery profile:queryText="$ExceptionList"/>
+</profile:complexContent>
+</profile:applicationDataQuery>
+</profile:eventSource>
+<profile:eventSource profile:enabled="true" profile:eventSourceAddress="sfFailureHandling1.MonitorEvent.terminal.in">
+<profile:eventPointDataQuery>
+<profile:eventIdentity>
+<profile:eventName profile:literal="sfFailureHandling1.MonitorEvent.InTerminal"/>
+</profile:eventIdentity>
+<profile:eventCorrelation>
+<profile:localTransactionId profile:sourceOfId="automatic"/>
+<profile:parentTransactionId profile:sourceOfId="automatic"/>
+<profile:globalTransactionId profile:sourceOfId="automatic"/>
+</profile:eventCorrelation>
+<profile:eventFilter profile:queryText="true()"/>
+<profile:eventUOW profile:unitOfWork="none"/>
+</profile:eventPointDataQuery>
+<profile:applicationDataQuery>
+<profile:simpleContent profile:dataType="string" profile:name="Source">
+<profile:valueQuery profile:queryText="sfFailureHandling1.MonitorEvent.terminal.in"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Name">
+<profile:valueQuery profile:queryText="sfFailureHandling1.MonitorEvent.InTerminal"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="MsgId">
+<profile:valueQuery profile:queryText="$Root/MQMD/MsgId"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="CorrelId">
+<profile:valueQuery profile:queryText="$Root/MQMD/CorrelId"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="ConversationId">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/env:Envelope/hdr:Header/hdr:conversationId">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="MessageTransactionCorrelationId">
+<profile:valueQuery profile:queryText="$Root/MQMD/msgId"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Operation">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/env:Envelope/hdr:Header/hdr:operationName">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="UserId">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/env:Envelope/hdr:Header/hdr:userId">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Type">
+<profile:valueQuery profile:queryText="concat('REQUEST','')"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="ReplyId">
+<profile:valueQuery profile:queryText="$LocalEnvironment/Destination/SOAP/Reply/ReplyIdentifier"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="URLPath">
+<profile:valueQuery profile:queryText="substring-before(substring-after($Root//X-Original-HTTP-Command, 'POST'), 'HTTP')"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Host">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/env:Envelope/err:Error/err:system">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+<profile:prefixMapping profile:prefix="err" profile:URI="http://iag.com.au/di/esb/error/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Client">
+<profile:valueQuery profile:queryText="$Root//X-Message-Origin-Application-Servername"/>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Status">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/env:Envelope/err:Error/err:severity">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+<profile:prefixMapping profile:prefix="err" profile:URI="http://iag.com.au/di/esb/error/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:simpleContent profile:dataType="string" profile:name="Error">
+<profile:valueQuery profile:queryText="$Root/XMLNSC/env:Envelope/err:Error/err:message">
+<profile:prefixMapping profile:prefix="env" profile:URI="http://iag.com.au/di/esb/envelope/v1/"/>
+<profile:prefixMapping profile:prefix="hdr" profile:URI="http://iag.com.au/di/esb/header/v1/"/>
+<profile:prefixMapping profile:prefix="err" profile:URI="http://iag.com.au/di/esb/error/v1/"/>
+</profile:valueQuery>
+</profile:simpleContent>
+<profile:complexContent>
+<profile:payloadQuery profile:queryText="$Root"/>
+</profile:complexContent>
+<profile:complexContent>
+<profile:payloadQuery profile:queryText="$ExceptionList"/>
+</profile:complexContent>
+</profile:applicationDataQuery>
+</profile:eventSource>
+</profile:monitoringProfile>

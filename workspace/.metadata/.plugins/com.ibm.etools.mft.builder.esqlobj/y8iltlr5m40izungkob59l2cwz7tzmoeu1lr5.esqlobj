@@ -1,0 +1,9 @@
+CREATE COMPUTE MODULE NZ_Set_CP_Reply
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+--Set the SOAP Reply and HTTP Header for the response		
+
+		SET OutputRoot.HTTPReplyHeader													= Environment.HTTP;													
+		SET OutputRoot.XMLNSC.ser:CalculatePremiumResponseSoapOut = InputRoot.XMLNSC.ser:CalculatePremiumResponseSoapOut;
+	END;		
+END MODULE;

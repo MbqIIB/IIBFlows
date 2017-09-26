@@ -1,0 +1,112 @@
+CREATE COMPUTE MODULE NZ_RecordInsurancePolicy_Response
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		CALL BuildRecordInsurancePolicyResponseHdr();
+		CALL BuildRecordInsurancePolicyResponseBody();	
+-- Set destination list		
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueManagerName 	= Environment.REPLY_TO_QUEUE_MANAGER;
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueName 		= Environment.REPLY_TO_QUEUE;			
+			
+		RETURN TRUE;
+	END;
+/***********************************************************************************************************************************************************************/	
+CREATE PROCEDURE BuildRecordInsurancePolicyResponseHdr() BEGIN
+		DECLARE refIn  REFERENCE TO InputRoot.MRM.RP_HEADER; 
+-- Build MQMD					
+ 		CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN 'MQMD';
+ 		DECLARE refOut REFERENCE TO OutputRoot.MQMD;					
+ 		CALL Build_MQMD_Header (refOut, Environment.Msgid,Environment.REPLY_TO_QUEUE,Environment.REPLY_TO_QUEUE_MANAGER);			   
+-- Create HTTP Header   		 
+   		SET OutputRoot.HTTPReplyHeader					= Environment.HTTP;
+-- Create Record Insurance Policy XML Response Header   		 
+   		CREATE LASTCHILD OF OutputRoot AS refOut DOMAIN 'XMLNSC' NAME 'XMLNSC';
+		CREATE LASTCHILD OF OutputRoot.XMLNSC AS refOut		NAMESPACE ser NAME 'RecordInsurancePolicyResponseSoapOut';	
+		CALL Build_XML_Response_Header (refOut, 'RECORD_INSURANCE_POLICY', Environment.Header,refIn);					
+	END;
+
+/***********************************************************************************************************************************************************************/
+CREATE PROCEDURE BuildRecordInsurancePolicyResponseBody() BEGIN
+
+		DECLARE ResponseRef 	REFERENCE TO OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut";	
+		DECLARE ResponseRefBase	REFERENCE TO OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut";
+		DECLARE inDriver		REFERENCE TO InputRoot.MRM.RP_BODY.RP_DRIVERS.RP_DRIVER_DTL;
+		DECLARE inPolicyholder	REFERENCE TO InputRoot.MRM.RP_BODY.RP_DRIVERS.RP_DRIVER_DTL;
+		DECLARE	DriverIndex		INTEGER 1;
+		DECLARE	PolholderIdx	INTEGER 1;
+		DECLARE processed		BOOLEAN false;
+
+-- Skip if there is an error
+	    IF InputRoot.MRM.RP_HEADER.RP_RC			= 04
+	    	OR InputRoot.MRM.RP_HEADER.RP_RC		= 08
+	    	OR InputRoot.MRM.RP_HEADER.RP_RC		= 16 THEN
+	    ELSE			
+-- Create xml parents 
+			CREATE LASTCHILD OF ResponseRef AS ResponseRef 								NAME 'Payload';
+			CREATE LASTCHILD OF ResponseRef AS ResponseRef 								NAME 'RecordInsurancePolicyResponse';
+			CREATE LASTCHILD OF ResponseRef AS ResponseRef 								NAMESPACE ns NAME 'insurancePolicy';
+			SET ResponseRef.(XMLNSC.Attribute)xmlns										=ns;
+			
+			MOVE ResponseRef TO OutputRoot.XMLNSC.ser:"RecordInsurancePolicyResponseSoapOut".Payload.RecordInsurancePolicyResponse.insurancePolicy;
+			
+			MOVE ResponseRefBase TO ResponseRef;
+			
+-- Set policy number	
+			CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase						NAMESPACE ns NAME 'objectReference';
+  			CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase 						NAMESPACE ns NAME 'objectId'		  	VALUE InputRoot.MRM.RP_BODY.RP_PRODUCT||(CAST(InputRoot.MRM.RP_BODY.RP_SEQPOLNO AS CHAR));			
+
+			MOVE ResponseRefBase TO ResponseRef;
+			
+			-- Set renewal date	- WRK125934		
+  			CREATE LASTCHILD OF ResponseRefBase as ResponseRefBase   					NAMESPACE ns NAME 'renewalDate'      	VALUE DateFunc.StrToDate(CAST(InputRoot.MRM.RP_BODY.RP_ASSESSMENT.RP_DUEDATE AS CHAR));			
+			MOVE ResponseRefBase TO ResponseRef;
+		
+-- create driver details		
+			IF InputRoot.MRM.RP_BODY.RP_DRIVERS.RP_DRIVER_CNT = 0 THEN
+			ELSE
+				WHILE DriverIndex <= InputRoot.MRM.RP_BODY.RP_DRIVERS.RP_DRIVER_CNT DO
+					IF inDriver.RP_OWNER_DRIVER = 'D' THEN	 
+						IF processed = false THEN	 
+							CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase 		NAMESPACE ns NAME 'contractComponents';
+							SET ResponseRefBase.(XMLNSC.Attribute)xsi:type				='CoverageComponent';	
+							CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase 		NAMESPACE ns NAME 'contractComponents';
+							SET ResponseRefBase.(XMLNSC.Attribute)xsi:type				='AutomobileCoverage';	
+							SET processed = true;						
+						END IF;
+						CREATE LASTCHILD OF ResponseRefBase	AS ResponseRefBase			NAMESPACE ns  NAME 'rolesInContract';
+						SET ResponseRefBase.(XMLNSC.Attribute)xsi:type					='NamedDriver';
+						CREATE LASTCHILD OF ResponseRefBase.ns:objectReference 			NAMESPACE ns  NAME 'objectId' 			VALUE inDriver.RP_DRIVERSEQ;	
+						CREATE LASTCHILD OF ResponseRefBase	AS ResponseRefBase			NAMESPACE ns  NAME 'rolePlayer';
+						SET ResponseRefBase.(XMLNSC.Attribute)xsi:type					='Person';
+						CREATE LASTCHILD OF ResponseRefBase.ns:objectReference 			NAMESPACE ns  NAME 'objectId' 			VALUE inDriver.RP_SEQCLTNO;	
+					END IF;	
+
+					SET DriverIndex = DriverIndex + 1;					
+					MOVE inDriver NEXTSIBLING REPEAT NAME;	
+					MOVE ResponseRefBase TO ResponseRef.ns:contractComponents;
+					
+				END WHILE;
+			END IF;	  				
+
+-- create policy holder details	
+			IF InputRoot.MRM.RP_BODY.RP_DRIVERS.RP_DRIVER_CNT = 0 THEN
+			ELSE
+				WHILE PolholderIdx <= InputRoot.MRM.RP_BODY.RP_DRIVERS.RP_DRIVER_CNT DO
+					
+					IF inPolicyholder.RP_OWNER_DRIVER = 'O' THEN	 
+						MOVE ResponseRefBase TO ResponseRef;
+						CREATE LASTCHILD OF ResponseRefBase	AS ResponseRefBase			NAMESPACE ns  NAME 'rolesInContract';
+						SET ResponseRefBase.(XMLNSC.Attribute)xsi:type					='Policyholder';
+						CREATE LASTCHILD OF ResponseRefBase.ns:objectReference 			NAMESPACE ns  NAME 'objectId' 			VALUE inPolicyholder.RP_DRIVERSEQ;	
+						CREATE LASTCHILD OF ResponseRefBase	AS ResponseRefBase			NAMESPACE ns  NAME 'rolePlayer';
+						SET ResponseRefBase.(XMLNSC.Attribute)xsi:type					='Person';
+						CREATE LASTCHILD OF ResponseRefBase.ns:objectReference 			NAMESPACE ns  NAME 'objectId' 			VALUE inPolicyholder.RP_SEQCLTNO;
+					END IF;	
+
+					SET PolholderIdx = PolholderIdx + 1;					
+					MOVE inPolicyholder NEXTSIBLING REPEAT NAME;			
+				END WHILE;
+			END IF;	  							
+	    END IF;		
+	END;    
+END MODULE;

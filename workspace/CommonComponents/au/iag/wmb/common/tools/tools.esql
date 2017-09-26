@@ -1,0 +1,35 @@
+BROKER SCHEMA au.iag.wmb.common.tools
+CREATE FUNCTION ConvertYNToBoolean(IN chrField CHARACTER) RETURNS BOOLEAN
+BEGIN
+-- Returns false if 'Y' text not passed in
+	CASE
+	WHEN chrField = 'Y' THEN
+		RETURN TRUE;
+	WHEN chrField = 'N' THEN
+		RETURN FALSE;
+	ELSE 
+		RETURN NULL;
+	END CASE;
+END;
+
+
+-- Removes invalid XML chars from a string making it safe to add the string to an XML message
+CREATE FUNCTION StrippedString(IN string CHARACTER, INOUT refWorkingArea REFERENCE) RETURNS CHARACTER
+BEGIN
+	DECLARE chrStrippedString CHARACTER;
+	SET refWorkingArea.Temp.Field = string;
+	DECLARE blbString BLOB;
+	SET blbString = 
+		ASBITSTREAM(refWorkingArea.Temp ENCODING MQENC_NATIVE CCSID MQCCSI_Q_MGR OPTIONS FolderBitStream);
+	-- Substitute 'special' character for '?'
+	DECLARE newBLB BLOB REPLACE(blbString, X'00', X'3F');
+	SET blbString = newBLB;
+	-- Substitute 'special' for '?'
+	SET newBLB = REPLACE(blbString, X'01', X'3F');
+	CREATE LASTCHILD OF refWorkingArea.OutputString PARSE(newBLB ENCODING MQENC_NATIVE CCSID MQCCSI_Q_MGR OPTIONS FolderBitStream);
+	
+	SET chrStrippedString = refWorkingArea.OutputString.Temp.Field;
+	DELETE FIELD refWorkingArea.OutputString;
+	DELETE FIELD refWorkingArea.Temp;
+	RETURN chrStrippedString;
+END;

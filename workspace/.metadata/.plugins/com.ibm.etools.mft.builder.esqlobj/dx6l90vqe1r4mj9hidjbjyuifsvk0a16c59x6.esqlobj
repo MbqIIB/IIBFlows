@@ -1,0 +1,16 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		DECLARE refOut REFERENCE TO OutputRoot;
+		
+		DECLARE conversationId CHARACTER '';
+		SET conversationId = UUIDASCHAR;
+
+		DECLARE messageId BLOB;
+		SET messageId = UUIDASBLOB;
+		
+		CALL maersk.iib.common.http.v1.SetUpHTTPHeaders_v1(refOut,
+
+
+
+	END;

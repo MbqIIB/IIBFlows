@@ -1,0 +1,29 @@
+CREATE COMPUTE MODULE Customer_Reply_term_v1_BuildResponse
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+			END IF;
+		END IF;
+
+		--DECLARE inRef REFERENCE TO InputRoot.XMLNSC.GetCustomer[>];
+		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'GetCustomer';
+		DECLARE refErr REFERENCE TO OutputRoot.XMLNSC."GetCustomer";
+		DECLARE ref REFERENCE TO OutputRoot.XMLNSC.GetCustomer;
+		
+		SET ref.Code = 'abcd';
+		SET ref.Details = 'company';
+				
+		
+		RETURN TRUE;
+
+
+
+	END;
+END MODULE;

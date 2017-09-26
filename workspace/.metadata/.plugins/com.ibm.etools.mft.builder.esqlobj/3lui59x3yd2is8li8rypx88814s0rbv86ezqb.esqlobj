@@ -1,0 +1,12 @@
+CREATE FUNCTION ConvertYNToBoolean(IN chrField CHARACTER) RETURNS BOOLEAN
+BEGIN
+-- Returns false if 'Y' text not passed in
+	CASE
+	WHEN chrField = 'Y' THEN
+		RETURN TRUE;
+	WHEN chrField = 'N' THEN
+		RETURN FALSE;
+	ELSE 
+		RETURN NULL;
+	END CASE;
+END;

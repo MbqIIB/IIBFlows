@@ -1,0 +1,123 @@
+CREATE COMPUTE MODULE Customer_Reply_term_v1_BuildResponse
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+			END IF;
+		END IF;
+
+		DECLARE inRefCust REFERENCE TO Environment.RequestState.XMLNSC.GetCustomer.GetCustomerResponse;
+		DECLARE inRefOrds REFERENCE TO InputRoot.XMLNSC.ordersResponse;
+				
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'GetCustomerResponse';
+		DECLARE refOut REFERENCE TO OutputRoot.XMLNSC.GetCustomerResponse;
+		
+		SET refOut.CustomerId = inRefCust.CustomerId;
+		SET refOut.CompanyName = inRefCust.Name;
+	--	SET refOut.Contact = inRefCust.Contact;				
+	--	SET refOut.Title = inRefCust.Title;
+		
+		-- Address
+		CREATE LASTCHILD OF refOut NAME 'Address';
+		DECLARE refAddr REFERENCE TO refOut.Address;
+		DECLARE inAddr REFERENCE TO inRefCust.Address;
+		DECLARE inAddrLine REFERENCE TO inAddr.AddressLine[>];
+		
+		X : WHILE LASTMOVE(inAddrLine)
+		DO
+			CREATE LASTCHILD OF refAddr NAME 'AddressLine' VALUE FIELDVALUE(inAddrLine);	
+			MOVE inAddrLine NEXTSIBLING REPEAT NAME;	
+			
+		END WHILE;
+		SET refAddr.PostCode = inAddr.PostCode;
+		SET refAddr.City = inAddr.City;
+		SET refAddr.Country = inAddr.Country;
+
+		--Contacts
+		CREATE LASTCHILD OF refOut NAME 'Contacts';
+		DECLARE refCont REFERENCE TO refOut.Contacts;
+		DECLARE inCont REFERENCE TO inRefCust.Contacts[>];
+		DECLARE inTel REFERENCE TO InputRoot;
+		
+		C : WHILE LASTMOVE(inCont) 
+		DO
+			
+			CREATE LASTCHILD OF refCont NAME 'Position' VALUE FIELDVALUE(inCont);
+		--	CREATE LASTCHILD OF refCont NAME 'Name' VALUE FIELDVALUE(inCont.Name);
+			
+			MOVE inTel TO inCont.Telephone[>];
+			
+			C : WHILE LASTMOVE(inCont) 
+			DO
+			
+				CREATE LASTCHILD OF refCont NAME 'Telephone';
+				DECLARE refT REFERENCE TO refCont.Telephone[<];
+				SET refT.Type = inCont.Type;
+				SET refT.Number = inCont.Number;
+				
+				MOVE inTel NEXTSIBLING REPEAT NAME;	
+				
+			END WHILE;
+								
+			MOVE inCont NEXTSIBLING REPEAT NAME;
+				
+		END WHILE;
+		
+--		-- Telephone
+--		CREATE LASTCHILD OF refOut NAME 'Telephone';
+--		DECLARE refTel REFERENCE TO refOut.Telephone;
+--		DECLARE inTel REFERENCE TO inRefCust.TelephoneNumbers.Number[>];
+--		
+--		X : WHILE LASTMOVE(inTel)
+--		DO
+--			CREATE LASTCHILD OF refTel NAME 'Number';
+--			DECLARE refNo REFERENCE TO refTel.Number[<];
+--			SET refNo.(XMLNSC.Attribute) = inTel.(XMLNSC.Attribute)type;
+--			SET refNo.value = FIELDVALUE(inTel);
+--			
+--			MOVE inTel NEXTSIBLING REPEAT NAME;	
+--			
+--		END WHILE;
+--		
+--		-- eMail
+--		CREATE LASTCHILD OF refOut NAME 'emailAddress';
+--		DECLARE refeMail REFERENCE TO refOut.emailAddress;
+--		DECLARE ineMail REFERENCE TO inRefCust.emailAddress.email[>];
+--		
+--		E : WHILE LASTMOVE(ineMail)
+--		DO
+--			CREATE LASTCHILD OF refeMail NAME 'email' VALUE FIELDVALUE(ineMail);				
+--			MOVE ineMail NEXTSIBLING REPEAT NAME;	
+--			
+--		END WHILE;
+--		
+		-- Add any orders
+		CREATE LASTCHILD OF refOut NAME 'Orders';
+		DECLARE refOutOs REFERENCE TO refOut.Orders;
+		DECLARE refInO REFERENCE TO inRefOrds.Order[>];
+		
+		O : WHILE LASTMOVE(refInO)
+		DO
+			CREATE LASTCHILD OF refOutOs NAME 'Order';
+			DECLARE refOutO REFERENCE TO refOutOs.Order[<];
+			SET refOutO.OrderId = refInO.OrderId;
+			SET refOutO.Description = refInO.Description;
+			SET refOutO.Status = refInO.Status;
+			SET refOutO.Price = CAST(refInO.Price AS CHARACTER FORMAT '####0.00');
+			
+			MOVE refInO NEXTSIBLING REPEAT NAME;
+		
+		END WHILE; 
+		
+		
+		RETURN TRUE;
+
+
+
+	END;
+END MODULE;

@@ -1,0 +1,15 @@
+CREATE COMPUTE MODULE SetupRequest
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		-- Save Input Message MsgId
+		SET Environment.HubWorkArea.Origin.MsgId       			= InputRoot.MQMD.MsgId;
+		
+		-- Save ReplyToQueue/ReplyToQueueManager
+		SET Environment.HubWorkArea.Origin.ReplyToQ     		= InputRoot.MQMD.ReplyToQ;
+		SET Environment.HubWorkArea.Origin.ReplyToQMgr  		= InputRoot.MQMD.ReplyToQMgr;
+		
+		RETURN TRUE;
+	END;
+
+END MODULE;

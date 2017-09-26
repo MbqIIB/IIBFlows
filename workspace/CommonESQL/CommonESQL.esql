@@ -1,0 +1,25 @@
+
+
+----------------------------------------------------------------------------------
+-- Below Procedure is used to construct Thunderhead (TH) SOAP Headers 
+-- Thunderhead Username field value is taken from ESB Header >> userId field 
+----------------------------------------------------------------------------------
+
+CREATE PROCEDURE ConstructTHSOAPHeader(INOUT refSOAPEnvelope REFERENCE, IN USERNAME CHAR) 
+      BEGIN
+		SET refSOAPEnvelope.soapenv:Header.wsse:Security.(XMLNSC.NamespaceDecl)xmlns:soapenv = soapenv;
+		SET refSOAPEnvelope.soapenv:Header.wsse:Security.(XMLNSC.Attribute)soapenv:mustUnderstand	='1';			
+		SET refSOAPEnvelope.soapenv:Header.wsse:Security.wsu:Timestamp.(XMLNSC.NamespaceDecl)xmlns:wsu = wsu;
+
+		DECLARE dtTimestamp DATE CURRENT_TIMESTAMP; 
+		SET refSOAPEnvelope.soapenv:Header.wsse:Security.wsu:Timestamp.wsu:Created = cast(dtTimestamp AS TIMESTAMP); 
+		
+		SET dtTimestamp = CURRENT_DATE + cast(1 as interval day);		
+		SET refSOAPEnvelope.soapenv:Header.wsse:Security.wsu:Timestamp.wsu:Expires =  cast(dtTimestamp AS TIMESTAMP); 
+
+		SET refSOAPEnvelope.soapenv:Header.wsse:Security.wsse:UsernameToken.(XMLNSC.NamespaceDecl)xmlns:wsu = wsu;
+
+		SET refSOAPEnvelope.soapenv:Header.wsse:Security.wsse:UsernameToken.wsse:Username = USERNAME;
+		SET refSOAPEnvelope.soapenv:Header.wsse:Security.wsse:UsernameToken.wsse:Password.(XMLNSC.Attribute)Type = wsspswdtext;
+		
+	END; 	

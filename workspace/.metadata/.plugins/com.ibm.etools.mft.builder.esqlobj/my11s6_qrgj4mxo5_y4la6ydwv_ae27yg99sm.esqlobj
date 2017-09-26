@@ -1,0 +1,10 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		SET OutputRoot.HTTPReplyHeader."Content-Type" = 'text/xml';
+		SET OutputRoot.XMLNSC = InputRoot.XMLNSC; 
+		
+		SET OutputLocalEnvironment.Destination.HTTP.RequestIdentifier = CAST(InputRoot.XMLNS.A.MessageID AS BLOB);
+
+	END;

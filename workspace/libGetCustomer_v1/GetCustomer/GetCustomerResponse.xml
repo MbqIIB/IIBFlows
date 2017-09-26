@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GetCustomerResponse xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="GetCustomerResponse.xsd">
+  <Header>
+    <operationName>operationName</operationName>
+    <timestamp>timestamp</timestamp>
+    <sourceSystem>sourceSystem</sourceSystem>
+    <userId>userId</userId>
+    <extension>
+      <name>name</name>
+      <value>value</value>
+    </extension>
+  </Header>
+  <Error>
+    <Code>Code</Code>
+    <Description>Description</Description>
+    <TimeStamp>TimeStamp</TimeStamp>
+    <Application>Application</Application>
+    <SourceSystem>SourceSystem</SourceSystem>
+    <Severity>Severity</Severity>
+  </Error>
+</GetCustomerResponse>

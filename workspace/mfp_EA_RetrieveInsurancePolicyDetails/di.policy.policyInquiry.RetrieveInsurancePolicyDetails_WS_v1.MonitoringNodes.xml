@@ -1,0 +1,75 @@
+<eventSources>
+<Node>
+	<!--  SOAP INPUT Logs the request sent from HTTP Client -->
+	<Source>SOAP Input.transaction.Start</Source>
+	<Name>SOAP Input.TransactionStart</Name>
+	<CorrelId>		
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="hdr" namespace="http://iag.com.au/di/esb/header/v1/" />
+		<xpath>$Root/SOAP/Header/hdr:Header/hdr:messageId</xpath>	
+	</CorrelId>
+	<ConversationId>$Root//*[local-name()='conversationId']</ConversationId>
+	<MsgId>
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="hdr" namespace="http://iag.com.au/di/esb/header/v1/" />
+		<xpath>$Root/SOAP/Header/hdr:Header/hdr:messageId</xpath>		
+	</MsgId>
+	<Operation>$Root/SOAP/Context/@operation</Operation>
+	<UserId>
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="hdr" namespace="http://iag.com.au/di/esb/header/v1/" />
+		<xpath>$Root/SOAP/Header/hdr:Header/hdr:userId</xpath>	
+	</UserId>
+	<Type>concat('REQUEST','')</Type>
+	<CustomerId>$Root//Payload/UserID</CustomerId>
+	<ReplyId>$LocalEnvironment/Destination/SOAP/Reply/ReplyIdentifier</ReplyId>
+	<URLPath>substring-before( substring-after($Root//X-Original-HTTP-Command, 'POST'), 'HTTP')</URLPath>
+	<Host>$Root/HTTPInputHeader/Host</Host>
+	<Client>$Root//X-Message-Origin-Application-Servername</Client>
+	<Status>$Root//maxReturnLevel</Status>
+	<Error>$Root//errorInfo/message</Error>
+</Node>
+<Node>
+	<!--  SOAP REPLY Logs the response sent to HTTP Client -->
+	<Source>SOAP Reply.terminal.in</Source>
+	<Name>SOAP Reply.terminal.in</Name>
+	<CorrelId>		
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="hdr" namespace="http://iag.com.au/di/esb/header/v1/" />
+		<namespace prefix="soapenv" namespace="http://schemas.xmlsoap.org/soap/envelope/" />
+		<xpath>$Root/XMLNSC/soapenv:Envelope/soapenv:Header/hdr:Header/hdr:messageId</xpath>
+	</CorrelId>
+	<ConversationId>$Root//conversationId</ConversationId>
+	<MsgId>		
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="hdr" namespace="http://iag.com.au/di/esb/header/v1/" />
+		<namespace prefix="soapenv" namespace="http://schemas.xmlsoap.org/soap/envelope/" />
+		<xpath>$Root/XMLNSC/soapenv:Envelope/soapenv:Header/hdr:Header/hdr:messageId</xpath>
+	</MsgId>
+	<Operation>
+		<namespace prefix="soapenv" namespace="http://schemas.xmlsoap.org/soap/envelope/" />
+		<namespace prefix="hdr" namespace="http://iag.com.au/di/esb/header/v1/" />
+		<xpath>$Root/XMLNSC/soapenv:Envelope/soapenv:Header/hdr:Header/hdr:operationName</xpath>
+	</Operation>
+	<UserId>		
+		<namespace prefix="soapenv" namespace="http://schemas.xmlsoap.org/soap/envelope/" />
+		<namespace prefix="hdr" namespace="http://iag.com.au/di/esb/header/v1/" />
+		<xpath>$Root/XMLNSC/soapenv:Envelope/soapenv:Header/hdr:Header/hdr:userId</xpath>	</UserId>
+	<Type>concat('REPLY','')</Type>
+	<CustomerId></CustomerId>
+	<ReplyId></ReplyId>
+	<URLPath>$Root//X-Original-HTTP-Command</URLPath>
+	<Host>$Root/HTTPReplyHeader/Host</Host>
+	<Client>$Root//X-Message-Origin-Application-Servername</Client>
+	<Status>
+		<namespace prefix="soapenv" namespace="http://schemas.xmlsoap.org/soap/envelope/" />
+		<namespace prefix="error" namespace="http://iag.com.au/di/esb/error/v1/" />		
+		<xpath>$Root/XMLNSC/soapenv:Envelope/Body/soapenv:Fault/detail/error:Error/error:severity</xpath>	
+    </Status>
+	<Error>		
+		<namespace prefix="soapenv" namespace="http://schemas.xmlsoap.org/soap/envelope/" />
+		<namespace prefix="error" namespace="http://iag.com.au/di/esb/error/v1/" />		
+		<xpath>$Root/XMLNSC/soapenv:Envelope/Body/soapenv:Fault/detail/error:Error/error:message</xpath>
+	</Error>
+</Node>
+</eventSources>

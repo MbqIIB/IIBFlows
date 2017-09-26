@@ -1,0 +1,89 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		-- Propagate original message
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'MQMD';
+		SET OutputRoot.MQMD.MsgId               = Environment.HubWorkArea.Origin.MsgId;
+		SET OutputRoot.MQMD.CorrelId            = Environment.HubWorkArea.Origin.MsgId;	 
+		SET OutputRoot.MQMD.Version 		    = MQMD_CURRENT_VERSION;
+		SET OutputRoot.MQMD.Format 		        = MQFMT_STRING;
+		SET OutputRoot.MQMD.MsgType 		    = MQMT_REPLY; 
+		SET OutputRoot.MQMD.Encoding		    = MQENC_NATIVE;	
+		SET OutputRoot.MQMD.CodedCharSetId      = MQCCSI_Q_MGR; 
+--		SET OutputRoot.MQMD.Expiry              = 30000; 
+		SET OutputRoot.MQMD.Expiry              = 600; 
+--		SET OutputRoot.MQMD.Persistence         = MQPER_PERSISTENT;
+
+		SET OutputRoot.MQMD.ReplyToQ		    = Environment.HubWorkArea.Origin.ReplyToQ;  
+		SET OutputRoot.MQMD.ReplyToQMgr         = Environment.HubWorkArea.Origin.ReplyToQMgr;
+		
+		-- Setup RFH2 
+		SET OutputRoot.MQRFH2                   = NULL;
+
+		-- Copy ESBEnvelope header	
+		SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header		= InputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header;
+		-- Copy ESBEnvelope Body   
+		SET OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsResp = InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsResp;
+						
+		PROPAGATE TO TERMINAL  'out1';
+		
+		
+
+		-- Build and Propagate Request for Retrieving Customer information 
+		
+		DECLARE refInputBody 		REFERENCE TO InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsResp.insurancePolicy.rolesInContract;
+		
+		WHILE LASTMOVE(refInputBody) DO
+		
+			IF ((refInputBody.(XMLNSC.Attribute)xsi:type = 'party:Person') OR (refInputBody.(XMLNSC.Attribute)xsi:type = 'party:Organisation'))
+			AND (refInputBody.isIdentifiedBy.componentId = 'HUON') THEN 
+		
+				-- Build MQMD
+				CREATE LASTCHILD OF OutputRoot DOMAIN 'MQMD';
+				SET OutputRoot.MQMD.MsgId               = Environment.HubWorkArea.Origin.MsgId;	
+				SET OutputRoot.MQMD.Version 		    = MQMD_CURRENT_VERSION;
+				SET OutputRoot.MQMD.Format 		        = MQFMT_STRING;
+				SET OutputRoot.MQMD.MsgType 		    = MQMT_REQUEST; 
+				SET OutputRoot.MQMD.Encoding		    = MQENC_NATIVE;	
+				SET OutputRoot.MQMD.CodedCharSetId      = MQCCSI_Q_MGR; 
+--				SET OutputRoot.MQMD.Expiry              = -1; -- Unlimited
+				SET OutputRoot.MQMD.Expiry              = 600;
+--				SET OutputRoot.MQMD.Persistence         = MQPER_PERSISTENT;
+				SET OutputRoot.MQMD.CorrelId            = Environment.HubWorkArea.Origin.MsgId;	 
+				SET OutputRoot.MQMD.ReplyToQ		    = 'EAI.POL.RET_CUSTOMER_DETAILS_BS.REPLY';  
+				SET OutputRoot.MQMD.ReplyToQMgr         = Environment.HubWorkArea.Origin.ReplyToQMgr;
+		
+				-- Setup RFH2 
+				SET OutputRoot.MQRFH2                   = NULL;
+
+				-- Copy ESBEnvelope header	
+				SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header		= InputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header;
+
+				-- Setup ESBEnvelope body
+				CREATE LASTCHILD OF OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body NAME 'Party';		
+
+				DECLARE ResponseRef 		REFERENCE TO OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.Party;
+				DECLARE ResponseRef2 		REFERENCE TO OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.Party;
+				
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'requestId';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type						='identifiers:PartyIdentifier';
+				SET ResponseRef.componentId			 							= 'HUON';	
+				SET ResponseRef.partyId			 								= refInputBody.isIdentifiedBy.partyId;	
+
+				CREATE LASTCHILD OF ResponseRef2	AS ResponseRef2				NAME 'requestId';
+				SET ResponseRef2.(XMLNSC.Attribute)xsi:type						='identifiers:PolicyIdentifier';
+				SET ResponseRef2.policyId			 							= Environment.HubWorkArea.policyNumber.policyId;	
+				SET ResponseRef2.productCode			 						= Environment.HubWorkArea.policyNumber.productCode;	
+		
+				PROPAGATE TO TERMINAL  'out';
+			
+			END IF;
+		
+			MOVE refInputBody NEXTSIBLING REPEAT NAME;			
+		
+		END WHILE;   
+		
+		RETURN FALSE;
+	END;
+
+

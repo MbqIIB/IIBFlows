@@ -1,0 +1,55 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		SET OutputRoot.MQMD = InputRoot.MQMD;
+		SET OutputRoot.MQMD.CorrelId = InputRoot.MQMD.MsgId;
+
+		DECLARE jsonResponseCommon, jsonResponse, jsonResponse_1234, jsonResponse_2345, jsonErrorResponse CHARACTER '';
+		SET jsonResponse_1234 = '{"ordersResponse":{"customerId":"1234","order":{"orderId":"ord001","status":"open","description":"car","price":25000.99},"order":{"orderId":"ord002","status":"open","description":"Laptop","price":1234.99}}}';		
+		SET jsonResponse_2345 = '{"ordersResponse":{"customerId":"2345","order":{"orderId":"ord005","status":"open","description":"car","price":35000.88},"order":{"orderId":"ord006","status":"open","description":"Laptop","price":600.88}}}';		
+		SET jsonResponse_3456 = '{"ordersResponse":{"customerId":"3456","order":{"orderId":"ord007","status":"open","description":"item 1","price":234.77}}}';
+		
+		SET jsonErrorResponse = '{"ordersResponse":{"customerId":"YYYY","error":{"code":"E0101","TimeStamp":"20170820T10:00:01.1234","Details":"Error occurred reading orders database","Application":"O12345","Severity":"Major", "SourceSystem":"Orders"}}}';
+		SET jsonOrderNotFound = '{"ordersResponse":{"customerId":"YYYY","error":{"code":"E0201","TimeStamp":"20170820T10:00:01.1234","Details":"Order number not found","Application":"O12345","Severity":"Minor", "SourceSystem":"Orders"}}}';
+
+		
+		DECLARE refInBody REFERENCE TO InputRoot.JSON.Data."ordersRequest";
+		
+		DECLARE rnd FLOAT 0.0;
+		DECLARE seed INTEGER '';
+		SET seed = EXTRACT(SECOND FROM CURRENT_TIME);		 
+		SET rnd = RAND(seed) * 10000;
+
+		DECLARE inRef REFERENCE TO InputRoot.JSON.Data.ordersRequest;
+		DECLARE sTime CHARACTER '';
+		SET sTime = CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyyMMdd HHmmSS');
+		
+		IF (rnd > 50) THEN
+			CREATE LASTCHILD OF OutputRoot DOMAIN 'JSON' PARSE (jsonErrorResponse CCSID 1208);
+			DECLARE refErr REFERENCE TO OutputRoot.JSON.Data.ordersResponse.error;
+			SET refErr.TimeStamp = sTime;		
+			
+		ELSE
+			IF (inRef.customerId = '1234') THEN
+				SET jsonResponse = jsonResponse_1234;
+			ELSEIF (inRef.customerId = '2345') THEN
+				SET jsonResponse = jsonResponse_2345;
+			ELSEIF (inRef.customerId = '3456') THEN
+				SET jsonResponse = jsonResponse_3456;				
+			ELSE
+				SET jsonResponse = jsonOrderNotFound;
+			END IF;	
+						
+		--	SET jsonResponse = jsonResponse_1234;
+			CREATE LASTCHILD OF OutputRoot DOMAIN 'JSON' PARSE (jsonResponse CCSID 1208);
+			
+		END IF;
+
+		DECLARE outRef REFERENCE TO OutputRoot.JSON.Data.ordersResponse;
+		SET outRef.customerId = inRef.customerId;
+					
+		DECLARE X INTEGER 0;
+		SET X = 1;
+
+	END;

@@ -1,0 +1,25 @@
+CREATE COMPUTE MODULE GetCustomer_v1_Request_BuildRequest
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		
+		DECLARE refInBody REFERENCE TO InputRoot.XMLNSC."CustomerGet";
+		
+		-- Copy input message
+		CREATE FIELD OutputLocalEnvironment.OriginalMessage;
+		DECLARE refIn REFERENCE TO OutputLocalEnvironment.OriginalMessage;
+		SET refIn.[] = refInBody.[];
+		
+		-- Start building the MQ Customer Service 
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'JSON' NAME 'JSON';
+		CREATE LASTCHILD OF OutputRoot.JSON NAME 'CustomerRequest'; 	  		
+		DECLARE refReq REFERENCE TO OutputRoot.JSON."CustomerRequest";
+
+		SET refReq.CustomerId = refInBody.customerId;
+			
+		RETURN TRUE;
+		
+	END;
+END MODULE;

@@ -1,0 +1,21 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		SET OutputRoot.Properties = Environment.Variables.Properties;
+		SET OutputRoot.MQMD = Environment.Variables.MQMD;
+		SET OutputRoot.MQRFH2 = Environment.Variables.MQRFH2;
+
+		--
+		
+		DECLARE inRef REFERENCE TO InputRoot.XMLNSC.Error[>];
+		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'Error';
+		DECLARE refErr REFERENCE TO OutputRoot.XMLNSC."Error";
+
+		SET refErr.code = '1234';
+		SET refErr.description = 'OOOOOOOOOps';
+		
+		RETURN TRUE;		
+
+
+	END;

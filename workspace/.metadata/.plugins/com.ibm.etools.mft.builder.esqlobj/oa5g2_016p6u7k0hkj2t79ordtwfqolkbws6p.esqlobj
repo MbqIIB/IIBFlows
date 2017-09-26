@@ -1,0 +1,13 @@
+CREATE COMPUTE MODULE sfErrorHandler_v1_Transform_ExceptionList_into_ErrorBlock
+
+
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		CALL ExceptionListHandler();
+		RETURN TRUE;
+	
+	END;
+
+    	
+	CREATE PROCEDURE ExceptionListHandler()

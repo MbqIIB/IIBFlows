@@ -1,0 +1,130 @@
+BROKER SCHEMA au.iag.wmb.common.coderef
+--------------------------------------------------------------------------
+CREATE FUNCTION S_GetErrMsgTx(ErrNum CHAR, ErrSysCode CHAR) RETURNS CHAR
+--------------------------------------------------------------------------
+--
+--  Obtain Error Message Text from ERR_MSG DB2 Table
+--
+--  Author : Tony Devitt
+--  Date   : 20/10/2004
+--
+--  VA: 26/11/2008 - Changed Null checking; using the IN keyword was not detecting NULL correctly
+--
+BEGIN
+	DECLARE ErrMsgTx CHARACTER;
+	SET ErrMsgTx =
+	THE (SELECT ITEM T.ERR_MSG_TX FROM Database.MQMBUSER.ERR_MSG AS T WHERE
+	T.ERR_NUM = ErrNum and T.ERR_SYS_CODE = ErrSysCode);
+	IF SQLCODE <> 0 THEN
+		SET ErrMsgTx =
+		' Error accessing Error Message Table - ' ||
+		' SQL STATE ' || SQLSTATE ||
+		' SQL ERROR TEXT ' || SQLERRORTEXT ||
+		' SQL CODE ' || CAST (SQLCODE AS CHARACTER) ||
+		' SQL NATIVE ERROR ' || CAST(SQLNATIVEERROR AS CHARACTER);
+	END IF;
+	IF ErrMsgTx IS NULL OR ErrMsgTx = '' THEN
+		SET ErrMsgTx = 'UNKNOWN ERROR MESSAGE CODE FOR SYSTEM ' || ErrSysCode;
+	END IF;
+	RETURN ErrMsgTx;
+END;
+
+/*
+Author: Xinke Lin
+This function returns the field REF_DATA_CODE_VAL for the given REF_DATA_ID and REF_DATA_LONG_TX
+*/
+-----------------------------------------------------------------------------------------------------------------
+CREATE FUNCTION S_GetRefDataCodeVal(chrRefDataId CHAR, chrRefDataLongTx CHAR) RETURNS CHAR
+-----------------------------------------------------------------------------------------------------------------	
+BEGIN
+	CASE chrRefDataLongTx
+	WHEN NULL THEN
+		RETURN NULL;
+	WHEN '' THEN
+		RETURN '';
+	END CASE;
+	
+	DECLARE chrRefDataCodeVal CHAR;
+	SET chrRefDataCodeVal
+	= THE (SELECT ITEM A.REF_DATA_CODE_VAL  FROM Database.MQMBUSER.REF_DATA AS A
+	WHERE A.REF_DATA_ID = chrRefDataId
+	AND UPPER(A.REF_DATA_LONG_TX) = UPPER(chrRefDataLongTx));
+	
+	IF SQLCODE <> 0 THEN
+		SET chrRefDataCodeVal =
+		' Error accessing Error Message Table - ' ||
+		' SQL STATE ' || SQLSTATE ||
+		' SQL ERROR TEXT ' || SQLERRORTEXT ||
+		' SQL CODE ' || CAST (SQLCODE AS CHARACTER) ||
+		' SQL NATIVE ERROR ' || CAST(SQLNATIVEERROR AS CHARACTER);
+		THROW USER EXCEPTION VALUES('Fail to get RefDataCodeValue from database: '||chrRefDataCodeVal);
+	END IF;
+	IF chrRefDataCodeVal IS NULL THEN
+		SET chrRefDataCodeVal = 'CODE_VAL NOT FOUND FOR LONGTX ' || chrRefDataLongTx;
+	END IF;
+	   				    
+	RETURN chrRefDataCodeVal;
+END;
+
+/*
+Author: Gil Alava
+This function returns the field REF_DATA_MISC_TX for the given REF_DATA_ID and REF_DATA_CODE_VAL
+*/
+-----------------------------------------------------------------------------------------------------------------
+CREATE FUNCTION S_GetRefDataMiscTx(chrRefDataId CHAR, chrCodeVal CHAR) RETURNS CHAR
+-----------------------------------------------------------------------------------------------------------------	
+BEGIN		
+	CASE chrCodeVal
+	WHEN NULL THEN
+		RETURN NULL;
+	WHEN '' THEN
+		RETURN '';
+	END CASE;
+	
+	DECLARE chrRefDataMiscTx CHAR;
+	SET chrRefDataMiscTx
+	= THE (SELECT ITEM A.REF_MISC_TX FROM Database.MQMBUSER.REF_DATA AS A
+	WHERE A.REF_DATA_ID = chrRefDataId
+	AND A.REF_DATA_CODE_VAL = chrCodeVal);
+	
+	IF SQLCODE <> 0 THEN
+		SET chrRefDataMiscTx =
+		' Error accessing Error Message Table - ' ||
+		' SQL STATE ' || SQLSTATE ||
+		' SQL ERROR TEXT ' || SQLERRORTEXT ||
+		' SQL CODE ' || CAST (SQLCODE AS CHARACTER) ||
+		' SQL NATIVE ERROR ' || CAST(SQLNATIVEERROR AS CHARACTER);
+		THROW USER EXCEPTION VALUES('Fail to get RefDataMiscTx from database: '||chrRefDataMiscTx);
+	END IF;
+	IF chrRefDataMiscTx IS NULL OR chrRefDataMiscTx = '' THEN
+		SET chrRefDataMiscTx = 'MISC_TX NOT FOUND FOR CODEVAL ' || chrCodeVal;
+	END IF;
+	   				    
+	RETURN chrRefDataMiscTx;
+END;
+
+/*
+
+Author: Gil Alava
+
+This function returns the field REF_DATA_LONG_TX for the given REF_DATA_ID and REF_DATA_CODE_VAL
+
+*/
+
+-----------------------------------------------------------------------------------------------------------------
+CREATE FUNCTION S_GetRefDataLongTx(chrRefDataId CHAR, chrCodeVal CHAR, chrField CHAR) RETURNS CHAR
+-----------------------------------------------------------------------------------------------------------------	
+BEGIN		
+	
+	DECLARE chrRefDataLongTx CHAR;
+	SET chrRefDataLongTx
+	= THE (SELECT ITEM A.REF_DATA_LONG_TX FROM Database.MQMBUSER.REF_DATA AS A
+	WHERE A.REF_DATA_ID = chrRefDataId
+	AND A.REF_DATA_CODE_VAL = chrCodeVal);
+	
+	IF chrRefDataLongTx IS NULL OR chrRefDataLongTx = '' THEN
+		SET chrRefDataLongTx = 'UNKNOWN LongTx FOR CodeVal: ' || chrCodeVal || ' Field: ' || chrField;
+	END IF;
+		   				    
+	RETURN chrRefDataLongTx;
+END;

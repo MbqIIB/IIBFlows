@@ -1,0 +1,19 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		
+		IF EXIST(Environment.RequestState.MQMD) THEN
+			SET OutputRoot.MQMD.*[] = Environment.RequestState.MQMD.*[];
+			IF EXIST(Environment.RequestState.MQRFH2) THEN
+				SET OutputRoot.MQRFH2.*[] = Environment.RequestState.MQRFH2.*[];
+			END IF;
+		END IF;
+		
+		CREATE LASTCHILD OF OutputRoot.JSON.Data NAME 'Error';
+		SET OutputRoot.JSON.Data."Error".code = 'Carta Error';
+
+		RETURN TRUE;
+
+	END;

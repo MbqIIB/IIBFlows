@@ -1,0 +1,34 @@
+CREATE COMPUTE MODULE SetupFlags
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+	
+		DECLARE refInput REFERENCE TO InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsResp.insurancePolicy.rolesInContract;
+
+		DECLARE prefix CHAR;		
+		SET prefix = SUBSTRING((refInput.(XMLNSC.Attribute)xsi:type) FROM 1 FOR (POSITION(':' IN (refInput.(XMLNSC.Attribute)xsi:type))));
+
+		SET OutputRoot = InputRoot;
+		
+		IF EXISTS(InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body[]) THEN
+			SET Environment.HubWorkArea.maxReturnLevel = 'OK';
+			CALL getXTree(refInput, prefix||'party:Organisation');
+			SET Environment.HubWorkArea.Distributor 	= refInput.isIdentifiedBy.partyId;
+		END IF;
+			
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE getXTree(
+			INOUT ref REFERENCE,
+			IN attribName CHAR
+			) BEGIN
+			
+			CREATE LASTCHILD OF Environment.getXTree DOMAIN 'XMLNSC' NAME attribName;
+			
+			SET Environment.getXTree.{attribName} = THE (SELECT ITEM X
+				FROM ref.[] AS X
+				WHERE X.(XMLNSC.Attribute)xsi:type = attribName);
+			MOVE ref TO Environment.getXTree.{attribName};
+	END;
+
+END MODULE;

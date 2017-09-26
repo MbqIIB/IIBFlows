@@ -1,0 +1,119 @@
+BROKER SCHEMA di.crods.customer.pa
+
+
+CREATE COMPUTE MODULE SetupRequest
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		DECLARE refInputHeader REFERENCE TO InputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header;
+		
+		-- Setup Output MQMD
+		CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN 'MQMD';
+
+		SET OutputRoot.MQMD.MsgId               = InputRoot.MQMD.MsgId;
+		SET OutputRoot.MQMD.Version 		    = MQMD_CURRENT_VERSION;
+		SET OutputRoot.MQMD.Format 		        = MQFMT_STRING;
+		SET OutputRoot.MQMD.MsgType 		    = MQMT_REQUEST; 
+		SET OutputRoot.MQMD.Encoding		    = MQENC_NATIVE;	
+		SET OutputRoot.MQMD.CodedCharSetId      = 1208; 
+		SET OutputRoot.MQMD.Expiry              = 600; 
+	--	SET OutputRoot.MQMD.Persistence         = MQPER_PERSISTENT;
+		SET OutputRoot.MQMD.CorrelId            = InputRoot.MQMD.CorrelId; 
+		SET OutputRoot.MQMD.ReplyToQ		    = 'EAI.CUS.RET_SCV_CUSTOMER.REPLY';  
+		SET OutputRoot.MQMD.ReplyToQMgr         = InputRoot.MQMD.ReplyToQMgr;
+		
+		-- Setup Output RFH2 
+		SET OutputRoot.MQRFH2                   = NULL;
+		
+		-- Setup Output Payload Header
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'XMLNSC';
+		
+		SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)Version 			= '1.0';
+		SET OutputRoot.XMLNSC.(XMLNSC.XmlDeclaration)*.(XMLNSC.Attribute)Encoding 			= 'UTF-8';
+		SET OutputRoot.XMLNSC.cviewreq:CustomerViewRequest.(XMLNSC.NamespaceDecl)xmlns     	= 'http://iag.com/scv/customerviewrequest-1/2004/02';
+		SET OutputRoot.XMLNSC.cviewreq:CustomerViewRequest.(XMLNSC.NamespaceDecl)xmlns:hdr 	= 'http://iag.com/scv/header-1/2004/06';
+		
+		CREATE FIELD OutputRoot.XMLNSC.cviewreq:CustomerViewRequest.cviewreq:Header;
+		DECLARE refOutputHeader REFERENCE TO OutputRoot.XMLNSC.cviewreq:CustomerViewRequest.cviewreq:Header;		
+		
+		SET refOutputHeader.hdr:User.hdr:UserID 																			= refInputHeader.esbhdr:userId;
+		SET refOutputHeader.hdr:User.hdr:UserTeam 																			= 'IAGSM';
+		SET refOutputHeader.hdr:User.hdr:ListOfSourceSystemCredentials.hdr:SourceSystemCredential.hdr:SourceSystemName 		= 'HUON';
+		SET refOutputHeader.hdr:User.hdr:ListOfSourceSystemCredentials.hdr:SourceSystemCredential.hdr:SourceSystemUserID 	= refInputHeader.esbhdr:userId;
+		SET refOutputHeader.hdr:User.hdr:MDpAgentCode 																		= 'INT';
+		SET refOutputHeader.hdr:TransactionInfo.hdr:Action 				= 'VIEW';
+		SET refOutputHeader.hdr:TransactionInfo.hdr:ReqResp 			= 'REQUEST';
+		SET refOutputHeader.hdr:RequestInitiator.hdr:SourceSystemName 	= refInputHeader.esbhdr:sourceSystem;
+		SET refOutputHeader.hdr:RequestInitiator.hdr:TransactionID 		= InputRoot.MQMD.MsgId;
+		SET refOutputHeader.hdr:TimeStamp 								= DateFunc.GetCurrentTimeStampXML();	
+		SET refOutputHeader.hdr:ServiceContract.hdr:Version 			= '3.0.0';
+		
+		CREATE FIELD refOutputHeader.hdr:ServiceProgramCodeList;
+		CALL AppendVersionXMLNS(MessageFlowLabel, strRetrieveVersion, refOutputHeader);
+
+
+		-- Setup Output Payload Body
+		CREATE FIELD OutputRoot.XMLNSC.cviewreq:CustomerViewRequest.cviewreq:Body;
+		DECLARE refOutput 		REFERENCE TO OutputRoot.XMLNSC.cviewreq:CustomerViewRequest.cviewreq:Body;
+		DECLARE refInput 		REFERENCE TO InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.Party.requestId;
+
+		DECLARE prefix CHAR;		
+		SET prefix = SUBSTRING((refInput.(XMLNSC.Attribute)xsi:type) FROM 1 FOR (POSITION(':' IN (refInput.(XMLNSC.Attribute)xsi:type))));
+
+		CALL getXTree(refInput, prefix||'PartyIdentifier');
+
+		IF LENGTH(refInput.partyId) = 8 THEN
+			SET refOutput.cviewreq:CustomerID  = '0'||refInput.partyId;
+		ELSEIF LENGTH(refInput.partyId) = 7 THEN
+			SET refOutput.cviewreq:CustomerID  = '00'||refInput.partyId;
+		ELSEIF LENGTH(refInput.partyId) = 6 THEN
+			SET refOutput.cviewreq:CustomerID  = '000'||refInput.partyId;
+		ELSEIF LENGTH(refInput.partyId) = 5 THEN
+			SET refOutput.cviewreq:CustomerID  = '0000'||refInput.partyId;
+		ELSEIF LENGTH(refInput.partyId) = 4 THEN
+			SET refOutput.cviewreq:CustomerID  = '00000'||refInput.partyId;
+		ELSEIF LENGTH(refInput.partyId) = 3 THEN
+			SET refOutput.cviewreq:CustomerID  = '000000'||refInput.partyId;
+		ELSEIF LENGTH(refInput.partyId) = 2 THEN
+			SET refOutput.cviewreq:CustomerID  = '0000000'||refInput.partyId;
+		ELSEIF LENGTH(refInput.partyId) = 1 THEN
+			SET refOutput.cviewreq:CustomerID  = '00000000'||refInput.partyId;
+		ELSE
+			SET refOutput.cviewreq:CustomerID  = refInput.partyId;
+		END IF;
+
+
+		SET refOutput.cviewreq:CustomerSourceSystem 	= 'HUON';
+		
+		SET refOutput.cviewreq:CustomerType 			= 'INDIVIDUAL';
+		
+		CREATE LASTCHILD OF refOutput AS refOutput NAMESPACE cviewreq NAME 'ElementsToRetrieve';
+		
+		SET refOutput.cviewreq:ElementToRetrieve[1].cviewreq:Element 		 = 'CUSTOMER_DETAILS';
+		SET refOutput.cviewreq:ElementToRetrieve[2].cviewreq:Element 		 = 'CUSTOMER_CONTACTS';
+		SET refOutput.cviewreq:ElementToRetrieve[3].cviewreq:Element 		 = 'CUSTOMER_ADDRESSES';
+
+
+		-- Set Output Queue and Queue Manager
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueName			= 'ODS.SCV.VIEW.REQ'; 
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueManagerName 	= InputRoot.MQMD.ReplyToQMgr; 		
+
+
+		RETURN TRUE;
+	END;
+	
+	CREATE PROCEDURE getXTree(
+			INOUT ref REFERENCE,
+			IN attribName CHAR
+			) BEGIN
+			
+			CREATE LASTCHILD OF Environment.getXTree DOMAIN 'XMLNSC' NAME attribName;
+			
+			SET Environment.getXTree.{attribName} = THE (SELECT ITEM X
+				FROM ref.[] AS X
+				WHERE X.(XMLNSC.Attribute)xsi:type = attribName);
+			MOVE ref TO Environment.getXTree.{attribName};
+	END;
+	
+
+END MODULE;

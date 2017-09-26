@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Address xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="GetCustomerResponse.xsd">
+  <AddressLine1>AddressLine1</AddressLine1>
+  <AddressLine2>AddressLine2</AddressLine2>
+  <AddressLine3>AddressLine3</AddressLine3>
+  <PostCode>PostCode</PostCode>
+  <City>City</City>
+  <Country>Country</Country>
+</Address>

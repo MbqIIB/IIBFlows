@@ -1,0 +1,21 @@
+BROKER SCHEMA DateFunc
+
+--------------------------------------------------------------------	
+	CREATE FUNCTION ConvertDateToCCYYMMDD(chrDate CHAR) RETURNS CHAR 
+--------------------------------------------------------------------	 
+--
+--   Convert date in CCYY-MM-DD format to CCYYMMDD
+--
+--   Author : John Yih
+--   Date   : 22/04/2004
+--
+	BEGIN
+		
+		DECLARE chrCCYYMMDD CHAR;
+		
+		SET chrCCYYMMDD = SUBSTRING(chrDate FROM 1 FOR 4); 
+		SET chrCCYYMMDD = chrCCYYMMDD || SUBSTRING(chrDate FROM 6 FOR 2); 
+		SET chrCCYYMMDD = chrCCYYMMDD || SUBSTRING(chrDate FROM 9 FOR 2); 
+		RETURN chrCCYYMMDD;
+		
+	END;

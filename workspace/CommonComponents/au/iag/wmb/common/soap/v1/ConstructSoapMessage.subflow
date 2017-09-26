@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" 
+xmlns:xmi="http://www.omg.org/XMI" xmlns:au_iag_wmb_common_envelope_v1_sfExtractEnvelope.subflow="au/iag/wmb/common/envelope/v1/sfExtractEnvelope.subflow" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" 
+xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="au/iag/wmb/common/soap/v1/ConstructSoapMessage.subflow" 
+nsPrefix="au_iag_wmb_common_soap_v1_ConstructSoapMessage.subflow">
+<eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+<eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+<translation xmi:type="utility:TranslatableString" key="ConstructSoapMessage" bundleName="au/iag/wmb/common/soap/v1/ConstructSoapMessage" pluginId="flowAPIgenerated"/>
+<colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/flowAPIgenerated/icons/full/obj16/ConstructSoapMessage.gif"/>
+<colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/flowAPIgenerated/icons/full/obj30/ConstructSoapMessage.gif"/>
+<composition>
+<nodes xmi:type="eflow:FCMSource" xmi:id="InTerminal.Input" location="112,216">
+<translation xmi:type="utility:TranslatableString" key="InTerminal.Input" bundleName="au/iag/wmb/common/soap/v1/ConstructSoapMessage" pluginId="flowAPIgenerated"/>
+</nodes>
+<nodes xmi:type="eflow:FCMSink" xmi:id="OutTerminal.Output" location="546,213">
+<translation xmi:type="utility:TranslatableString" key="OutTerminal.Output" bundleName="au/iag/wmb/common/soap/v1/ConstructSoapMessage" pluginId="flowAPIgenerated"/>
+</nodes>
+<nodes xmi:type="au_iag_wmb_common_envelope_v1_sfExtractEnvelope.subflow:FCMComposite_1" xmi:id="FCMComposite_1_1" location="222,216">
+<translation xmi:type="utility:ConstantString" string="sfExtractEnvelope"/>
+</nodes>
+<nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="370,212" computeExpression="esql://routine/au.iag.wmb.common.soap.v1#ConstructSoapMessage.Main">
+<translation xmi:type="utility:ConstantString" string="ConstructSoapMessage"/>
+</nodes>
+<nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="359,304" computeExpression="esql://routine/au.iag.wmb.common.soap.v1#ConstructSoapErrorMessage.Main">
+<translation xmi:type="utility:ConstantString" string="ConstructSoapErrorMessage"/>
+</nodes>
+<connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_1" sourceNode="InTerminal.Input" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+<connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+<connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="OutTerminal.Output" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+<connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.Output1" targetTerminalName="InTerminal.in"/>
+<connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="OutTerminal.Output" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+</composition>
+<propertyOrganizer>
+</propertyOrganizer>
+<stickyBoard/>
+</eClassifiers>
+</ecore:EPackage>

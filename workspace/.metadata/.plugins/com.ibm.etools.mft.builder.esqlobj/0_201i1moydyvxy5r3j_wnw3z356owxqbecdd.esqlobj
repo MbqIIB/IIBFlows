@@ -1,0 +1,24 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		DECLARE refInputHeader 	REFERENCE TO InputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header;
+		DECLARE refInputBody 	REFERENCE TO InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsReq;
+
+		-- Save Input Fields
+		SET Environment.HubWorkArea.policyNumber.policyId   		= refInputBody.policyNumber.policyId;
+		SET Environment.HubWorkArea.policyNumber.productCode    	= refInputBody.policyNumber.productCode;
+		SET Environment.HubWorkArea.asAtDate    					= refInputBody.asAtDate;
+
+		-- Save Input Message MsgId and Correlid
+		SET Environment.HubWorkArea.Origin.MsgId       			= InputRoot.MQMD.MsgId;
+
+		-- Save ReplyToQueue/ReplyToQueueManager
+		SET Environment.HubWorkArea.Origin.ReplyToQ     		= InputRoot.MQMD.ReplyToQ;
+		SET Environment.HubWorkArea.Origin.ReplyToQMgr  		= InputRoot.MQMD.ReplyToQMgr;
+		
+		set Environment.Original.esbenv:Envelope.esbhdr:Header[] = InputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header[];
+		
+		RETURN TRUE;
+
+
+	END;

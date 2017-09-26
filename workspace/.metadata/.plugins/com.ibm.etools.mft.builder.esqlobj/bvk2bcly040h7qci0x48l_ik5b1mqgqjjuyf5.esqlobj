@@ -1,0 +1,21 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		SET OutputRoot.MQMD = InputRoot.MQMD;
+		
+		SET OutputRoot.MQMD.CorrelId = InputRoot.MQMD.MsgId;
+
+
+		-- Start building the MQ Customer Service 
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'JSON' NAME 'JSON';
+		CREATE FIELD OutputRoot.JSON.Data IDENTITY (JSON.Object)Data;
+		CREATE LASTCHILD OF OutputRoot.JSON.Data NAME 'CustomerResponse'; 	  		
+		DECLARE refResp REFERENCE TO OutputRoot.JSON.Data."CustomerResponse";
+
+		SET refResp.CustomerId = refInBody.customerId;
+
+
+		RETURN TRUE;
+		
+	END;

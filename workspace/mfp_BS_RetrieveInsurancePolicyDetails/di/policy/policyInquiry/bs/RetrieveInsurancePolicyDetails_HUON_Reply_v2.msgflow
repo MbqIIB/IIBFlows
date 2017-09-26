@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0"
+    xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmAggregateControl.msgnode="ComIbmAggregateControl.msgnode" xmlns:ComIbmAggregateRequest.msgnode="ComIbmAggregateRequest.msgnode" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmFilter.msgnode="ComIbmFilter.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmMQReply.msgnode="ComIbmMQReply.msgnode" xmlns:au_iag_wmb_common_error_v1_sfErrorHandling.msgflow="au/iag/wmb/common/error/v1/sfErrorHandling.msgflow"
+    xmlns:au_iag_wmb_common_error_v1_sfFailureHandling.msgflow="au/iag/wmb/common/error/v1/sfFailureHandling.msgflow" xmlns:au_iag_wmb_common_state_v1_sfGetStateMessage.msgflow="au/iag/wmb/common/state/v1/sfGetStateMessage.msgflow" xmlns:au_iag_wmb_common_state_v1_sfSaveStateMessage.msgflow="au/iag/wmb/common/state/v1/sfSaveStateMessage.msgflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="di/policy/policyInquiry/bs/RetrieveInsurancePolicyDetails_HUON_Reply_v2.msgflow"
+    nsPrefix="di_policy_policyInquiry_bs_RetrieveInsurancePolicyDetails_HUON_Reply_v2.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="RetrieveInsurancePolicyDetails_HUON_Reply_v2" bundleName="di/policy/policyInquiry/bs/RetrieveInsurancePolicyDetails_HUON_Reply_v2" pluginId="mfp_BS_RetrieveInsurancePolicyDetails"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/mfp_BS_RetrieveInsurancePolicyDetails/icons/full/obj16/RetrieveInsurancePolicyDetails_HUON_Reply_v2.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/mfp_BS_RetrieveInsurancePolicyDetails/icons/full/obj30/RetrieveInsurancePolicyDetails_HUON_Reply_v2.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="-24,220" queueName="EAI.POL.RET_DETAILS_HUON_BS_V2.REPLY" messageDomainProperty="XMLNSC">
+        <translation xmi:type="utility:ConstantString" string="EAI.POL.RET_DETAILS_HUON_BS_V2.REPLY"/>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_state_v1_sfGetStateMessage.msgflow:FCMComposite_1" xmi:id="FCMComposite_1_2" location="224,220" queueName="EAI.POL.NZ_RET_HUN_POLICYDETAILS_V2.STATE">
+        <translation xmi:type="utility:ConstantString" string="sfGetStateMessage"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQReply.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="643,350">
+        <translation xmi:type="utility:ConstantString" string="MQ Reply"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="390,220" computeExpression="esql://routine/di.policy.policyInquiry.bs#RetrieveInsurancePolicyDetails_HUON_Reply_v2_SetUpFlags.Main" computeMode="destinationAndMessage">
+        <translation xmi:type="utility:ConstantString" string="SetUpFlags"/>
+      </nodes>
+      <nodes xmi:type="ComIbmFilter.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="501,221" filterExpression="esql://routine/di.policy.policyInquiry.bs#RetrieveInsurancePolicyDetails_HUON_Reply_v2_Check_Reply.Main">
+        <translation xmi:type="utility:ConstantString" string="Check Reply"/>
+      </nodes>
+      <nodes xmi:type="ComIbmAggregateControl.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="710,167" aggregateName="Person" timeoutInterval="15">
+        <translation xmi:type="utility:ConstantString" string="Aggregate Control"/>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_state_v1_sfSaveStateMessage.msgflow:FCMComposite_1" xmi:id="FCMComposite_1_8" location="587,167" queueName="EAI.POL.NZ_RET_HUN_POLICYDETAILS_V2.STATE">
+        <translation xmi:type="utility:ConstantString" string="sfSaveStateMessage"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_9" location="775,85" computeExpression="esql://routine/di.policy.policyInquiry.bs#RetrieveInsurancePolicyDetails_HUON_Reply_v2_Setup_CRODS_Request.Main">
+        <translation xmi:type="utility:ConstantString" string="Setup CRODS Request"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_10" location="867,42" queueName="EAI.POL.RET_CUSTOMER_DETAILS_BS_V2.REPLY" transactionMode="yes">
+        <translation xmi:type="utility:ConstantString" string="EAI.POL.RET_CUSTOMER_DETAILS_BS_V2.REPLY"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_11" location="883,134" queueName="EAI.CUS.RET_SCV_CUSTOMER.REQ" transactionMode="yes" request="true" replyToQ="EAI.POL.RET_CUSTOMER_DETAILS_BS_V2.REPLY">
+        <translation xmi:type="utility:ConstantString" string="EAI.CUS.RET_SCV_CUSTOMER_REQ"/>
+      </nodes>
+      <nodes xmi:type="ComIbmAggregateRequest.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_12" location="1111,47" folderName="HUON">
+        <translation xmi:type="utility:ConstantString" string="HUON"/>
+      </nodes>
+      <nodes xmi:type="ComIbmAggregateRequest.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_13" location="1110,139" folderName="CRODS">
+        <translation xmi:type="utility:ConstantString" string="CRODS"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_14" location="387,349" computeExpression="esql://routine/di.policy.policyInquiry.bs#RetrieveInsurancePolicyDetails_HUON_Reply_v2_SetThe_MQMD.Main">
+        <translation xmi:type="utility:ConstantString" string="SetThe MQMD"/>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_error_v1_sfFailureHandling.msgflow:FCMComposite_1" xmi:id="FCMComposite_1_15" location="160,121">
+        <translation xmi:type="utility:ConstantString" string="sfFailureHandling"/>
+      </nodes>
+      <nodes xmi:type="au_iag_wmb_common_error_v1_sfErrorHandling.msgflow:FCMComposite_1" xmi:id="FCMComposite_1_17" location="169,350">
+        <translation xmi:type="utility:ConstantString" string="sfErrorHandling"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_11" targetNode="FCMComposite_1_10" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_12" targetNode="FCMComposite_1_12" sourceNode="FCMComposite_1_10" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_13" targetNode="FCMComposite_1_11" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_14" targetNode="FCMComposite_1_13" sourceNode="FCMComposite_1_11" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_26" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_31" targetNode="FCMComposite_1_15" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.failure" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_33" targetNode="FCMComposite_1_17" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_38" targetNode="FCMComposite_1_14" sourceNode="FCMComposite_1_17" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_39" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_14" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.false" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.true" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_7" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard/>
+  </eClassifiers>
+</ecore:EPackage>

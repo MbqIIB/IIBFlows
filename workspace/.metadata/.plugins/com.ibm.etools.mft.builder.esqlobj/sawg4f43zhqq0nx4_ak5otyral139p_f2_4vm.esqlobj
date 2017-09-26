@@ -1,0 +1,48 @@
+CREATE COMPUTE MODULE RetrieveInsurancePolicyDetails_HUON_Reply_v2_SetUpFlags
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+ 
+		set OutputRoot = InputRoot;
+		
+		-- Save Input Message MsgId and Correlid
+		SET Environment.HubWorkArea.Origin.MsgId       			= InputRoot.MQMD.MsgId;
+
+		-- Save ReplyToQueue/ReplyToQueueManager
+		SET Environment.HubWorkArea.Origin.ReplyToQ     		= InputRoot.MQMD.ReplyToQ;
+		SET Environment.HubWorkArea.Origin.ReplyToQMgr  		= InputRoot.MQMD.ReplyToQMgr;
+		
+		
+		declare refInput reference to InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.retv2:retrieveInsurancePolicyDetailsResp.insurancePolicy.rolesInContract;
+		if lastmove(refInput) then
+			declare prefix character '';		
+			set prefix = substring((refInput.(XMLNSC.Attribute)xsi:type) from 1 for (position(':' in (refInput.(XMLNSC.Attribute)xsi:type))));
+			
+			if exists(InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body[]) then
+				set Environment.HubWorkArea.maxReturnLevel = 'OK';	
+	
+				--set Environment.HubWorkArea.Distributor    = 'STATE';
+				call getXTree(refInput, prefix||'Organisation');
+				set Environment.HubWorkArea.Distributor 	= refInput.isIdentifiedBy.partyId;
+			end if;
+		else
+	 		set Environment.HubWorkArea.maxReturnLevel = 'ERROR';	
+			
+		end if;
+		--set Environment.HubWorkArea.maxReturnLevel = 'ERROR';	
+		return true;
+	end;
+
+	CREATE PROCEDURE getXTree(
+			INOUT ref REFERENCE,
+			IN attribName CHAR
+			) BEGIN
+			
+			CREATE LASTCHILD OF Environment.getXTree DOMAIN 'XMLNSC' NAME attribName;
+			
+			SET Environment.getXTree.{attribName} = THE (SELECT ITEM X
+				FROM ref.[] AS X
+				WHERE X.(XMLNSC.Attribute)xsi:type = attribName);
+			MOVE ref TO Environment.getXTree.{attribName};
+	END;
+	 
+END MODULE;

@@ -1,0 +1,84 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN	
+		DECLARE start 			REFERENCE TO InputExceptionList.*[1];	  
+-- Create HTTP Header   		 
+   		SET OutputRoot.HTTPReplyHeader						= Environment.HTTP;	
+-- Build MQMD					
+ 		CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN 'MQMD';
+ 		DECLARE refOut REFERENCE TO OutputRoot.MQMD;					
+ 		CALL Build_MQMD_Header (refOut, Environment.Msgid,Environment.REPLY_TO_QUEUE,Environment.REPLY_TO_QUEUE_MANAGER);	
+-- HTTP Header		
+		SET Environment.HTTP											= InputRoot.HTTPInputHeader;		
+		SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.Header 						= InputRoot.XMLNSC.ser:AllocatePaymentToAgreementSoapIn.Header;
+		SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.maxReturnLevel 				= 'ERROR';
+		SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.level 		= 'ERROR';
+		SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.system 	= 'WMB';				
+-- Map Error code in ResponseHeader 		
+		WHILE start.Number IS NOT NULL DO 
+			IF start.Number = 9999 THEN	
+				SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.code 			= Environment.errNo;
+				CASE Environment.errNo
+					WHEN 129 THEN
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Invalid Policy Number';
+					WHEN 131 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Amount not sufficient';
+					WHEN 152 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Amount to be receipted is outside allowable tolerance';
+					WHEN 167 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Policy notations/conditions exist';
+					WHEN 168 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Signature required';
+					WHEN 169 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Additional Security required';
+					WHEN 170 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Valuation required';
+					WHEN 171 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Inspection required';
+					WHEN 172 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'NCB verification required';
+					WHEN 134 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Policy Cancelled/Lapsed/Incomplete';
+					WHEN 174 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Policy is locked - refer to your support area';
+					WHEN 175 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Policy awaiting authorisation - refer to your support area';
+					WHEN 176 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Amount outstanding in previous period';
+					WHEN 342 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Amount must equal total amount';
+					WHEN 346 THEN 	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'EFTPOS reference is blank';
+					WHEN 384 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Duplicate receipt not allowed. Pending receipt exists';
+					WHEN 798 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Duplicate receipt id. DPS number is not unique';
+					WHEN 006 THEN	
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Amount entered is not numeric';
+				END CASE;
+			ELSE	
+				case start.Number
+					when 3001 then
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE04';
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Allocate Payment To Agreement Call Exception';
+						
+					when 3002 then
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE03';
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Allocate Payment To Agreement Timeout';				
+						
+					when 3003 then
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.code 		= 'PE05';
+						SET OutputRoot.XMLNSC.ser:"AllocatePaymentToAgreementResponseSoapOut".ResponseHeader.errorList.errorInfo.message 	= 'Invalid Policy Status';				
+						
+				end case;
+
+
+
+			END IF;	
+-- Move start to the last child of the field to which it currently points 
+				MOVE start LASTCHILD;
+		END WHILE;					
+-- 	Set destination				
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueManagerName 	= InputRoot.MQMD.ReplyToQMgr;
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueName 		= InputRoot.MQMD.ReplyToQ;	
+
+	END;

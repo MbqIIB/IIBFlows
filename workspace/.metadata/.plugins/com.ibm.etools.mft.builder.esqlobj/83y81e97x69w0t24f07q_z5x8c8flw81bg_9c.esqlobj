@@ -1,0 +1,19 @@
+CREATE COMPUTE MODULE RetrieveInsurancePolicyDetails_Request_v2_SetTimer
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		set OutputRoot = InputRoot; 
+	 
+		set OutputLocalEnvironment.TimeoutRequest.Action = 'SET'; 
+        set OutputLocalEnvironment.TimeoutRequest.Identifier = 'HUON_timeout';        
+        set OutputLocalEnvironment.TimeoutRequest.StartDate = 'TODAY';        
+        --set OutputLocalEnvironment.TimeoutRequest.StartTime = 'NOW';
+        set OutputLocalEnvironment.TimeoutRequest.StartTime = CURRENT_TIME + interval '15' second;
+                
+        set OutputLocalEnvironment.TimeoutRequest.Count = 1;        
+        set OutputLocalEnvironment.TimeoutRequest.Interval = 15;		
+
+
+		return true;
+	END;
+END MODULE;

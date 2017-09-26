@@ -1,0 +1,3 @@
+DECLARE ServicePropertiesTable SHARED ROW; -- a shared variable that can be used by instances of a flow
+DECLARE version SHARED CHARACTER 'V1';
+DECLARE waitInterval SHARED INTEGER;

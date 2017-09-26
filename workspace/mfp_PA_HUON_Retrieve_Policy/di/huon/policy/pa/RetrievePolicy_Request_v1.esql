@@ -1,0 +1,97 @@
+BROKER SCHEMA di.huon.policy.pa
+
+
+
+CREATE COMPUTE MODULE SetupRequest
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		DECLARE refInputHeader REFERENCE TO InputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header;
+		DECLARE refInputBody REFERENCE TO InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsReq;
+
+		-- Setup Output Properties
+	    SET OutputRoot.Properties.MessageSet    = 'EKVMOLO002001'; 
+		SET OutputRoot.Properties.MessageType   = 'msg_WQL200RQ';
+		SET OutputRoot.Properties.MessageFormat = 'Binary1';   
+		
+		-- Setup Output MQMD
+		CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN 'MQMD';
+
+		SET OutputRoot.MQMD.MsgId               = InputRoot.MQMD.MsgId;
+		SET OutputRoot.MQMD.Version 		    = MQMD_CURRENT_VERSION;
+		SET OutputRoot.MQMD.Format 		        = MQFMT_STRING;
+		SET OutputRoot.MQMD.MsgType 		    = MQMT_REQUEST; 
+		SET OutputRoot.MQMD.Encoding		    = MQENC_NATIVE;	
+		SET OutputRoot.MQMD.CodedCharSetId      = MQCCSI_Q_MGR; 
+		SET OutputRoot.MQMD.Expiry              = 600; 
+--		SET OutputRoot.MQMD.Persistence         = MQPER_PERSISTENT;
+		SET OutputRoot.MQMD.CorrelId            = InputRoot.MQMD.CorrelId; 
+		SET OutputRoot.MQMD.ReplyToQ		    = 'EAI.POL.RET_HUN_POLICY.REPLY';  
+		SET OutputRoot.MQMD.ReplyToQMgr         = InputRoot.MQMD.ReplyToQMgr;
+		
+		-- Setup Output RFH2 
+		SET OutputRoot.MQRFH2                   = NULL;
+
+		-- Pad out policy number to have leading zeroes 
+		-- Truncate productCode to 3 chars and policy to 9 chars max
+		DECLARE chrPolicyNumber			CHARACTER ' ';
+
+		IF LENGTH(refInputBody.policyNumber.policyId) = 8 THEN
+			SET chrPolicyNumber  = SUBSTRING(refInputBody.policyNumber.productCode FROM 1 FOR 3)||'0'||refInputBody.policyNumber.policyId;
+		ELSEIF LENGTH(refInputBody.policyNumber.policyId) = 7 THEN
+			SET chrPolicyNumber  = SUBSTRING(refInputBody.policyNumber.productCode FROM 1 FOR 3)||'00'||refInputBody.policyNumber.policyId;
+		ELSEIF LENGTH(refInputBody.policyNumber.policyId) = 6 THEN
+			SET chrPolicyNumber  = SUBSTRING(refInputBody.policyNumber.productCode FROM 1 FOR 3)||'000'||refInputBody.policyNumber.policyId;
+		ELSEIF LENGTH(refInputBody.policyNumber.policyId) = 5 THEN
+			SET chrPolicyNumber  = SUBSTRING(refInputBody.policyNumber.productCode FROM 1 FOR 3)||'0000'||refInputBody.policyNumber.policyId;
+		ELSEIF LENGTH(refInputBody.policyNumber.policyId) = 4 THEN
+			SET chrPolicyNumber  = SUBSTRING(refInputBody.policyNumber.productCode FROM 1 FOR 3)||'00000'||refInputBody.policyNumber.policyId;
+		ELSEIF LENGTH(refInputBody.policyNumber.policyId) = 3 THEN
+			SET chrPolicyNumber  = SUBSTRING(refInputBody.policyNumber.productCode FROM 1 FOR 3)||'000000'||refInputBody.policyNumber.policyId;
+		ELSEIF LENGTH(refInputBody.policyNumber.policyId) = 2 THEN
+			SET chrPolicyNumber  = SUBSTRING(refInputBody.policyNumber.productCode FROM 1 FOR 3)||'0000000'||refInputBody.policyNumber.policyId;
+		ELSEIF LENGTH(refInputBody.policyNumber.policyId) = 1 THEN
+			SET chrPolicyNumber  = SUBSTRING(refInputBody.policyNumber.productCode FROM 1 FOR 3)||'00000000'||refInputBody.policyNumber.policyId;
+		ELSE
+			SET chrPolicyNumber  = SUBSTRING(refInputBody.policyNumber.productCode FROM 1 FOR 3)||SUBSTRING(refInputBody.policyNumber.policyId FROM 1 FOR 9);
+		END IF;
+
+
+		
+		-- Setup Output Payload Header
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'MRM';
+		SET OutputRoot.MRM.RQ_HEADER.RQ_API_PROGRAM		= 'API2';
+		SET OutputRoot.MRM.RQ_HEADER.RQ_LAYOUT 			= 'WQL200RQ';
+		SET OutputRoot.MRM.RQ_HEADER.RQ_RC				= 0;
+		SET OutputRoot.MRM.RQ_HEADER.RQ_ABEND_CODE 		= 0;
+		SET OutputRoot.MRM.RQ_HEADER.RQ_ABEND_SOURCE  	= '';
+		SET OutputRoot.MRM.RQ_HEADER.RQ_INITIATOR 		= 'WMB';				
+		SET OutputRoot.MRM.RQ_HEADER.RQ_USERID 			= COALESCE(refInputHeader.esbhdr:userId,'');	
+		SET OutputRoot.MRM.RQ_HEADER.RQ_AGENT 			= '';
+--		SET OutputRoot.MRM.RQ_HEADER.RQ_SOURCE_SYSTEM 	= COALESCE(refInputHeader.esbhdr:sourceSystem,'');
+		SET OutputRoot.MRM.RQ_HEADER.RQ_SOURCE_SYSTEM 	= 'GCC';
+		SET OutputRoot.MRM.RQ_HEADER.RQ_TIMESTAMP 		= CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyyMMddHHmmssSSS');
+		SET OutputRoot.MRM.RQ_HEADER.RQ_CUSTNO 			= '';
+		SET OutputRoot.MRM.RQ_HEADER.RQ_SBBREFERENCE 	= chrPolicyNumber;
+		SET OutputRoot.MRM.RQ_HEADER.RQ_CONVERSATION_ID	= '';
+		SET OutputRoot.MRM.RQ_HEADER.RQ_ERRNO 			= '';
+		SET OutputRoot.MRM.RQ_HEADER.RQ_ERR_MSG 		= '';
+
+		-- Setup Output Payload Body
+		SET OutputRoot.MRM.RQ_BODY.RQ_OPERATION   		= 'RETRIEVE';
+
+		SET OutputRoot.MRM.RQ_BODY.RQ_IDENTIFIER  		= chrPolicyNumber;
+			
+		SET OutputRoot.MRM.RQ_BODY.RQ_EFFECTDTE_LNK  	= CAST((DateFunc.ConvertDateToCCYYMMDD(CAST(refInputBody.asAtDate AS CHAR))) AS INT);
+
+		-- Set Output Queue and Queue Manager
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueName			= 'HUN.API.RET_POLICY.REQ'; 
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueManagerName 	= InputRoot.MQMD.ReplyToQMgr; 		
+
+
+		RETURN TRUE;
+	END;
+
+END MODULE;
+
+

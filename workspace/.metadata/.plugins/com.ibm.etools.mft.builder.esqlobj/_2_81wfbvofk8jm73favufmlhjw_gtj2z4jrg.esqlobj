@@ -1,0 +1,473 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		CALL BuildCalculatePremiumResponseHdr();
+		CALL BuildCalculatePremiumResponseBody();	
+-- Set destination list		
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueManagerName 	= Environment.REPLY_TO_QUEUE_MANAGER;
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueName 		= Environment.REPLY_TO_QUEUE;			
+			
+		RETURN TRUE;
+	END;
+/***********************************************************************************************************************************************************************/	
+CREATE PROCEDURE BuildCalculatePremiumResponseHdr() BEGIN
+		DECLARE refIn  REFERENCE TO InputRoot.MRM.RP_HEADER; 
+-- Build MQMD					
+ 		CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN 'MQMD';
+ 		DECLARE refOut REFERENCE TO OutputRoot.MQMD;					
+ 		CALL Build_MQMD_Header (refOut, Environment.Msgid,Environment.REPLY_TO_QUEUE,Environment.REPLY_TO_QUEUE_MANAGER);			   
+-- Create HTTP Header   		 
+   		SET OutputRoot.HTTPReplyHeader					= Environment.HTTP;
+-- Create Calculate Premium XML Response Header   		 
+   		CREATE LASTCHILD OF OutputRoot AS refOut DOMAIN 'XMLNSC' NAME 'XMLNSC';
+		CREATE LASTCHILD OF OutputRoot.XMLNSC AS refOut		NAMESPACE ser NAME 'CalculatePremiumResponseSoapOut';	
+		CALL Build_XML_Response_Header (refOut, 'CALCULATE_PREMIUM', Environment.Header,refIn);					
+END;
+/***********************************************************************************************************************************************************************/
+CREATE PROCEDURE BuildCalculatePremiumResponseBody() BEGIN
+
+		DECLARE inRef 			REFERENCE TO InputRoot.MRM.RP_BODY.RP_REFERRALS.RP_REFERRAL_DTL;
+		DECLARE inRefX 			REFERENCE TO InputRoot.MRM.RP_BODY.RP_REFERRALS_X.RP_REFERRAL_DTL_X;
+		DECLARE inDisc			REFERENCE TO InputRoot.MRM.RP_BODY.RP_DISCOUNTS.RP_DISCOUNT_DTL;
+		DECLARE inXS			REFERENCE TO InputRoot.MRM.RP_BODY.RP_EXCESSES.RP_EXCESS_DTL;
+		DECLARE inDrvr			REFERENCE TO InputRoot.MRM.RP_BODY.RP_DRIVERS.RP_DRIVER_DTL;	
+		DECLARE inPrem			REFERENCE TO InputRoot.MRM.RP_BODY.RP_PREMIUMS.RP_PREMIUM_DTL;
+		DECLARE inEndorsement	REFERENCE TO InputRoot.MRM.RP_BODY.RP_CLAUSEV.RP_CLAUSEV_DTL;
+		DECLARE ResponseRef 	REFERENCE TO OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut";	
+		DECLARE ResponseRefBase	REFERENCE TO OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut";
+		DECLARE DiscountIndex	INTEGER 1;
+		DECLARE ReferralIndex	INTEGER 1;
+		DECLARE PremiumIndex	INTEGER 1;
+		DECLARE	DrvXSIndex		INTEGER 1;
+		DECLARE PolXSIndex		INTEGER 1;	
+		DECLARE EndorsementIndx	INTEGER 1;
+		DECLARE Processed		CHAR 	'N';		
+													
+-- Skip if there is an error
+	    IF InputRoot.MRM.RP_HEADER.RP_RC			= 04
+	    	OR InputRoot.MRM.RP_HEADER.RP_RC		= 08
+	    	OR InputRoot.MRM.RP_HEADER.RP_RC		= 16 THEN
+	    ELSE			
+-- Create xml parents for coverages	and policy holder and assessment  
+			CREATE LASTCHILD OF ResponseRef AS ResponseRef 								NAME 'Payload';
+			CREATE LASTCHILD OF ResponseRef AS ResponseRef 								NAME 'CalculatePremiumResponse';
+			CREATE LASTCHILD OF ResponseRef AS ResponseRef 								NAMESPACE ns NAME 'insurancePolicy';
+			SET ResponseRef.(XMLNSC.Attribute)xmlns										=ns;	
+			CREATE LASTCHILD OF ResponseRef AS ResponseRef 								NAMESPACE ns NAME 'contractComponents';
+			SET ResponseRef.(XMLNSC.Attribute)xsi:type									='CoverageComponent';	
+
+-- Set renewal date			
+  			CREATE LASTCHILD OF ResponseRef AS ResponseRef 								NAMESPACE ns NAME 'renewalDate'      	VALUE DateFunc.StrToDate(CAST(InputRoot.MRM.RP_BODY.RP_ASSESSMENT.RP_DUEDATE AS CHAR));			
+
+			CREATE NEXTSIBLING OF ResponseRef AS ResponseRef 							NAMESPACE ns NAME 'contractComponents';
+			SET ResponseRef.(XMLNSC.Attribute)xsi:type									='AutomobileCoverage';	
+			
+-- build driver referrals 		
+			IF InputRoot.MRM.RP_BODY.RP_REFERRALS.RP_REFERRAL_CNT = 0 THEN
+			ELSE
+				WHILE ReferralIndex <= InputRoot.MRM.RP_BODY.RP_REFERRALS.RP_REFERRAL_CNT DO
+					
+					IF inRef.RP_OWNER_DRIVER = 'D' THEN	 
+						MOVE ResponseRefBase TO ResponseRef;
+						CREATE LASTCHILD OF ResponseRefBase	AS ResponseRefBase			NAMESPACE ns  NAME 'rolesInContract';
+						SET ResponseRefBase.(XMLNSC.Attribute)xsi:type					='NamedDriver';
+						CREATE LASTCHILD OF ResponseRefBase.ns:objectReference 			NAMESPACE ns  NAME 'objectId' 			VALUE inRef.RP_DRIVERSEQ;	
+						CREATE LASTCHILD OF ResponseRefBase 							NAMESPACE ns  NAME 'rejectionReason' 	VALUE inRef.RP_REASON;	
+					END IF;	
+
+					SET ReferralIndex = ReferralIndex + 1;					
+					MOVE inRef NEXTSIBLING REPEAT NAME;			
+				END WHILE;
+			END IF;	  							
+
+			IF InputRoot.MRM.RP_BODY.RP_REFERRALS_X.RP_REFERRAL_X_CNT = 0 THEN
+			ELSE
+				SET ReferralIndex = 1;	
+				WHILE ReferralIndex <= InputRoot.MRM.RP_BODY.RP_REFERRALS_X.RP_REFERRAL_X_CNT DO
+					
+					IF inRefX.RP_OWNER_DRIVER_X = 'D' THEN	 
+						MOVE ResponseRefBase TO ResponseRef;
+						CREATE LASTCHILD OF ResponseRefBase	AS ResponseRefBase			NAMESPACE ns  NAME 'rolesInContract';
+						SET ResponseRefBase.(XMLNSC.Attribute)xsi:type					='NamedDriver';
+						CREATE LASTCHILD OF ResponseRefBase.ns:objectReference 			NAMESPACE ns  NAME 'objectId' 			VALUE inRefX.RP_DRIVERSEQ_X;	
+						CREATE LASTCHILD OF ResponseRefBase 							NAMESPACE ns  NAME 'rejectionReason' 	VALUE inRefX.RP_REASON_X;	
+					END IF;	
+
+					SET ReferralIndex = ReferralIndex + 1;					
+					MOVE inRefX NEXTSIBLING REPEAT NAME;			
+				END WHILE;
+			END IF;	  							
+
+			MOVE ResponseRef TO 				OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".Payload.CalculatePremiumResponse.ns:insurancePolicy.ns:contractComponents;					
+
+-- build Clauses (Endorsements)
+
+			IF InputRoot.MRM.RP_BODY.RP_CLAUSEV.RP_CLAUSEV_CNT = 0 THEN
+			ELSE
+				WHILE EndorsementIndx <= InputRoot.MRM.RP_BODY.RP_CLAUSEV.RP_CLAUSEV_CNT DO
+					MOVE ResponseRefBase TO ResponseRef;
+					CREATE LASTCHILD OF ResponseRefBase	AS ResponseRefBase				NAMESPACE ns  	NAME 'contractClauses';
+					SET ResponseRefBase.(XMLNSC.Attribute)xsi:type						='CompositeTextBlock';
+					CREATE LASTCHILD OF ResponseRefBase	AS ResponseRefBase				NAMESPACE ns  	NAME 'standardTextSpecifications';
+					SET ResponseRefBase.(XMLNSC.Attribute)xsi:type						='StaticTextBlock';
+					
+					CREATE LASTCHILD OF ResponseRefBase.ns:objectReference 				NAMESPACE ns  	NAME 'objectId' 	VALUE inEndorsement.RP_SCHREF;	
+					CREATE LASTCHILD OF ResponseRefBase									NAMESPACE ns  	NAME 'description'  VALUE inEndorsement.RP_SCHREF_DESC;	
+
+					SET EndorsementIndx = EndorsementIndx + 1;					
+					MOVE inEndorsement NEXTSIBLING REPEAT NAME;			
+				END WHILE;
+			END IF;	  							
+
+			MOVE ResponseRef TO 				OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".Payload.CalculatePremiumResponse.ns:insurancePolicy.ns:contractComponents;					
+
+-- build discounts		
+			IF InputRoot.MRM.RP_BODY.RP_DISCOUNTS.RP_DISCOUNT_CNT = 0 THEN
+			ELSE
+				CREATE LASTCHILD OF ResponseRef AS ResponseRef 							NAMESPACE ns 	NAME 'rolesInContract';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type								='MoneyProvisionInvolvedInContract';	
+				CREATE LASTCHILD OF ResponseRef AS ResponseRef 							NAMESPACE ns 	NAME 'moneyProvision';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type								='GenericMoneyProvision';
+
+				WHILE DiscountIndex <= InputRoot.MRM.RP_BODY.RP_DISCOUNTS.RP_DISCOUNT_CNT DO
+						MOVE ResponseRefBase TO ResponseRef;
+						
+						CREATE LASTCHILD OF ResponseRefBase	AS ResponseRefBase			NAMESPACE ns 	NAME 'adjustments';
+						IF inDisc.RP_DISCOUNT_AMOUNT <> 0 THEN
+							CREATE LASTCHILD OF ResponseRefBase 			 			NAMESPACE ns 	NAME 'amount';
+							CREATE LASTCHILD OF ResponseRefBase.ns:amount				NAMESPACE ns 	NAME 'theAmount'	VALUE inDisc.RP_DISCOUNT_AMOUNT;		
+						END IF;
+						IF inDisc.RP_DISCOUNT_PERCENT <> 0 THEN
+							CREATE LASTCHILD OF ResponseRefBase 			 			NAMESPACE ns 	NAME 'factor'		VALUE inDisc.RP_DISCOUNT_PERCENT;	
+						END IF;
+						IF inDisc.RP_DISCOUNT_NAME = 'NCDL' THEN
+	        				CREATE LASTCHILD OF ResponseRefBase  						NAMESPACE ns 	NAME 'reason'  		VALUE 'No Claims For Life';
+						END IF;	
+						IF inDisc.RP_DISCOUNT_NAME = 'MPD' THEN		
+        					CREATE LASTCHILD OF ResponseRefBase  						NAMESPACE ns 	NAME 'reason'  		VALUE 'Multi Policy';
+						END IF;
+						IF inDisc.RP_DISCOUNT_NAME = 'NCD' THEN
+		        			CREATE LASTCHILD OF ResponseRefBase  						NAMESPACE ns 	NAME 'reason'  		VALUE 'No Claims';
+						END IF;
+						IF inDisc.RP_DISCOUNT_NAME = 'IMMOB' THEN
+		        			CREATE LASTCHILD OF ResponseRefBase 		 				NAMESPACE ns 	NAME 'reason'  		VALUE 'Immobiliser';
+						END IF;									
+	
+					SET DiscountIndex = DiscountIndex + 1;
+					MOVE inDisc NEXTSIBLING REPEAT NAME;	
+				END WHILE;
+
+				MOVE ResponseRef TO 				OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".Payload.CalculatePremiumResponse.ns:insurancePolicy.ns:contractComponents.ns:rolesInContract;					
+				MOVE ResponseRefBase TO ResponseRef;
+		
+				CREATE LASTCHILD OF ResponseRefBase 										NAMESPACE ns NAME 'rootType';				
+				CREATE LASTCHILD OF ResponseRefBase.ns:rootType								NAMESPACE ns NAME 'name' 		VALUE 'Discount';
+						
+			END IF;	
+
+-- build policy excesses		
+			IF InputRoot.MRM.RP_BODY.RP_EXCESSES.RP_EXCESS_CNT = 0 THEN
+			ELSE
+				
+/* BKMOD */		MOVE ResponseRef TO 				OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".Payload.CalculatePremiumResponse.ns:insurancePolicy.ns:contractComponents;					
+/* BKMOD */		CREATE LASTCHILD OF ResponseRef	AS ResponseRef					NAMESPACE ns 	NAME 'rolesInContract';
+				
+				WHILE PolXSIndex <= InputRoot.MRM.RP_BODY.RP_EXCESSES.RP_EXCESS_CNT DO
+
+/* BKMOD				MOVE ResponseRef TO 				OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".Payload.CalculatePremiumResponse.ns:insurancePolicy.ns:contractComponents;					
+						
+						CREATE LASTCHILD OF ResponseRef	AS ResponseRef					NAMESPACE ns 	NAME 'rolesInContract'; */
+						SET ResponseRef.(XMLNSC.Attribute)xsi:type						='MoneyProvisionInvolvedInContract';	
+
+						MOVE ResponseRefBase TO ResponseRef;
+						
+						CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase 			NAMESPACE ns 	NAME 'moneyProvision';
+						SET ResponseRefBase.(XMLNSC.Attribute)xsi:type					='GenericMoneyProvision';
+
+						CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase			NAMESPACE ns 	NAME 'deductible';
+						SET ResponseRefBase.(XMLNSC.Attribute)xsi:type					='Deductible';	
+												    																					
+						IF inXS.RP_EXCESS_AMOUNT <> 0 THEN
+							CREATE LASTCHILD OF ResponseRefBase 		 				NAMESPACE ns 	NAME 'minimumAmount';
+							CREATE LASTCHILD OF ResponseRefBase.ns:minimumAmount 		NAMESPACE ns 	NAME 'theAmount'	VALUE inXS.RP_EXCESS_AMOUNT;																		
+						END IF;
+						IF inXS.RP_EXCESS_NAME = 'BASIC' THEN
+	        				CREATE LASTCHILD OF ResponseRefBase 						NAMESPACE ns 	NAME 'name'  		VALUE 'Basic';
+						END IF;	
+						IF inXS.RP_EXCESS_NAME = 'INEXP' THEN		
+        					CREATE LASTCHILD OF ResponseRefBase 						NAMESPACE ns 	NAME 'name'  		VALUE 'Inexperienced Driver';
+						END IF;
+						IF inXS.RP_EXCESS_NAME = 'AGE<21' THEN
+		        			CREATE LASTCHILD OF ResponseRefBase 						NAMESPACE ns 	NAME 'name'  		VALUE 'Age<21';
+						END IF;
+						IF inXS.RP_EXCESS_NAME = 'AGE21-24' THEN
+		        			CREATE LASTCHILD OF ResponseRefBase 						NAMESPACE ns 	NAME 'name'  		VALUE 'Age21-24';
+						END IF;
+						IF inXS.RP_EXCESS_NAME = 'AGE>24' THEN
+		        			CREATE LASTCHILD OF ResponseRefBase 						NAMESPACE ns 	NAME 'name'  		VALUE 'Age>24';
+						END IF;
+						IF inXS.RP_EXCESS_NAME = 'AGE' THEN
+		        			CREATE LASTCHILD OF ResponseRefBase 						NAMESPACE ns 	NAME 'name'  		VALUE 'Age';
+						END IF;
+						IF inXS.RP_EXCESS_NAME = 'THEFT' THEN
+		        			CREATE LASTCHILD OF ResponseRefBase 						NAMESPACE ns 	NAME 'name'  		VALUE 'Theft';
+						END IF;	
+/* BKMOD						CREATE LASTCHILD OF ResponseRef AS ResponseRef					NAMESPACE ns 	NAME 'rootType';				
+						CREATE LASTCHILD OF ResponseRef									NAMESPACE ns 	NAME 'name' 		VALUE 'Excess'; */
+													
+						SET PolXSIndex = PolXSIndex + 1;
+						MOVE inXS NEXTSIBLING REPEAT NAME;	
+				END WHILE;
+				
+/* BKMOD */		CREATE LASTCHILD OF ResponseRef AS ResponseRef					NAMESPACE ns 	NAME 'rootType';				
+/* BKMOD */		CREATE LASTCHILD OF ResponseRef									NAMESPACE ns 	NAME 'name' 		VALUE 'Excess';				
+			END IF;	  							
+
+-- build driver excesses		
+			IF InputRoot.MRM.RP_BODY.RP_DRIVERS.RP_DRIVER_CNT = 0 THEN
+			ELSE				
+				WHILE DrvXSIndex <= InputRoot.MRM.RP_BODY.RP_DRIVERS.RP_DRIVER_CNT DO
+					IF inDrvr.RP_SPECIALXS <> 0 THEN
+/* BKMOD */				IF Processed = 'N' THEN
+/* BKMOD */					SET Processed = 'Y';
+							MOVE ResponseRef TO 				OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".Payload.CalculatePremiumResponse.ns:insurancePolicy.ns:contractComponents;											
+							CREATE LASTCHILD OF ResponseRef	AS ResponseRef					NAMESPACE ns 	NAME 'rolesInContract';
+/* BKMOD */				END IF;	
+							
+						SET ResponseRef.(XMLNSC.Attribute)xsi:type						='MoneyProvisionInvolvedInContract';	
+
+						MOVE ResponseRefBase TO ResponseRef;
+						
+						CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase 			NAMESPACE ns 	NAME 'moneyProvision';
+						SET ResponseRefBase.(XMLNSC.Attribute)xsi:type					='GenericMoneyProvision';
+
+						CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase			NAMESPACE ns 	NAME 'deductible';
+						SET ResponseRefBase.(XMLNSC.Attribute)xsi:type					='Deductible';
+							    																					
+						CREATE LASTCHILD OF ResponseRefBase 		 					NAMESPACE ns 	NAME 'minimumAmount';
+						CREATE LASTCHILD OF ResponseRefBase.ns:minimumAmount 			NAMESPACE ns 	NAME 'theAmount'	VALUE inDrvr.RP_SPECIALXS;
+																								
+	        			CREATE LASTCHILD OF ResponseRefBase 							NAMESPACE ns 	NAME 'name'  		VALUE 'Driver';
+	        			CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase			NAMESPACE ns 	NAME 'rolesInDeductible';
+						SET ResponseRefBase.(XMLNSC.Attribute)xsi:type					='PartyRole';
+						
+	        			CREATE LASTCHILD OF ResponseRefBase								NAMESPACE ns 	NAME 'objectReference';
+	        			CREATE LASTCHILD OF ResponseRefBase.ns:objectReference			NAMESPACE ns 	NAME 'objectId'		VALUE inDrvr.RP_DRIVERSEQ;
+							
+/* BKMOD				CREATE LASTCHILD OF ResponseRef AS ResponseRef					NAMESPACE ns 	NAME 'rootType';				
+						CREATE LASTCHILD OF ResponseRef									NAMESPACE ns 	NAME 'name' 		VALUE 'Excess'; */
+													
+					END IF;	
+					
+						SET DrvXSIndex = DrvXSIndex + 1;					
+						MOVE inDrvr NEXTSIBLING REPEAT NAME;	
+				END WHILE;
+				
+/* BKMOD */		IF Processed = 'Y' THEN				
+/* BKMOD */			CREATE LASTCHILD OF ResponseRef AS ResponseRef					NAMESPACE ns 	NAME 'rootType';				
+/* BKMOD */			CREATE LASTCHILD OF ResponseRef									NAMESPACE ns 	NAME 'name' 		VALUE 'Excess';
+/* BKMOD */		END IF;	
+			END IF;	  							
+
+-- build premiums		
+			IF InputRoot.MRM.RP_BODY.RP_PREMIUMS.RP_PREMIUM_CNT = 0 THEN
+			ELSE
+				WHILE PremiumIndex <= InputRoot.MRM.RP_BODY.RP_PREMIUMS.RP_PREMIUM_CNT DO
+						MOVE ResponseRef TO 				OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".Payload.CalculatePremiumResponse.ns:insurancePolicy.ns:contractComponents;					
+						
+						CREATE LASTCHILD OF ResponseRef	AS ResponseRef					NAMESPACE ns 	NAME 'rolesInContract';
+						SET ResponseRef.(XMLNSC.Attribute)xsi:type						='MoneyProvisionInvolvedInContract';	
+
+						MOVE ResponseRefBase TO ResponseRef;
+						
+						CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase 			NAMESPACE ns 	NAME 'moneyProvision';
+						SET ResponseRefBase.(XMLNSC.Attribute)xsi:type					='ParticularMoneyProvision';
+
+						CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase			NAMESPACE ns 	NAME 'moneyScheduler';
+						SET ResponseRefBase.(XMLNSC.Attribute)xsi:type					='MoneyInScheduler';
+
+						IF inPrem.RP_BILLPLAN = 'NANN' THEN  					    																					
+							CREATE LASTCHILD OF ResponseRefBase					 		NAMESPACE ns 	NAME 'frequency'	VALUE 'Yearly';
+						END IF;		
+						IF inPrem.RP_BILLPLAN = 'NMTH' THEN  		    																					
+							CREATE LASTCHILD OF ResponseRefBase					 		NAMESPACE ns 	NAME 'frequency'	VALUE 'Monthly';
+						END IF;
+						IF inPrem.RP_BILLPLAN = 'NFOR' THEN					    																					
+							CREATE LASTCHILD OF ResponseRefBase					 		NAMESPACE ns 	NAME 'frequency'	VALUE 'Fortnightly';
+						END IF;	
+						
+						MOVE ResponseRefBase TO ResponseRef.ns:moneyProvision;
+
+	        			CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase			NAMESPACE ns 	NAME 'moneyProvisionElements';
+						
+	        			CREATE LASTCHILD OF ResponseRefBase	AS ResponseRefBase			NAMESPACE ns 	NAME 'baseAmount';
+	        			CREATE LASTCHILD OF ResponseRefBase								NAMESPACE ns 	NAME 'theAmount'	VALUE inPrem.RP_GROSS;
+
+						MOVE ResponseRefBase TO ResponseRef.ns:moneyProvision.ns:moneyProvisionElements;
+							
+						CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase			NAMESPACE ns 	NAME 'moneyProvisionElementParts';				
+						CREATE LASTCHILD OF ResponseRefBase								NAMESPACE ns 	NAME 'amount';
+						CREATE LASTCHILD OF ResponseRefBase.ns:amount					NAMESPACE ns 	NAME 'theAmount'	VALUE inPrem.RP_BASIC;
+						CREATE LASTCHILD OF ResponseRefBase	AS ResponseRefBase			NAMESPACE ns 	NAME 'rootType';				
+						CREATE LASTCHILD OF ResponseRefBase								NAMESPACE ns 	NAME 'name' 		VALUE 'Company Written Premium';
+
+						MOVE ResponseRefBase TO ResponseRef.ns:moneyProvision.ns:moneyProvisionElements;
+							
+						CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase			NAMESPACE ns 	NAME 'moneyProvisionElementParts';				
+						CREATE LASTCHILD OF ResponseRefBase								NAMESPACE ns 	NAME 'amount';
+						CREATE LASTCHILD OF ResponseRefBase.ns:amount					NAMESPACE ns 	NAME 'theAmount'	VALUE inPrem.RP_FSL;
+						CREATE LASTCHILD OF ResponseRefBase	AS ResponseRefBase			NAMESPACE ns 	NAME 'rootType';				
+						CREATE LASTCHILD OF ResponseRefBase								NAMESPACE ns 	NAME 'name' 		VALUE 'Fire Service Levy';
+
+						MOVE ResponseRefBase TO ResponseRef.ns:moneyProvision.ns:moneyProvisionElements;
+							
+						CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase			NAMESPACE ns 	NAME 'moneyProvisionElementParts';				
+						CREATE LASTCHILD OF ResponseRefBase								NAMESPACE ns 	NAME 'amount';
+						CREATE LASTCHILD OF ResponseRefBase.ns:amount					NAMESPACE ns 	NAME 'theAmount'	VALUE inPrem.RP_GST;
+						CREATE LASTCHILD OF ResponseRefBase	AS ResponseRefBase			NAMESPACE ns 	NAME 'rootType';				
+						CREATE LASTCHILD OF ResponseRefBase								NAMESPACE ns 	NAME 'name' 		VALUE 'GST';
+
+						MOVE ResponseRefBase TO ResponseRef;
+
+						CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase			NAMESPACE ns 	NAME 'rootType';				
+						CREATE LASTCHILD OF ResponseRefBase								NAMESPACE ns 	NAME 'name' 		VALUE 'Annual Premium';
+
+-- 				output instalment info for monthly and fortnightly plans						
+						IF inPrem.RP_BILLPLAN = 'NMTH' OR inPrem.RP_BILLPLAN = 'NFOR' THEN  		
+							
+							MOVE ResponseRef TO 				OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".Payload.CalculatePremiumResponse.ns:insurancePolicy.ns:contractComponents;					
+						
+							CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAMESPACE ns 	NAME 'rolesInContract';
+							SET ResponseRef.(XMLNSC.Attribute)xsi:type					='MoneyProvisionInvolvedInContract';	
+
+							MOVE ResponseRefBase TO ResponseRef;
+						
+							CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase 		NAMESPACE ns 	NAME 'moneyProvision';
+							SET ResponseRefBase.(XMLNSC.Attribute)xsi:type				='ParticularMoneyProvision';
+
+							CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase		NAMESPACE ns 	NAME 'moneyScheduler';
+							SET ResponseRefBase.(XMLNSC.Attribute)xsi:type				='MoneyInScheduler';
+
+							IF inPrem.RP_BILLPLAN = 'NMTH' THEN  		    																					
+								CREATE LASTCHILD OF ResponseRefBase					 	NAMESPACE ns 	NAME 'frequency'	VALUE 'Monthly';
+							END IF;
+							IF inPrem.RP_BILLPLAN = 'NFOR' THEN					    																					
+								CREATE LASTCHILD OF ResponseRefBase					 	NAMESPACE ns 	NAME 'frequency'	VALUE 'Fortnightly';
+							END IF;	
+						
+							MOVE ResponseRefBase TO ResponseRef.ns:moneyProvision;	
+
+							CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase		NAMESPACE ns 	NAME 'moneyProvisionElements';				
+							CREATE LASTCHILD OF ResponseRefBase							NAMESPACE ns 	NAME 'baseAmount';
+							CREATE LASTCHILD OF ResponseRefBase.ns:baseAmount			NAMESPACE ns 	NAME 'theAmount'	VALUE inPrem.RP_FIRST_INSTLMNT;
+							CREATE LASTCHILD OF ResponseRefBase	AS ResponseRefBase		NAMESPACE ns 	NAME 'rootType';				
+							CREATE LASTCHILD OF ResponseRefBase							NAMESPACE ns 	NAME 'name' 		VALUE 'Initial Instalment';	
+	
+							MOVE ResponseRefBase TO ResponseRef.ns:moneyProvision;
+							
+							CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase		NAMESPACE ns 	NAME 'moneyProvisionElements';				
+							CREATE LASTCHILD OF ResponseRefBase							NAMESPACE ns 	NAME 'baseAmount';
+							CREATE LASTCHILD OF ResponseRefBase.ns:baseAmount			NAMESPACE ns 	NAME 'theAmount'	VALUE inPrem.RP_REGLR_INSTLMNT;
+							CREATE LASTCHILD OF ResponseRefBase	AS ResponseRefBase		NAMESPACE ns 	NAME 'rootType';				
+							CREATE LASTCHILD OF ResponseRefBase							NAMESPACE ns 	NAME 'name' 		VALUE 'Instalment';
+
+							MOVE ResponseRefBase TO ResponseRef;
+
+							CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase		NAMESPACE ns 	NAME 'rootType';				
+							CREATE LASTCHILD OF ResponseRefBase							NAMESPACE ns 	NAME 'name' 		VALUE 'Instalment Premium';
+							    																					
+						END IF;	
+
+						SET PremiumIndex = PremiumIndex + 1;					
+						MOVE inPrem NEXTSIBLING REPEAT NAME;	
+				END WHILE;
+			END IF;	  							
+
+-- build policy holder referrals 		
+			IF InputRoot.MRM.RP_BODY.RP_REFERRALS.RP_REFERRAL_CNT = 0 THEN
+			ELSE
+				SET ReferralIndex = 1;	
+				MOVE ResponseRef TO 				OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".Payload.CalculatePremiumResponse.ns:insurancePolicy;					
+				MOVE inRef TO InputRoot.MRM.RP_BODY.RP_REFERRALS.RP_REFERRAL_DTL;
+					
+				WHILE ReferralIndex <= InputRoot.MRM.RP_BODY.RP_REFERRALS.RP_REFERRAL_CNT DO
+					IF inRef.RP_OWNER_DRIVER = 'O' THEN	
+						MOVE ResponseRefBase TO ResponseRef;
+						CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase		NAMESPACE ns  NAME 'rolesInContract';
+						SET ResponseRefBase.(XMLNSC.Attribute)xsi:type				='Policyholder';
+						CREATE LASTCHILD OF ResponseRefBase.ns:objectReference 		NAMESPACE ns  NAME 'objectId' 			VALUE inRef.RP_DRIVERSEQ;	
+						CREATE LASTCHILD OF ResponseRefBase							NAMESPACE ns  NAME 'rejectionReason' 	VALUE inRef.RP_REASON;	
+					END IF;	
+
+					SET ReferralIndex = ReferralIndex + 1;					
+					MOVE inRef NEXTSIBLING REPEAT NAME;			
+				END WHILE;
+			END IF;	  							
+
+			IF InputRoot.MRM.RP_BODY.RP_REFERRALS_X.RP_REFERRAL_X_CNT = 0 THEN
+			ELSE
+				SET ReferralIndex = 1;	
+				MOVE ResponseRef TO 				OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".Payload.CalculatePremiumResponse.ns:insurancePolicy;					
+				MOVE inRefX TO InputRoot.MRM.RP_BODY.RP_REFERRALS_X.RP_REFERRAL_DTL_X;
+					
+				WHILE ReferralIndex <= InputRoot.MRM.RP_BODY.RP_REFERRALS_X.RP_REFERRAL_X_CNT DO
+					IF inRefX.RP_OWNER_DRIVER_X = 'O' THEN	
+						MOVE ResponseRefBase TO ResponseRef;
+						CREATE LASTCHILD OF ResponseRefBase AS ResponseRefBase		NAMESPACE ns  NAME 'rolesInContract';
+						SET ResponseRefBase.(XMLNSC.Attribute)xsi:type				='Policyholder';
+						CREATE LASTCHILD OF ResponseRefBase.ns:objectReference 		NAMESPACE ns  NAME 'objectId' 			VALUE inRefX.RP_DRIVERSEQ_X;	
+						CREATE LASTCHILD OF ResponseRefBase							NAMESPACE ns  NAME 'rejectionReason' 	VALUE inRefX.RP_REASON_X;	
+					END IF;	
+
+					SET ReferralIndex = ReferralIndex + 1;					
+					MOVE inRefX NEXTSIBLING REPEAT NAME;			
+				END WHILE;
+			END IF;	  							
+
+			MOVE ResponseRef TO 													OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".Payload.CalculatePremiumResponse;
+			CREATE LASTCHILD OF ResponseRef	AS ResponseRef							NAMESPACE ns 	NAME 'assessmentResults';	
+			SET ResponseRef.(XMLNSC.Attribute)xmlns									=ns;	
+			MOVE ResponseRef TO		 												OutputRoot.XMLNSC.ser:"CalculatePremiumResponseSoapOut".Payload.CalculatePremiumResponse.ns:assesmentResults;
+
+						
+-- build general referrals (not for a specific driver)		
+			IF InputRoot.MRM.RP_BODY.RP_REFERRALS.RP_REFERRAL_CNT = 0 THEN
+			ELSE
+				SET ReferralIndex = 1;	
+				MOVE inRef TO InputRoot.MRM.RP_BODY.RP_REFERRALS.RP_REFERRAL_DTL;	
+				
+				WHILE ReferralIndex <= InputRoot.MRM.RP_BODY.RP_REFERRALS.RP_REFERRAL_CNT DO
+					IF inRef.RP_OWNER_DRIVER = ' ' THEN	 
+						MOVE ResponseRefBase TO ResponseRef;
+						CREATE LASTCHILD OF ResponseRefBase							NAMESPACE ns  NAME 'description' 	VALUE inRef.RP_REASON;	
+					END IF;	
+
+					SET ReferralIndex = ReferralIndex + 1;					
+					MOVE inRef NEXTSIBLING REPEAT NAME;			
+				END WHILE;
+			END IF;	  							
+
+			IF InputRoot.MRM.RP_BODY.RP_REFERRALS_X.RP_REFERRAL_X_CNT = 0 THEN
+			ELSE
+				SET ReferralIndex = 1;	
+				MOVE inRefX TO InputRoot.MRM.RP_BODY.RP_REFERRALS_X.RP_REFERRAL_DTL_X;	
+				
+				WHILE ReferralIndex <= InputRoot.MRM.RP_BODY.RP_REFERRALS_X.RP_REFERRAL_X_CNT DO
+					IF inRefX.RP_OWNER_DRIVER_X = ' ' THEN	 
+						MOVE ResponseRefBase TO ResponseRef;
+						CREATE LASTCHILD OF ResponseRefBase							NAMESPACE ns  NAME 'description' 	VALUE inRefX.RP_REASON_X;	
+					END IF;	
+
+					SET ReferralIndex = ReferralIndex + 1;					
+					MOVE inRefX NEXTSIBLING REPEAT NAME;			
+				END WHILE;
+			END IF;	  							
+
+-- Is the quote accepted or are there referrals
+			SET ResponseRef.ns:accepted = 
+		  	  CASE InputRoot.MRM.RP_BODY.RP_ASSESSMENT.RP_ACCEPTED
+		    	WHEN 'Y'  THEN TRUE
+		    	WHEN 'N'  THEN FALSE		    		
+		  	  END;			         			
+		END IF; 		
+	END;    

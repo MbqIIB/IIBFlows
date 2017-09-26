@@ -1,0 +1,9 @@
+CREATE COMPUTE MODULE sfExtractCommonEnvelope_ExtractESBHeader
+	
+	BEGIN
+		CALL ExtractEnvelope();
+		RETURN FALSE;
+	END;
+	
+	
+	CREATE PROCEDURE ExtractEnvelope()

@@ -1,0 +1,16 @@
+CREATE FILTER MODULE RetrieveInsurancePolicyDetails_HUON_Reply_v2_Check_Reply
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		IF Environment.HubWorkArea.maxReturnLevel = 'OK' THEN 
+	   		IF Environment.HubWorkArea.Distributor = 'RACV' THEN
+	   			RETURN FALSE;
+	   		ELSE
+	   			RETURN TRUE;
+	   		END IF;			
+		ELSE						
+		 	RETURN FALSE;
+		END IF;	 	
+	END;
+
+END MODULE;

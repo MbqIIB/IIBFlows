@@ -1,0 +1,13 @@
+<wmb>
+	<project>mfpNZ_PolicyManagement</project>
+	<app>
+		<name>NZState</name>
+		<executionGroup>egNZ_Gateway</executionGroup>
+	</app>
+	<msgflow>
+		<include>NZ_PolicyManagement.msgflow</include>
+		<include>NZ_CalculatePremium.msgflow</include>		
+		<include>NZ_RecordInsurancePolicy.msgflow</include>							
+		<include>NZ_AllocatePaymentToAgreement.msgflow</include>							
+	</msgflow>
+</wmb>

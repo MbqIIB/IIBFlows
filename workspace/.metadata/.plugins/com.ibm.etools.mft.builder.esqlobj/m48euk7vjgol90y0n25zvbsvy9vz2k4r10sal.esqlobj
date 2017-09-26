@@ -1,0 +1,11 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+		
+		set OutputRoot.Properties = InputRoot.Properties;
+		
+		set OutputRoot.MQMD = InputRoot.ComIbmAggregateReplyBody.HUON.MQMD;
+		set OutputRoot.XMLNSC = InputRoot.XMLNSC;
+		
+		
+		return true;
+	END;

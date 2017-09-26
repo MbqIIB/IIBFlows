@@ -1,0 +1,7 @@
+<wmb>
+	<project>mfp_EA_RetrieveInsurancePolicyDetails</project>
+	<app>
+		<name>RetrieveInsurancePolicy</name>
+		<executionGroup>egPolicy</executionGroup>
+	</app>
+</wmb>

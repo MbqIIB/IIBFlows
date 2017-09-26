@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmMQReply.msgnode="ComIbmMQReply.msgnode" xmlns:ComIbmPassthru.msgnode="ComIbmPassthru.msgnode" xmlns:ComIbmRoute.msgnode="ComIbmRoute.msgnode" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow" xmlns:maersk_iib_common_custom_v1_sfAddCommonEnvelope.subflow="maersk/iib/common/custom/v1/sfAddCommonEnvelope.subflow"
+    xmlns:maersk_iib_common_envelope_v1_sfAddEnvelope.subflow="maersk/iib/common/envelope/v1/sfAddEnvelope.subflow" xmlns:maersk_iib_common_state_v1_sfGetStateMessage.subflow="maersk/iib/common/state/v1/sfGetStateMessage.subflow" xmlns:maersk_iib_errorhandler_v1_sfErrorHandler_v1.subflow="maersk/iib/errorhandler/v1/sfErrorHandler_v1.subflow" xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="maersk/com/bs/Customer_Request/term/Customer_Reply_term_v1.msgflow" nsPrefix="maersk_com_bs_Customer_Request_term_Customer_Reply_term_v1.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="Customer_Reply_term_v1" bundleName="maersk/com/bs/Customer_Request/term/Customer_Reply_term_v1" pluginId="B_BS_CustomerAPI_v1"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/B_BS_CustomerAPI_v1/icons/full/obj16/Customer_Reply_term_v1.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/B_BS_CustomerAPI_v1/icons/full/obj30/Customer_Reply_term_v1.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="-2,156" queueName="BS.CUSTOMER_REQUEST_TERM.REPLY" messageDomainProperty="XMLNSC">
+        <translation xmi:type="utility:ConstantString" string="BS.CUSTOMER_REQUEST_TERM.REPLY"/>
+      </nodes>
+      <nodes xmi:type="ComIbmPassthru.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="547,156">
+        <translation xmi:type="utility:ConstantString" string="Pass through"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_common_state_v1_sfGetStateMessage.subflow:FCMComposite_1" xmi:id="FCMComposite_1_3" location="308,156" queueName="STATE.BS.QUEUE">
+        <translation xmi:type="utility:ConstantString" string="sfGetStateMessage"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_common_envelope_v1_sfAddEnvelope.subflow:FCMComposite_1" xmi:id="FCMComposite_1_5" location="891,460">
+        <translation xmi:type="utility:ConstantString" string="sfAddEnvelope"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQReply.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="1176,161">
+        <translation xmi:type="utility:ConstantString" string="MQ Reply"/>
+      </nodes>
+      <nodes xmi:type="ComIbmRoute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="793,296">
+        <outTerminals terminalNodeID="Match" dynamic="true" label="Match"/>
+        <translation xmi:type="utility:ConstantString" string="Any Errors"/>
+        <filterTable filterPattern="$Root/XMLNSC/Error" routingOutputTerminal="Match"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_8" location="757,156" computeExpression="esql://routine/maersk.com.bs.Customer_Request.term#Customer_Reply_term_v1_BuildResponse.Main">
+        <translation xmi:type="utility:ConstantString" string="BuildResponse"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_errorhandler_v1_sfErrorHandler_v1.subflow:FCMComposite_1" xmi:id="FCMComposite_1_9" location="292,312" Format="CUSTOM" ResponseName="GetCustomerResponse">
+        <translation xmi:type="utility:ConstantString" string="sfErrorHandler_v1"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_10" location="525,311" queueName="EA.GET_CUSTOMER_ERROR.IN" newMsgId="true" validateMaster="none">
+        <translation xmi:type="utility:ConstantString" string="EA.GET_CUSTOMER_ERROR.IN"/>
+      </nodes>
+      <nodes xmi:type="maersk_iib_common_custom_v1_sfAddCommonEnvelope.subflow:FCMComposite_1" xmi:id="FCMComposite_1_11" location="928,162">
+        <translation xmi:type="utility:ConstantString" string="sfAddCommonEnvelope"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_10" targetNode="FCMComposite_1_10" sourceNode="FCMComposite_1_9" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_11" sourceNode="FCMComposite_1_8" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_12" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_11" sourceTerminalName="OutTerminal.Output" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_2" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard>
+      <stickyNote location="139,437">
+        <body xmi:type="utility:ConstantString" string="Remove Any Errors - build message response from State Response - as it has the already create customer&#xA;.... if there are errors on the inoputroot - add then in on the build respopnse"/>
+      </stickyNote>
+    </stickyBoard>
+  </eClassifiers>
+</ecore:EPackage>

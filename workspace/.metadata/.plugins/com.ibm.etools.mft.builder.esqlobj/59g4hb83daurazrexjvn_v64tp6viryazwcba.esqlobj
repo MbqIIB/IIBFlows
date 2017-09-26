@@ -1,0 +1,21 @@
+CREATE COMPUTE MODULE CustomerStub_v1_Create_JSOB_Stub_Response
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		SET OutputRoot.MQMD = InputRoot.MQMD;
+		SET OutputRoot.MQMD.CorrelId = InputRoot.MQMD.MsgId;
+
+		DECLARE jsonResponse, jsonErrorResponse CHARACTER '';
+		SET jsonResponse = '{"CustomerResponse":{"CustomerId":"1234","Name":"The Big Shipping Company","ContactName":"Mr Smith","ContactTitle":"Top Dog","Address":{"AddressLine1":"Esplanaden 50","AddressLine2":"","AddressLine3":"","PostalCode":"1098","City":"Copenhagen","Country":"Denmark"},"TelephoneNumbers":{"Mobile":"123456","Work":"345656","Fax":"1212121212"},"emailAddress":{"emailAddress":"emailtest@maersk.com","emailAddress":"mail@maersk.com"}}}';		
+		SET jsonErrorResponse = '{"CustomerResponse":{"CustomerId":"1234","Error":{"Code":"E1234","TimeStamp":"20170820T10:00:01.1234","Details":"Error occurred reading database table","Application":"X12345","Severity":"Major", "SourceSystem":"ABCD"}}}';
+
+		
+		DECLARE refInBody REFERENCE TO InputRoot.JSON.Data."CustomerRequest";
+		
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'JSON' PARSE (jsonErrorResponse CCSID 1208);
+
+		RETURN TRUE;
+		
+	END;
+END MODULE;

@@ -1,0 +1,41 @@
+CREATE PROCEDURE ConstructMQMD() BEGIN
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'MQMD';
+
+--		IF NOT EXISTS(Environment.MQMD[]) THEN			
+--			SET OutputRoot.MQMD.MsgId           				= CAST(InputLocalEnvironment.Destination.SOAP.Reply.ReplyIdentifier AS BLOB);
+--		END IF;	
+		
+		SET OutputRoot.MQMD.Version = MQMD_CURRENT_VERSION;
+		SET OutputRoot.MQMD.Format = MQFMT_STRING;
+		SET OutputRoot.MQMD.Expiry = 600;
+			
+		IF EXISTS(Environment.MQMD[]) THEN			
+			SET OutputRoot.MQMD									= Environment.MQMD;						
+		ELSE
+			IF EXISTS(Environment.RequestState.MQMD[]) THEN
+				SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			ELSE	
+				IF 	EXISTS(InputLocalEnvironment.SOAP.Envelope.InRequest.*[<].SOAP.Header.esbhdr:Header.esbhdr:messageId[]) THEN 
+					SET OutputRoot.MQMD.CorrelId					= CAST(InputLocalEnvironment.SOAP.Envelope.InRequest.*[<].SOAP.Header.esbhdr:Header.esbhdr:messageId AS BLOB);
+				ELSE 
+					SET OutputRoot.MQMD.CorrelId					= CAST(InputRoot.HTTPInputHeader."X-Message-Transaction-Correlation-Id" AS BLOB);
+				END IF;
+			END IF;
+		END IF;				
+
+		IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+			SET OutputRoot.MQRFH2.*[] = Environment.RequestState.MQRFH2.*[];
+		ELSE		
+			CREATE NEXTSIBLING OF OutputRoot.MQMD DOMAIN 'MQRFH2';
+			CREATE LASTCHILD OF OutputRoot.MQRFH2 NAME 'usr';
+			DECLARE refUsr REFERENCE TO OutputRoot.MQRFH2.usr;
+			--	
+			IF EXISTS(InputLocalEnvironment.Destination.HTTP[]) THEN
+				SET refUsr.UserIdentifier = CAST(InputLocalEnvironment.Destination.HTTP.RequestIdentifier AS BLOB); 
+			END IF;
+		END IF;					
+		
+		
+		
+		
+	END;

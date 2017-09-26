@@ -1,0 +1,14 @@
+CREATE COMPUTE MODULE GetCustomer_v1_Reply_BuildResponse
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		 
+		CREATE LASTCHILD OF OutputRoot.JSON.Data NAME 'Error';
+		SET OutputRoot.JSON.Data."Error".code = 'Carta Error';
+
+		RETURN TRUE;
+
+	END;
+END MODULE;

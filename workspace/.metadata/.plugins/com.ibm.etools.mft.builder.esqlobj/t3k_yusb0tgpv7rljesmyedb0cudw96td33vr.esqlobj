@@ -1,0 +1,11 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+		
+		set OutputRoot = InputRoot;
+ 		set OutputRoot.MQMD = Environment.RequestState.MQMD;
+ 		
+ 		if exists(Environment.RequestState.XMLNSC.esbenv:Envelope[]) then
+ 			set OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.*[] = Environment.RequestState.XMLNSC.esbenv:Envelope.esbhdr:Header.*[];
+ 		end if;
+	end;
+	

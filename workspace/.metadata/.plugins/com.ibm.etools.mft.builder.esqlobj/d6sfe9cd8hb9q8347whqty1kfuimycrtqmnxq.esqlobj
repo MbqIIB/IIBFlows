@@ -1,0 +1,26 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		
+		DECLARE refInBody REFERENCE TO InputRoot.XMLNSC."orderRequest";
+		
+		-- Copy input message
+		CREATE FIELD OutputLocalEnvironment.OriginalMessage;
+		DECLARE refIn REFERENCE TO OutputLocalEnvironment.OriginalMessage;
+		SET refIn.[] = refInBody.[];
+		
+		-- Start building the MQ JSON Customer request 
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'JSON' NAME 'JSON';
+		CREATE FIELD OutputRoot.JSON.Data IDENTITY (JSON.Object)Data;
+		
+		CREATE LASTCHILD OF OutputRoot.JSON.Data NAME 'orderRequest'; 	  		
+		DECLARE refReq REFERENCE TO OutputRoot.JSON.Data."orderRequest";
+
+		SET refReq.customerId = refInBody.customerId;
+			
+		RETURN TRUE;
+
+
+	END;

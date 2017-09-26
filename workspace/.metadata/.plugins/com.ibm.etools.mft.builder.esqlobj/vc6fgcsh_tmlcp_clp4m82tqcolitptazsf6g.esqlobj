@@ -1,0 +1,25 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		SET OutputRoot.Properties = InputRoot.Properties;
+		
+		IF EXISTS(Environment.RequestState.MQMD[]) THEN
+			SET OutputRoot.MQMD = Environment.RequestState.MQMD;
+			IF EXISTS(Environment.RequestState.MQRFH2[]) THEN
+				SET OutputRoot.MQRFH2 = Environment.RequestState.MQRFH2;
+			END IF;
+		END IF;
+
+		DECLARE inRef REFERENCE TO InputRoot.XMLNSC.Error[>];
+		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'Error';
+		DECLARE refErr REFERENCE TO OutputRoot.XMLNSC."Error";
+	--	DECLARE ref REFERENCE TO OutputRoot.XMLNSC.Error;
+		DECLARE ref REFERENCE TO OutputRoot.XMLNSC;
+		
+		SET ref.Error = InputRoot.XMLNSC.Error;
+		
+		
+		RETURN TRUE;
+
+	END;

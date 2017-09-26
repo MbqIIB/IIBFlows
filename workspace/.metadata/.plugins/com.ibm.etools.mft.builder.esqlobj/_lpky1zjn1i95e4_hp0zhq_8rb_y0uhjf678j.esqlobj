@@ -1,0 +1,10 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		CALL ExceptionListHandler();
+		RETURN TRUE;
+	
+	END;
+
+    	
+	CREATE PROCEDURE ExceptionListHandler()

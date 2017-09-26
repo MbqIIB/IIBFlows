@@ -1,0 +1,150 @@
+BROKER SCHEMA di.huon.customer.pa
+
+
+CREATE COMPUTE MODULE SetupRequest
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		DECLARE refInputHeader REFERENCE TO InputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header;
+
+		-- Setup Output Properties
+	    SET OutputRoot.Properties.MessageSet    = 'E3SQV9S002001'; 
+		SET OutputRoot.Properties.MessageType   = 'msg_WQL203RQ';
+		SET OutputRoot.Properties.MessageFormat = 'Binary1';   
+		
+		-- Setup Output MQMD
+		CREATE NEXTSIBLING OF OutputRoot.Properties DOMAIN 'MQMD';
+
+		SET OutputRoot.MQMD.MsgId               = InputRoot.MQMD.MsgId;
+		SET OutputRoot.MQMD.Version 		    = MQMD_CURRENT_VERSION;
+		SET OutputRoot.MQMD.Format 		        = MQFMT_STRING;
+		SET OutputRoot.MQMD.MsgType 		    = MQMT_REQUEST; 
+		SET OutputRoot.MQMD.Encoding		    = MQENC_NATIVE;	
+		SET OutputRoot.MQMD.CodedCharSetId      = MQCCSI_Q_MGR; 
+		SET OutputRoot.MQMD.Expiry              = 600; 
+--		SET OutputRoot.MQMD.Persistence         = MQPER_PERSISTENT;
+		SET OutputRoot.MQMD.CorrelId            = InputRoot.MQMD.CorrelId; 
+		SET OutputRoot.MQMD.ReplyToQ		    = 'EAI.CUS.RET_HUN_CUSTOMER.REPLY';  
+		SET OutputRoot.MQMD.ReplyToQMgr         = InputRoot.MQMD.ReplyToQMgr;
+		
+		-- Setup Output RFH2 
+		SET OutputRoot.MQRFH2                   = NULL;
+
+
+
+		-- Pad out client number to have leading zeroes 
+		DECLARE chrClientNumber			CHARACTER ' ';
+
+		DECLARE refInput REFERENCE TO InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.cust:retrieveCustomerDetailsReq.requestId;
+
+		DECLARE prefix CHAR;		
+		SET prefix = SUBSTRING((refInput.(XMLNSC.Attribute)xsi:type) FROM 1 FOR (POSITION(':' IN (refInput.(XMLNSC.Attribute)xsi:type))));
+
+		CALL getXTree(refInput, prefix||'PartyIdentifier');
+		
+		IF LENGTH(refInput.partyId) = 8 THEN
+			SET chrClientNumber  = '0'||refInput.partyId;
+		ELSEIF LENGTH(refInput.partyId) = 7 THEN
+			SET chrClientNumber  = '00'||refInput.partyId;
+		ELSEIF LENGTH(refInput.partyId) = 6 THEN
+			SET chrClientNumber  = '000'||refInput.partyId;
+		ELSEIF LENGTH(refInput.partyId) = 5 THEN
+			SET chrClientNumber  = '0000'||refInput.partyId;
+		ELSEIF LENGTH(refInput.partyId) = 4 THEN
+			SET chrClientNumber  = '00000'||refInput.partyId;
+		ELSEIF LENGTH(refInput.partyId) = 3 THEN
+			SET chrClientNumber  = '000000'||refInput.partyId;
+		ELSEIF LENGTH(refInput.partyId) = 2 THEN
+			SET chrClientNumber  = '0000000'||refInput.partyId;
+		ELSEIF LENGTH(refInput.partyId) = 1 THEN
+			SET chrClientNumber  = '00000000'||refInput.partyId;
+		ELSE
+			SET chrClientNumber  = refInput.partyId;
+		END IF;
+
+
+		-- Pad out policy number to have leading zeroes 
+		DECLARE chrPolicyNumber			CHARACTER ' ';
+
+		DELETE FIELD  Environment.getXTree;
+		MOVE refInput TO InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.cust:retrieveCustomerDetailsReq;
+
+		CALL getXTree(refInput, prefix||'PolicyIdentifier');
+		
+		IF LENGTH(refInput.policyId) = 8 THEN
+			SET chrPolicyNumber  = '0'||refInput.policyId;
+		ELSEIF LENGTH(refInput.policyId) = 7 THEN
+			SET chrPolicyNumber  = '00'||refInput.policyId;
+		ELSEIF LENGTH(refInput.policyId) = 6 THEN
+			SET chrPolicyNumber  = '000'||refInput.policyId;
+		ELSEIF LENGTH(refInput.policyId) = 5 THEN
+			SET chrPolicyNumber  = '0000'||refInput.policyId;
+		ELSEIF LENGTH(refInput.policyId) = 4 THEN
+			SET chrPolicyNumber  = '00000'||refInput.policyId;
+		ELSEIF LENGTH(refInput.policyId) = 3 THEN
+			SET chrPolicyNumber  = '000000'||refInput.policyId;
+		ELSEIF LENGTH(refInput.policyId) = 2 THEN
+			SET chrPolicyNumber  = '0000000'||refInput.policyId;
+		ELSEIF LENGTH(refInput.policyId) = 1 THEN
+			SET chrPolicyNumber  = '00000000'||refInput.policyId;
+		ELSE
+			SET chrPolicyNumber  = refInput.policyId;
+		END IF;
+
+
+		
+		-- Setup Output Payload Header
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'MRM';
+		SET OutputRoot.MRM.RQ_HEADER.RQ_API_PROGRAM		= 'API2';
+		SET OutputRoot.MRM.RQ_HEADER.RQ_LAYOUT 			= 'WQL203RQ';
+		SET OutputRoot.MRM.RQ_HEADER.RQ_RC				= 0;
+		SET OutputRoot.MRM.RQ_HEADER.RQ_ABEND_CODE 		= 0;
+		SET OutputRoot.MRM.RQ_HEADER.RQ_ABEND_SOURCE  	= '';
+		SET OutputRoot.MRM.RQ_HEADER.RQ_INITIATOR 		= 'WEB';				
+		SET OutputRoot.MRM.RQ_HEADER.RQ_USERID 			= COALESCE(refInputHeader.userId, '');	
+		SET OutputRoot.MRM.RQ_HEADER.RQ_AGENT 			= '';
+		SET OutputRoot.MRM.RQ_HEADER.RQ_SOURCE_SYSTEM 	= COALESCE(refInputHeader.sourceSystem,'');
+		SET OutputRoot.MRM.RQ_HEADER.RQ_TIMESTAMP 		= CAST(CURRENT_TIMESTAMP AS CHARACTER FORMAT 'yyyyMMddHHmmssSSS');
+		SET OutputRoot.MRM.RQ_HEADER.RQ_CUSTNO 			= chrClientNumber;
+		SET OutputRoot.MRM.RQ_HEADER.RQ_SBBREFERENCE 	= refInput.productCode||chrPolicyNumber;
+		SET OutputRoot.MRM.RQ_HEADER.RQ_CONVERSATION_ID	= '';
+		SET OutputRoot.MRM.RQ_HEADER.RQ_ERRNO 			= '';
+		SET OutputRoot.MRM.RQ_HEADER.RQ_ERR_MSG 		= '';
+
+		-- Setup Output Payload Body
+		SET OutputRoot.MRM.RQ_BODY.RQ_OPERATION   = 'RETRIEVE';
+
+		-- Setup Client Number
+
+		SET OutputRoot.MRM.RQ_BODY.RQ_IDENTIFIER  = chrClientNumber;
+
+		-- Setup Product and Policy Number
+
+		SET OutputRoot.MRM.RQ_BODY.RQ_POLICY_LNK.RQ_PRODUCT_LNK  = refInput.productCode;
+		SET OutputRoot.MRM.RQ_BODY.RQ_POLICY_LNK.RQ_SEQPOLNO_LNK  = chrPolicyNumber;
+
+
+
+		-- Set Output Queue and Queue Manager
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueName			= 'HUN.API.RET_CUSTOMER.REQ'; 
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueManagerName 	= InputRoot.MQMD.ReplyToQMgr; 		
+
+
+		RETURN TRUE;
+	END;
+	
+	CREATE PROCEDURE getXTree(
+			INOUT ref REFERENCE,
+			IN attribName CHAR
+			) BEGIN
+			
+			CREATE LASTCHILD OF Environment.getXTree DOMAIN 'XMLNSC' NAME attribName;
+			
+			SET Environment.getXTree.{attribName} = THE (SELECT ITEM X
+				FROM ref.[] AS X
+				WHERE X.(XMLNSC.Attribute)xsi:type = attribName);
+			MOVE ref TO Environment.getXTree.{attribName};
+	END;
+
+
+END MODULE;

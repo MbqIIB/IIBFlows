@@ -1,0 +1,24 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		SET OutputRoot.Properties = Environment.Variables.Properties;
+		SET OutputRoot.MQMD = Environment.Variables.MQMD;
+		SET OutputRoot.MQRFH2 = Environment.Variables.MQRFH2;
+
+		--
+		
+		DECLARE inRef REFERENCE TO InputRoot.JSON.Data.[>].Error[>];
+		
+		CREATE LASTCHILD OF OutputRoot.XMLNSC NAME 'Error';
+		DECLARE refErr REFERENCE TO OutputRoot.XMLNSC."Error";
+
+		SET refErr.code = inRef.code;
+		SET refErr.description = inRef.message;
+		SET refErr.application = inRef.application;
+		SET refErr.severity = inRef.severity;
+		SET refErr.system = inRef.sourceSystem;
+		
+		RETURN TRUE;		
+
+
+	END;

@@ -1,0 +1,33 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+
+		DECLARE refOut REFERENCE TO OutputRoot;
+		
+		SET Environment.Variables.Properties = InputRoot.Properties;
+		SET Environment.Variables.MQMD = InputRoot.MQMD;
+		SET Environment.Variables.MQRFH2 = InputRoot.MQRFH2;
+		
+		SET OutputLocalEnvironment.Destination.HTTP.RequestURL = 'http://localhost:7181/order/v1/getOrder';
+		SET OutputLocalEnvironment.Destination.HTTP.Timeout = 5;
+		SET OutputLocalEnvironment.Destination.HTTP.RequestLine.HTTPVersion = 'HTTP/1.1';
+		
+		
+		DECLARE conversationId CHARACTER '';
+		SET conversationId = UUIDASCHAR;
+
+		DECLARE messageId BLOB;
+		SET messageId = UUIDASBLOB;
+		
+		CALL maersk.iib.common.http.v1.SetUpHTTPHeaders_v1(refOut, conversationId, messageId);
+		
+		DECLARE refIn REFERENCE TO InputRoot.XMLNSC.ordersRequest;
+		
+		CREATE FIELD OutputRoot.JSON.Data IDENTITY(JSON.Object)Data;
+		CREATE LASTCHILD OF OutputRoot.JSON.Data NAME 'ordersRequest';
+		DECLARE refOrd REFERENCE TO OutputRoot.JSON.Data."ordersRequest";
+		
+		SET refOrd.customerId = refIn.customerId;
+
+
+
+	END;

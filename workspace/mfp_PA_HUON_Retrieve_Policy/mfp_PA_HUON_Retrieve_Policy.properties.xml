@@ -1,0 +1,7 @@
+<wmb>
+	<project>mfp_PA_HUON_Retrieve_Policy</project>
+	<app>
+		<name>RetrieveInsurancePolicy</name>
+		<executionGroup>egPolicy</executionGroup>
+	</app>
+</wmb>

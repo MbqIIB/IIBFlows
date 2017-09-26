@@ -1,0 +1,96 @@
+<eventSources>
+<Node>
+	<!--  Failure Event Monitor -->
+	<Source>EAI.CMT.ENQUIRY_DETAILS_BS.REQ.transaction.Start</Source>
+	<Name>EAI.CMT.ENQUIRY_DETAILS_BS.REQ.transaction.Start</Name>
+	<MsgId>$Root/MQMD/MsgId</MsgId>
+	<CorrelId>$Root/MQMD/CorrelId</CorrelId>
+	<ConversationId>
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="hdr" namespace="http://iag.com.au/di/esb/header/v1/" />		
+		<xpath>$Root/XMLNSC/env:Envelope/hdr:Header/hdr:conversationId</xpath>
+	</ConversationId>
+	<MessageTransactionCorrelationId>$Root/MQMD/msgId</MessageTransactionCorrelationId>
+	<Operation>
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<xpath>local-name($Root/XMLNSC/env:Envelope/env:Body/*[1])</xpath>
+	</Operation>
+	<UserId>
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="hdr" namespace="http://iag.com.au/di/esb/header/v1/" />
+		<xpath>$Root/XMLNSC/env:Envelope/hdr:Header/hdr:userId	
+		</xpath>
+	</UserId>
+	<Type>concat('REQUEST','')</Type>
+	<ReplyId>$LocalEnvironment/Destination/SOAP/Reply/ReplyIdentifier
+	</ReplyId>
+	<URLPath>$Root/MQMD/SourceQueue</URLPath>
+	<Host>
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="err" namespace="http://iag.com.au/di/esb/error/v1/" />
+		<xpath>$Root/XMLNSC/env:Envelope/err:Error/err:system
+		</xpath>
+	</Host>
+	<Client>$Root//X-Message-Origin-Application-Servername
+	</Client>
+	<Status>
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="err" namespace="http://iag.com.au/di/esb/error/v1/" />
+		<xpath>$Root/XMLNSC/env:Envelope/err:Error/err:severity
+		</xpath>
+	</Status>
+	<Error>
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="err" namespace="http://iag.com.au/di/esb/error/v1/" />
+		<xpath>$Root/XMLNSC/env:Envelope/err:Error/err:message
+		</xpath>
+	</Error>
+</Node>
+<Node>
+	<!--  Failure Event Monitor -->
+	<Source>EAI.CMT.ENQUIRY_DETAILS_BS.REPLY.transaction.Start</Source>
+	<Name>EAI.CMT.ENQUIRY_DETAILS_BS.REPLY.transaction.Start</Name>
+	<MsgId>$Root/MQMD/MsgId</MsgId>
+	<CorrelId>$Root/MQMD/CorrelId</CorrelId>
+	<ConversationId>
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="hdr" namespace="http://iag.com.au/di/esb/header/v1/" />			
+		<xpath>$Root/XMLNSC/env:Envelope/hdr:Header/hdr:conversationId
+		</xpath> 
+	</ConversationId>
+	<MessageTransactionCorrelationId>$Root/MQMD/msgId</MessageTransactionCorrelationId>
+	<Operation>
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="hdr" namespace="http://iag.com.au/di/esb/header/v1/" />		
+		<xpath>local-name($Root/XMLNSC/env:Envelope/env:Body/*[1])</xpath>
+	</Operation>
+	<UserId>
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="hdr" namespace="http://iag.com.au/di/esb/header/v1/" />
+		<xpath>$Root/XMLNSC/env:Envelope/hdr:Header/hdr:userId	
+		</xpath>
+	</UserId>
+	<Type>concat('REPLY','')</Type>
+	<ReplyId>$LocalEnvironment/Destination/SOAP/Reply/ReplyIdentifier
+	</ReplyId>
+	<URLPath>$Root/MQMD/SourceQueue</URLPath>
+	<Host>
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="err" namespace="http://iag.com.au/di/esb/error/v1/" />
+		<xpath>$Root/XMLNSC/env:Envelope/env:Error/env:system
+		</xpath>
+	</Host>
+	<Client>$Root//X-Message-Origin-Application-Servername
+	</Client>
+	<Status>
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="err" namespace="http://iag.com.au/di/esb/error/v1/" />
+		<xpath>$Root/XMLNSC/env:Envelope/err:Error/err:severity</xpath>
+	</Status>
+	<Error>
+		<namespace prefix="env" namespace="http://iag.com.au/di/esb/envelope/v1/" />
+		<namespace prefix="err" namespace="http://iag.com.au/di/esb/error/v1/" />
+		<xpath>$Root/XMLNSC/env:Envelope/err:Error/err:message</xpath>
+	</Error>
+</Node>
+</eventSources>

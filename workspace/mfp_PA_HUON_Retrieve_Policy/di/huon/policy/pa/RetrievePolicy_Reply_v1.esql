@@ -1,0 +1,1110 @@
+BROKER SCHEMA di.huon.policy.pa
+
+
+
+CREATE COMPUTE MODULE SetupReply
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		DECLARE refInputHdr  		REFERENCE TO InputRoot.MRM.RP_HEADER;
+		DECLARE refInputBody 		REFERENCE TO InputRoot.MRM.RP_BODY;
+		DECLARE buildingTypeFlag    CHARACTER ' ';
+		DECLARE chrDate,chrField    CHARACTER ' ';
+		DECLARE chrTime1			CHARACTER ' ';
+		DECLARE chrTime2			CHARACTER ' ';
+		DECLARE intI, intJ		    INTEGER 0;
+
+
+		-- Create MQMD	
+		SET OutputRoot.MQMD.Version             			= MQMD_CURRENT_VERSION; 
+		SET OutputRoot.MQMD.MsgType             			= MQMT_REPLY;  
+		SET OutputRoot.MQMD.Format              			= MQFMT_STRING;
+		SET OutputRoot.MQMD.CorrelId						= Environment.RequestState.MQMD.MsgId; 
+		SET OutputRoot.MQMD.Expiry              			= -1; -- Unlimited
+		SET OutputRoot.MQMD.Encoding						= MQENC_NATIVE;
+		SET OutputRoot.MQMD.CodedCharSetId					= 1208;	
+		SET OutputRoot.MQMD.ReplyToQ		    			= Environment.RequestState.MQMD.ReplyToQ;  
+		SET OutputRoot.MQMD.ReplyToQMgr         			= Environment.RequestState.MQMD.ReplyToQMgr;
+
+		--  Build ESBEnvelope Header
+		SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header		= Environment.RequestState.XMLNSC.esbenv:Envelope.esbhdr:Header;
+					
+		--  Check Response
+    	IF refInputHdr.RP_RC IN (08, 16, 99) THEN
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:code					= refInputHdr.RP_ERRNO;
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:message				= refInputHdr.RP_ERR_MSG;
+			CASE refInputHdr.RP_RC
+			WHEN 8 THEN
+				SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:maxReturnLevel	= 'ERROR';
+				SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:severity			= 'ERROR';				
+			ELSE
+				SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:maxReturnLevel	= 'ERROR';
+				SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:severity			= 'ERROR';
+			END CASE;
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esberr:Error.esberr:system	= 'HUON';
+		ELSE																
+			SET OutputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header.esbhdr:maxReturnLevel 	= 'OK';	
+		END IF; 
+
+		--  Build Response Payload
+		IF refInputHdr.RP_RC IN (00, 04) THEN
+			CREATE LASTCHILD OF OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsResp NAME 'insurancePolicy';
+			
+			DECLARE ResponseRef 		REFERENCE TO OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsResp.insurancePolicy;
+			DECLARE ResponseRefBase1	REFERENCE TO OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsResp.insurancePolicy;
+			DECLARE ResponseRefBase2	REFERENCE TO OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsResp.insurancePolicy;
+			DECLARE ResponseRefBase3	REFERENCE TO OutputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsResp.insurancePolicy;
+			
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:xsi 			= 	xsi;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:agreement 		= 	agreement;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:event 			= 	event;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:party 			= 	party;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:physicalobjects	= 	physicalobjects;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:location		= 	location;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:moneyprov		= 	moneyprov;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:registration	= 	registration;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:coverage		= 	coverage;
+			SET ResponseRef.(XMLNSC.Attribute)xmlns:identifiers		= 	identifiers;
+			
+			SET ResponseRef.inceptionDate 		= DateFunc.StrToDate(CAST(refInputBody.RP_POLICY_INFO_LNK.RP_INCEPTION AS CHAR));
+			SET ResponseRef.endDate 			= DateFunc.StrToDate(CAST(refInputBody.RP_POLICY_INFO_LNK.RP_DUEDATE AS CHAR));
+			SET ResponseRef.startDate 			= DateFunc.StrToDate(CAST(refInputBody.RP_POLICY_INFO_LNK.RP_TERMINCEP AS CHAR));
+			
+			CREATE LASTCHILD OF ResponseRef	AS ResponseRef			  	NAME 'basedOnAgreement';
+			SET ResponseRef.(XMLNSC.Attribute)xsi:type									='agreement:Agreement';
+			
+				MOVE ResponseRefBase2 TO ResponseRef;
+
+-- start Embargoes 			
+				SET intI = 1;
+				WHILE intI <= refInputBody.RP_COUNTS_LNK.RP_EMBARGO_CNT DO
+				
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef		NAME 'includesClause';
+					SET ResponseRef.(XMLNSC.Attribute)xsi:type							='agreement:AgreementClause';	
+
+						SET ResponseRef.clauseCode 			= TRIM(refInputBody.RP_EMBARGO_LNK.RP_EMBARGO_DTL[intI].RP_EMBARGO_TYPE);
+						SET ResponseRef.clauseDescription 	= TRIM(refInputBody.RP_EMBARGO_LNK.RP_EMBARGO_DTL[intI].RP_EMBARGO_DESC);
+						SET ResponseRef.effectiveDate 		= DateFunc.StrToDate(CAST(refInputBody.RP_EMBARGO_LNK.RP_EMBARGO_DTL[intI].RP_EMBARGO_FRMDATE AS CHAR));
+						SET ResponseRef.endDate 			= DateFunc.StrToDate(CAST(refInputBody.RP_EMBARGO_LNK.RP_EMBARGO_DTL[intI].RP_EMBARGO_TODATE AS CHAR));
+											
+					MOVE ResponseRef TO ResponseRefBase2;
+				
+					SET intI = intI + 1;
+				END WHILE;
+-- end Embargoes 
+
+
+			MOVE ResponseRef TO ResponseRefBase1;
+			
+			SET ResponseRef.noClaimBonusProtection 	= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_NCBTYPE);
+			
+			SET ResponseRef.paidStatus 				= TRIM(refInputBody.RP_CURRENT_POLICY_INFO_LNK.RP_POLICY_PAID);
+			
+			CREATE LASTCHILD OF ResponseRef	AS ResponseRef			  	NAME 'includesComponent';
+			SET ResponseRef.(XMLNSC.Attribute)xsi:type									='coverage:CoverageComponent';
+
+				CASE refInputBody.RP_MOTOR_RISK_LNK.RP_MVSIIND
+				WHEN 'A' THEN
+					SET ResponseRef.description 				= 'Agreed Value covered';
+					SET ResponseRef.agreedValue 				= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_AGRVALUE); 
+					SET ResponseRef.coverageTypeCode 			= refInputBody.RP_POLICY_INFO_LNK.RP_COVERAGE;
+					IF refInputBody.RP_MOTOR_RISK_LNK.RP_PRICETRDE > 0 THEN
+						SET ResponseRef.marketValue 			= refInputBody.RP_MOTOR_RISK_LNK.RP_PRICETRDE; 
+					ELSE
+						SET ResponseRef.marketValue 			= refInputBody.RP_MOTOR_RISK_LNK.RP_PRICERETL;
+					END IF;	
+				WHEN 'M' THEN
+					SET ResponseRef.description					= 'Market Value covered';							
+					SET ResponseRef.coverageTypeCode 			= refInputBody.RP_POLICY_INFO_LNK.RP_COVERAGE;
+					SET ResponseRef.marketValue 				= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_AGRVALUE); 
+				ELSE
+					SET ResponseRef.coverageTypeCode 			= refInputBody.RP_POLICY_INFO_LNK.RP_COVERAGE;
+				END CASE;
+
+
+				SET ResponseRef.riskType 			= refInputBody.RP_POLICY_INFO_LNK.RP_RISKTYPE;
+
+				MOVE ResponseRefBase2 TO ResponseRef;
+				
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			  	NAME 'coverageDeductible';
+				
+					SET ResponseRef.percentage 		= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_MVITCPCT);
+
+				MOVE ResponseRef 	TO ResponseRefBase2;
+				
+				SET ResponseRef.limit	 			= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_COVERLIMIT);
+
+
+			
+			MOVE ResponseRef TO ResponseRefBase1;
+							
+-- start Basic Excess 			
+			SET intI = 1;
+			WHILE intI <= refInputBody.RP_COUNTS_LNK.RP_BASICXS_CNT DO			
+			
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			  	NAME 'includesComponent';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type								='coverage:CoverageComponent';
+				
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'coverageDeductible';
+
+						SET ResponseRef.deductibleTypeCode 				= TRIM(refInputBody.RP_BASICXSES_LNK.RP_BASICXS_DTL[intI].RP_EXCESSTYP);
+						SET ResponseRef.deductibleAmount 				= refInputBody.RP_BASICXSES_LNK.RP_BASICXS_DTL[intI].RP_EXCESS;
+						SET ResponseRef.deductibleDescription			= TRIM(refInputBody.RP_BASICXSES_LNK.RP_BASICXS_DTL[intI].RP_XS_DESC);
+				
+				MOVE ResponseRef TO ResponseRefBase1;
+				
+				SET intI = intI + 1;
+			END WHILE;
+-- end Basic Excess 						
+
+			
+			MOVE ResponseRef TO ResponseRefBase1;
+			
+			SET ResponseRef.boundDate 	= DateFunc.StrToDate(CAST(refInputBody.RP_POLICY_INFO_LNK.RP_EFFECTDTE AS CHAR));
+			
+			CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'policyStatus';
+			SET ResponseRef.status 				= TRIM(refInputBody.RP_CURRENT_POLICY_INFO_LNK.RP_STATUS_DESC);
+			SET ResponseRef.effectiveDate		= DateFunc.StrToDate(CAST(refInputBody.RP_CURRENT_POLICY_INFO_LNK.RP_DATELAPSEDCANCELLED AS CHAR));	
+
+			MOVE ResponseRef TO ResponseRefBase1;
+
+			CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'policyStatus';
+			IF refInputBody.RP_OUT_OF_COVER_LNK.RP_OUT_OF_COVER = 'Y' THEN
+				SET ResponseRef.status 			= 'Out of Cover';
+				SET ResponseRef.description 	= TRIM(refInputBody.RP_OUT_OF_COVER_LNK.RP_INFO);
+			ELSE
+				SET ResponseRef.status 			= 'In Cover';
+				SET ResponseRef.description 	= TRIM(refInputBody.RP_OUT_OF_COVER_LNK.RP_INFO);
+			END IF;
+			
+			MOVE ResponseRef TO ResponseRefBase1;
+
+			CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'policyFor';
+			SET ResponseRef.(XMLNSC.Attribute)xsi:type									='physicalobjects:Vehicle';	
+			
+				MOVE ResponseRefBase2 TO ResponseRef;
+				
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'locatedAt';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:StructuredPostalAddress';	
+				
+					SET ResponseRef.isIdentifiedBy.componentId 	= 'HUON';
+					SET ResponseRef.isIdentifiedBy.locationId	= refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRREF;
+					
+					SET ResponseRef.suburb 			= refInputBody.RP_RISK_ADDRESS_LNK.RP_CITY;
+					SET ResponseRef.state 			= refInputBody.RP_RISK_ADDRESS_LNK.RP_STATE_3CHAR;
+					SET ResponseRef.postCode 		= refInputBody.RP_RISK_ADDRESS_LNK.RP_POSTCODE;
+					SET ResponseRef.country 		= refInputBody.RP_RISK_ADDRESS_LNK.RP_COUNTRY;
+					SET ResponseRef.addresseeLine 	= TRIM(refInputBody.RP_RISK_ADDRESS_LNK.RP_LOCATION1_ATTN);
+					
+					IF refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRIND1 <> ' ' THEN
+						IF refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRIND2 <> ' ' THEN
+						-- Both ADDRIND1 and ADDRIND2 were returned from HUON		
+							-- ADDRIND2 is a Unit or Apartment - so we set the unitNumber to ADDRNO2 and string ADDRIND1,ADDRNO1 into the buildingType
+							IF refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRIND2 IN ('A','U') THEN
+								SET ResponseRef.unitNumber 			= refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRNO2;
+								SET buildingTypeFlag				= 'A1';
+							-- ADDRIND2 is a Floor or Level - so we set the floorNumber to ADDRNO2 and string ADDRIND1,ADDRNO1 into the buildingType
+							ELSEIF refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRIND2 IN ('F','L') THEN
+								SET ResponseRef.floorNumber 		= refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRNO2;
+								SET buildingTypeFlag				= 'A1';
+							-- ADDRIND1 is a Unit or Apartment - so we set the unitNumber to ADDRNO1 and string ADDRIND2,ADDRNO2 into the buildingType
+							ELSEIF refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRIND1 IN ('A','U') THEN
+								SET ResponseRef.unitNumber 			= refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRNO1;
+								SET buildingTypeFlag				= 'A2';
+							-- ADDRIND1 is a Floor or Level - so we set the floorNumber to ADDRNO1 and string ADDRIND2,ADDRNO2 into the buildingType
+							ELSEIF refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRIND1 IN ('F','L') THEN
+								SET ResponseRef.floorNumber 		= refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRNO1;
+								SET buildingTypeFlag				= 'A2';
+							ELSE
+							-- Neither ADDRIND1 or ADDRIND2 is a Unit or Apartment or Floor or Level - so we string ADDRIND1,ADDRNO1,ADDRIND2,ADDRNO2 into the buildingType
+								SET buildingTypeFlag				= 'A1A2';
+							END IF;
+						ELSE
+						-- Only ADDRIND1 was returned from HUON		
+							-- ADDRIND1 is a Unit or Apartment - so we set the unitNumber to ADDRNO1
+							IF refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRIND1 IN ('A','U') THEN
+								SET ResponseRef.unitNumber 			= refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRNO1;
+							-- ADDRIND1 is a Floor or Level - so we set the floorNumber to ADDRNO1
+							ELSEIF refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRIND1 IN ('F','L') THEN
+								SET ResponseRef.floorNumber 		= refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRNO1;
+							ELSE
+							-- ADDRIND1 is neither a Unit or Apartment or Floor or Level - so we string ADDRIND1,ADDRNO1 into the buildingType
+								SET buildingTypeFlag				= 'A1';
+							END IF;	
+						END IF;
+					END IF;		
+
+					SET ResponseRef.streetNumber 	= refInputBody.RP_RISK_ADDRESS_LNK.RP_STREETNO;
+					SET ResponseRef.streetName 		= refInputBody.RP_RISK_ADDRESS_LNK.RP_STREET;
+					IF  refInputBody.RP_RISK_ADDRESS_LNK.RP_STREET_TYPE_DESC <> ' ' THEN
+						SET ResponseRef.streetType 	= refInputBody.RP_RISK_ADDRESS_LNK.RP_STREET_TYPE_DESC;
+					END IF;
+					SET ResponseRef.buildingName 	= TRIM(refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRFREE);
+
+					CASE buildingTypeFlag
+					WHEN 'A1' THEN
+						SET ResponseRef.buildingType 		= refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRIND1_DESC || ' ' || refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRNO1;
+					WHEN 'A2' THEN
+						SET ResponseRef.buildingType 		= refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRIND2_DESC || ' ' || refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRNO2;							
+					WHEN 'A1A2' THEN
+						SET ResponseRef.buildingType 		= refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRIND1_DESC || ' ' || refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRNO1 || ' ' || refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRIND2_DESC || ' ' || refInputBody.RP_RISK_ADDRESS_LNK.RP_ADDRNO2;	
+					END CASE;
+
+					SET ResponseRef.streetDirection	= TRIM(refInputBody.RP_RISK_ADDRESS_LNK.RP_STREETDIR_DESC);
+				
+				MOVE ResponseRef TO ResponseRefBase2;
+				
+				SET ResponseRef.sequenceNumber 	= refInputBody.RP_MOTOR_RISK_LNK.RP_SEQUENCE;	
+				
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'specifiesItem';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type									='physicalobjects:VehicleSpecification';	
+				
+					SET ResponseRef.make 							= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_MVMAKE);	
+					SET ResponseRef.model 							= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_MVMODEL);
+					SET ResponseRef.modelYear 						= refInputBody.RP_MOTOR_RISK_LNK.RP_MVYEAR;
+					SET ResponseRef.series							= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_MVSERIES);
+					SET ResponseRef.vehicleIdentificationNumber		= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_MVVINNO);
+					SET ResponseRef.vehicleCategory					= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_VEHCLASS);
+					SET ResponseRef.bodyType						= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_MVBODY);
+					SET ResponseRef.engineType						= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_MVENGTYP);	
+					SET ResponseRef.engineCapacity					= refInputBody.RP_MOTOR_RISK_LNK.RP_MVENGCAP;		
+					SET ResponseRef.vehicleType						= TRIM(refInputBody.RP_SAP_LNK.RP_VEHICLETYPE);
+				
+				MOVE ResponseRef TO ResponseRefBase2;
+				
+-- start Modification Items 
+				SET intI = 1;
+				WHILE intI <= refInputBody.RP_COUNTS_LNK.RP_MODS_CNT DO
+
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'modifiedItem';
+					SET ResponseRef.(XMLNSC.Attribute)xsi:type									='physicalobjects:ModificationItem';	
+					
+						SET ResponseRef.description						= TRIM(refInputBody.RP_MODS_LNK.RP_MODS_DTL[intI].RP_MOD_DESC);
+						SET ResponseRef.valueNew						= refInputBody.RP_MODS_LNK.RP_MODS_DTL[intI].RP_MODVALUE;
+						SET ResponseRef.itemCode						= TRIM(refInputBody.RP_MODS_LNK.RP_MODS_DTL[intI].RP_MODCODE);
+
+						IF refInputBody.RP_MODS_LNK.RP_MODS_DTL[intI].RP_MODSCODE <> ' ' THEN
+							SET ResponseRef.hasSubClassification.itemCode	= TRIM(refInputBody.RP_MODS_LNK.RP_MODS_DTL[intI].RP_MODSCODE);
+						END IF;
+						
+						SET ResponseRef.isAdjustmentEligible = 
+		  	  				CASE refInputBody.RP_MODS_LNK.RP_MODS_DTL[intI].RP_RATED
+		    					WHEN 'Y'  THEN TRUE
+		    					WHEN 'N'  THEN FALSE		    		
+		  	  			END;
+		  	  			
+		  	  			SET ResponseRef.isLateAddition					= TRIM(refInputBody.RP_MODS_LNK.RP_MODS_DTL[intI].RP_PURFIT);							
+
+					MOVE ResponseRef TO ResponseRefBase2;
+				
+					SET intI = intI + 1;
+				END WHILE;				
+-- end Modification Items 				
+
+				MOVE ResponseRef TO ResponseRefBase2;
+				
+				SET ResponseRef.purchaseDate 						= DateFunc.StrToDate(CAST(refInputBody.RP_MOTOR_RISK_LNK.RP_MVPURCDTE AS CHAR));
+				SET ResponseRef.purchasePrice	 					= refInputBody.RP_MOTOR_RISK_LNK.RP_MVPURPRICE;
+				SET ResponseRef.purchaseType	 					= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_MVPURCFRM_DESC);
+				SET ResponseRef.vehicleUsage	 					= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_MVUSE);
+
+				
+				MOVE ResponseRef TO ResponseRefBase2;
+				
+				IF refInputBody.RP_MOTOR_RISK_LNK.RP_PREVINS_DESC <> ' ' THEN
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'previouslyInsuredBy';
+					SET ResponseRef.(XMLNSC.Attribute)xsi:type									='party:Company';
+				
+						SET ResponseRef.isIdentifiedBy.partyId	 			= refInputBody.RP_MOTOR_RISK_LNK.RP_PREVINS_DESC;
+				
+					MOVE ResponseRef TO ResponseRefBase2;
+				END IF;
+				
+
+				MOVE ResponseRef TO ResponseRefBase2;
+				
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'vehicleRegistration';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type									='registration:VehicleRegistration';
+				
+					SET ResponseRef.issueDate 						= DateFunc.StrToDate(CAST(refInputBody.RP_MOTOR_RISK_LNK.RP_MVREGDTE AS CHAR));
+					SET ResponseRef.isIdentifiedBy.registrationId 	= refInputBody.RP_MOTOR_RISK_LNK.RP_MVREGNO;
+				
+					SET ResponseRef.registeredForTaxation = 
+		  	  		CASE refInputBody.RP_MOTOR_RISK_LNK.RP_MVREGGST
+		    			WHEN 'Y'  THEN TRUE
+		    			WHEN 'N'  THEN FALSE		    		
+		  	  		END;		
+
+
+				MOVE ResponseRef TO ResponseRefBase2;
+
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'isCoveredFor';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type									='coverage:VehicleCoverage';
+	
+					SET ResponseRef.coverageTypeCode 			= refInputBody.RP_MOTOR_RISK_LNK.RP_ACCPTCDE;
+
+					SET ResponseRef.isWindscreenCovered = 
+		  		  		CASE refInputBody.RP_MOTOR_RISK_LNK.RP_WSCRNOPT
+		   		 			WHEN 'Y'  THEN TRUE
+		   		 			WHEN 'F'  THEN TRUE
+		   		 			WHEN 'N'  THEN FALSE
+		   		 			WHEN 'X'  THEN FALSE
+		  		  			WHEN ' '  THEN FALSE				    		
+		  	 		 	END;
+
+					SET ResponseRef.hireCoverageOption			= refInputBody.RP_MOTOR_RISK_LNK.RP_HIRECAROPT;
+
+					MOVE ResponseRefBase3 TO ResponseRef;
+					
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'hireCoverage';
+						SET ResponseRef.hireCoverageType	= 'Standard';
+						SET ResponseRef.hireOptionAmount	= refInputBody.RP_MOTOR_RISK_LNK.RP_STD_CAR_AMT;
+						SET ResponseRef.numberOfDaysHired	= refInputBody.RP_MOTOR_RISK_LNK.RP_STD_CAR_DAYS;
+
+					MOVE ResponseRef TO ResponseRefBase3;			
+
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'hireCoverage';
+						SET ResponseRef.hireCoverageType	= 'Optional';
+						SET ResponseRef.hireOptionAmount	= refInputBody.RP_MOTOR_RISK_LNK.RP_OPT_CAR_AMT;
+						SET ResponseRef.numberOfDaysHired	= refInputBody.RP_MOTOR_RISK_LNK.RP_OPT_CAR_DAYS;
+
+					MOVE ResponseRef TO ResponseRefBase3;			
+
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'hireCoverage';
+						SET ResponseRef.hireCoverageType	= 'CompleteCare';
+						SET ResponseRef.hireOptionAmount	= refInputBody.RP_MOTOR_RISK_LNK.RP_CCARE_CAR_AMT;
+						SET ResponseRef.numberOfDaysHired	= refInputBody.RP_MOTOR_RISK_LNK.RP_CCARE_CAR_DAYS;
+				
+				
+					MOVE ResponseRef TO ResponseRefBase3;
+					
+					SET ResponseRef.thirdPartyExtension.insuredExtension 	= refInputBody.RP_SAP_LNK.RP_IMDAVAILABLE;
+					SET ResponseRef.thirdPartyExtension.unInsuredExtension 	= refInputBody.RP_SAP_LNK.RP_UMEAVAILABLE;
+
+			MOVE ResponseRef TO ResponseRefBase1;	
+
+
+			CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'monetaryProvision';
+			SET ResponseRef.(XMLNSC.Attribute)xsi:type									='moneyprov:ParticularMoneyProvision';
+
+				MOVE ResponseRefBase2 TO ResponseRef;
+
+-- start Instalments 			
+				SET intI = 1;
+				WHILE intI <= refInputBody.RP_COUNTS_LNK.RP_INSTAL_SCHED_CNT DO
+				
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'hasInstallmentElement';
+					SET ResponseRef.(XMLNSC.Attribute)xsi:type							='moneyprov:MoneyProvisionElement';	
+
+						SET ResponseRef.paymentMade = 
+		  		  		CASE refInputBody.RP_INSTAL_SCHED_LNK.RP_INSTAL_SCHED_DTL[intI].RP_INSTAL_PAID_FLAG
+		   		 			WHEN 'Y'  THEN TRUE
+		   		 			WHEN 'N'  THEN FALSE		    		
+		  	 		 	END;
+
+						SET ResponseRef.baseAmount				 	= TRIM(refInputBody.RP_INSTAL_SCHED_LNK.RP_INSTAL_SCHED_DTL[intI].RP_PREGST_INSTALAMT);
+						SET ResponseRef.startDate 					= DateFunc.StrToDate(CAST(refInputBody.RP_INSTAL_SCHED_LNK.RP_INSTAL_SCHED_DTL[intI].RP_COLLDATE AS CHAR));
+						SET ResponseRef.taxationAmount				= TRIM(refInputBody.RP_INSTAL_SCHED_LNK.RP_INSTAL_SCHED_DTL[intI].RP_GST);
+						
+					
+					MOVE ResponseRef TO ResponseRefBase2;
+				
+					SET intI = intI + 1;
+				END WHILE;
+-- end Instalments 	
+
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'moneySchedular';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type									='moneyprov:MoneySchedular';
+			
+					SET ResponseRef.generates.outStandingAmount 	= TRIM(refInputBody.RP_CURRENT_POLICY_INFO_LNK.RP_AMT_OWING);
+					SET ResponseRef.paymentPlan 					= refInputBody.RP_CURRENT_POLICY_INFO_LNK.RP_BILLPLAN;
+					SET ResponseRef.paymentFrequency 				= refInputBody.RP_CURRENT_POLICY_INFO_LNK.RP_BILLTYPE;						
+
+-- start Amendments 			
+			
+				MOVE ResponseRef TO ResponseRefBase2;
+			
+				SET intI = 1;
+				WHILE intI <= refInputBody.RP_COUNTS_LNK.RP_AMENDMENTS_CNT DO
+				
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'isAdjustedBy';
+
+						SET ResponseRef.description 				= TRIM(refInputBody.RP_AMENDMENTS_LNK.RP_AMENDMENTS_DTL[intI].RP_AMD_DESC);
+						SET ResponseRef.externalReference 			= TRIM(refInputBody.RP_AMENDMENTS_LNK.RP_AMENDMENTS_DTL[intI].RP_USERTRAN);
+					
+						SET chrTime1 = refInputBody.RP_AMENDMENTS_LNK.RP_AMENDMENTS_DTL[intI].RP_TRANTIME;
+
+						IF LENGTH(chrTime1) = 8 THEN
+							SET chrTime2 = chrTime1;
+						ELSEIF LENGTH(chrTime1) = 7 THEN
+							SET chrTime2 = '0'||chrTime1;
+						ELSEIF LENGTH(chrTime1) = 6 THEN
+							SET chrTime2 = '00'||chrTime1;
+						ELSEIF LENGTH(chrTime1) = 5 THEN
+							SET chrTime2 = '000'||chrTime1;
+						ELSEIF LENGTH(chrTime1) = 4 THEN
+							SET chrTime2 = '0000'||chrTime1;
+						ELSEIF LENGTH(chrTime1) = 3 THEN
+							SET chrTime2 = '00000'||chrTime1;
+						ELSEIF LENGTH(chrTime1) = 2 THEN
+							SET chrTime2 = '000000'||chrTime1;
+						ELSEIF LENGTH(chrTime1) = 1 THEN
+							SET chrTime2 = '0000000'||chrTime1;
+						ELSE	
+							SET chrTime2 = '00000000';
+						END IF;	
+
+						SET ResponseRef.dateAdjusted				= DateFunc.ConvertToTimeStamp(CAST(refInputBody.RP_AMENDMENTS_LNK.RP_AMENDMENTS_DTL[intI].RP_TRANDATE AS CHAR) , chrTime2);
+					
+						SET ResponseRef.effectiveDate				= DateFunc.StrToDate(CAST(refInputBody.RP_AMENDMENTS_LNK.RP_AMENDMENTS_DTL[intI].RP_EFFECTDT AS CHAR));
+						SET ResponseRef.amount 						= TRIM(refInputBody.RP_AMENDMENTS_LNK.RP_AMENDMENTS_DTL[intI].RP_GROSS);
+						SET ResponseRef.baseAmount 					= TRIM(refInputBody.RP_AMENDMENTS_LNK.RP_AMENDMENTS_DTL[intI].RP_NET);
+					
+					MOVE ResponseRef TO ResponseRefBase2;
+				
+					SET intI = intI + 1;
+				END WHILE;
+-- end Amendments 			
+
+				MOVE ResponseRef TO ResponseRefBase2;
+				
+				SET ResponseRef.noClaimDiscount						= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_NCD);
+
+				SET ResponseRef.nextOccurance.noClaimDiscount		= TRIM(refInputBody.RP_MOTOR_RISK_LNK.RP_NCD_NEXT);
+
+-- Start rolesInContract
+
+			MOVE ResponseRef TO ResponseRefBase1;
+
+			CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'rolesInContract';
+			SET ResponseRef.(XMLNSC.Attribute)xsi:type									='party:Organisation';	
+
+				MOVE ResponseRefBase2 TO ResponseRef;
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'playsRole';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type									='party:Distributor';	
+				MOVE ResponseRef TO ResponseRefBase2;
+
+				MOVE ResponseRefBase2 TO ResponseRef;
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'isIdentifiedBy';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type									='identifiers:PartyIdentifier';	
+					SET ResponseRef.partyId 				= refInputBody.RP_POLICY_INFO_LNK.RP_POLICYBRAND;
+				MOVE ResponseRef TO ResponseRefBase2;
+
+			MOVE ResponseRef TO ResponseRefBase1;
+
+			
+			CREATE LASTCHILD OF ResponseRef	AS ResponseRef	 		  	NAME 'rolesInContract';
+			SET ResponseRef.(XMLNSC.Attribute)xsi:type									='party:OrganisationUnit';	
+
+				MOVE ResponseRefBase2 TO ResponseRef;
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'playsRole';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type									='party:Underwriter';	
+				MOVE ResponseRef TO ResponseRefBase2;
+
+				MOVE ResponseRefBase2 TO ResponseRef;
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'isIdentifiedBy';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type									='identifiers:PartyIdentifier';	
+					SET ResponseRef.partyId 				= refInputBody.RP_POLICY_INFO_LNK.RP_SUBCOY;
+				MOVE ResponseRef TO ResponseRefBase2;
+
+			MOVE ResponseRef TO ResponseRefBase1;
+
+
+			CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'rolesInContract';
+			SET ResponseRef.(XMLNSC.Attribute)xsi:type									='party:Party';	
+
+				SET ResponseRef.hasName.fullName 				= TRIM(refInputBody.RP_CURRENT_POLICY_INFO_LNK.RP_FINCLIENT_NAME);
+
+				MOVE ResponseRefBase2 TO ResponseRef;
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'playsRole';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type									='party:FinancialServicesRole';	
+				MOVE ResponseRef TO ResponseRefBase2;
+				
+				SET ResponseRef.isIdentifiedBy.componentId 	= 'HUON';
+				SET ResponseRef.isIdentifiedBy.partyId 		= refInputBody.RP_CURRENT_POLICY_INFO_LNK.RP_FINCLIENT;		
+					
+			MOVE ResponseRef TO ResponseRefBase1;
+
+
+			CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'rolesInContract';
+			SET ResponseRef.(XMLNSC.Attribute)xsi:type									='party:Company';	
+
+				MOVE ResponseRefBase2 TO ResponseRef;					
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'playsRole';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type									='party:Distributor';	
+				MOVE ResponseRef TO ResponseRefBase2;
+
+				MOVE ResponseRefBase2 TO ResponseRef;
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'isIdentifiedBy';
+					SET ResponseRef.componentId 				= refInputBody.RP_SAP_LNK.RP_DISTRIBUTIONCHANNEL;
+					SET ResponseRef.category 					= refInputBody.RP_SAP_LNK.RP_SAPCLASS.RP_SAPCLASS_COMPANY||refInputBody.RP_SAP_LNK.RP_SAPCLASS.RP_SAPCLASS_PRODUCT;
+					SET ResponseRef.partyId 					= refInputBody.RP_SAP_LNK.RP_SAPCOMPANYCODE;
+				MOVE ResponseRef TO ResponseRefBase2;
+
+			MOVE ResponseRef TO ResponseRefBase1;
+
+
+
+-- start Other Party 			
+			SET intI = 1;
+			WHILE intI <= refInputBody.RP_COUNTS_LNK.RP_OTHPARTY_CNT DO
+				
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'rolesInContract';
+				SET ResponseRef.(XMLNSC.Attribute)xsi:type									='party:Organisation';	
+
+					MOVE ResponseRefBase2 TO ResponseRef;
+					
+					SET ResponseRef.hasName.fullName 	= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_NAME1_OTH; 
+					
+					IF refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND1_OTH = 'P' THEN
+						CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'contactedAt';
+						SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:POBoxAddress';
+					ELSE
+						CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'contactedAt';
+						SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:StructuredPostalAddress';
+					END IF;			
+
+						SET ResponseRef.isIdentifiedBy.componentId 	= 'HUON';
+						SET ResponseRef.isIdentifiedBy.locationId	= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRREF_OTH;
+				
+						SET ResponseRef.suburb 			= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_CITY_OTH;
+						SET ResponseRef.state 			= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_STATE_3CHAR_OTH;
+						SET ResponseRef.postCode 		= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_POSTCODE_OTH;
+						SET ResponseRef.country 		= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_COUNTRY_OTH;
+						SET ResponseRef.addresseeLine 	= TRIM(refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_LOCATION1_ATTN_OTH);
+
+
+						IF refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND1_OTH = 'P' THEN
+							SET ResponseRef.boxType		= TRIM(refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND1_DESC_OTH);  
+							SET ResponseRef.boxNumber	= TRIM(refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRNO1_OTH);  
+						END IF;
+
+					
+						IF refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND1_OTH <> 'P' OR
+						refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND1_OTH IS NULL THEN	
+
+							IF refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND1_OTH <> ' ' THEN
+								IF refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND2_OTH <> ' ' THEN
+								-- Both ADDRIND1 and ADDRIND2 were returned from HUON		
+									-- ADDRIND2 is a Unit or Apartment - so we set the unitNumber to ADDRNO2 and string ADDRIND1,ADDRNO1 into the buildingType
+									IF refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND2_OTH IN ('A','U') THEN
+										SET ResponseRef.unitNumber 			= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRNO2_OTH;
+										SET buildingTypeFlag				= 'A1';
+									-- ADDRIND2 is a Floor or Level - so we set the floorNumber to ADDRNO2 and string ADDRIND1,ADDRNO1 into the buildingType
+									ELSEIF refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND2_OTH IN ('F','L') THEN
+										SET ResponseRef.floorNumber 		= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRNO2_OTH;
+										SET buildingTypeFlag				= 'A1';
+									-- ADDRIND1 is a Unit or Apartment - so we set the unitNumber to ADDRNO1 and string ADDRIND2,ADDRNO2 into the buildingType
+									ELSEIF refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND1_OTH IN ('A','U') THEN
+										SET ResponseRef.unitNumber 			= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRNO1_OTH;
+										SET buildingTypeFlag				= 'A2';
+									-- ADDRIND1 is a Floor or Level - so we set the floorNumber to ADDRNO1 and string ADDRIND2,ADDRNO2 into the buildingType
+									ELSEIF refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND1_OTH IN ('F','L') THEN
+										SET ResponseRef.floorNumber 		= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRNO1_OTH;
+										SET buildingTypeFlag				= 'A2';
+									ELSE
+									-- Neither ADDRIND1 or ADDRIND2 is a Unit or Apartment or Floor or Level - so we string ADDRIND1,ADDRNO1,ADDRIND2,ADDRNO2 into the buildingType
+										SET buildingTypeFlag				= 'A1A2';
+									END IF;
+								ELSE
+								-- Only ADDRIND1 was returned from HUON		
+									-- ADDRIND1 is a Unit or Apartment - so we set the unitNumber to ADDRNO1
+									IF refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND1_OTH IN ('A','U') THEN
+										SET ResponseRef.unitNumber 			= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRNO1_OTH;
+									-- ADDRIND1 is a Floor or Level - so we set the floorNumber to ADDRNO1
+									ELSEIF refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND1_OTH IN ('F','L') THEN
+										SET ResponseRef.floorNumber 		= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRNO1_OTH;
+									ELSE
+									-- ADDRIND1 is neither a Unit or Apartment or Floor or Level - so we string ADDRIND1,ADDRNO1 into the buildingType
+										SET buildingTypeFlag				= 'A1';
+									END IF;	
+								END IF;
+							END IF;		
+
+							SET ResponseRef.streetNumber 	= TRIM(refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_STREETNO_OTH);
+							SET ResponseRef.streetName 		= TRIM(refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_STREET_OTH);
+							IF  refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_STREET_TYPE_DESC_OTH <> ' ' THEN
+								SET ResponseRef.streetType 	= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_STREET_TYPE_DESC_OTH;
+							END IF;
+							SET ResponseRef.buildingName 	= TRIM(refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRFREE_OTH);
+						
+							CASE buildingTypeFlag
+							WHEN 'A1' THEN
+								SET ResponseRef.buildingType 		= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND1_DESC_OTH || ' ' || refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRNO1_OTH;
+							WHEN 'A2' THEN
+								SET ResponseRef.buildingType 		= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND2_DESC_OTH || ' ' || refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRNO2_OTH;							
+							WHEN 'A1A2' THEN
+								SET ResponseRef.buildingType 		= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND1_DESC_OTH || ' ' || refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRNO1_OTH || ' ' || refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRIND2_DESC_OTH || ' ' || refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_ADDRNO2_OTH;	
+							END CASE;
+
+							SET ResponseRef.streetDirection	= TRIM(refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_STREETDIR_DESC_OTH);
+
+						END IF;
+
+					MOVE ResponseRef TO ResponseRefBase2;
+					
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'playsRole';
+					SET ResponseRef.(XMLNSC.Attribute)xsi:type									='party:FinancialServicesRole';	
+
+					
+					MOVE ResponseRef TO ResponseRefBase2;
+
+					SET ResponseRef.isIdentifiedBy.componentId	= 'HUON'; 
+					SET ResponseRef.isIdentifiedBy.partyId 		= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_SEQCLTNO_OTH;
+					
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'providesFinancialServices';
+					SET ResponseRef.(XMLNSC.Attribute)xsi:type								='agreement:FinancialServicesAgreementComponent';
+					
+						SET ResponseRef.description					= refInputBody.RP_OTHPARTY_LNK.RP_OTHPARTY_DTL[intI].RP_TYPE_DESC_OTH;
+
+				MOVE ResponseRef TO ResponseRefBase1;
+				
+				SET intI = intI + 1;
+			END WHILE;
+-- end Other Party  			
+
+
+-- start Drivers 			
+			SET intI = 1;
+			WHILE intI <= refInputBody.RP_COUNTS_LNK.RP_DRIVERS_CNT DO
+
+				IF refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_TYPEOFCLT = 'K' THEN
+				
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'rolesInContract';
+					SET ResponseRef.(XMLNSC.Attribute)xsi:type									='party:Organisation';
+
+					IF refInputBody.RP_POLICY_INFO_LNK.RP_POLICYBRAND = 'RACV' THEN
+	
+						SET ResponseRef.hasName.fullName 				= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_LAST_INFO;
+						SET ResponseRef.hasName.nameType 				= 'Legal Name';
+								
+				
+						IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ACNNO_INFO <> ' ' THEN
+
+							MOVE ResponseRefBase2 TO ResponseRef;
+
+							CREATE LASTCHILD OF ResponseRef		AS ResponseRef				NAME 'partyRegistration';
+							SET ResponseRef.(XMLNSC.Attribute)xsi:type							='registration:CompanyRegistration';
+
+							SET ResponseRef.isIdentifiedBy.registrationId 		= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ACNNO_INFO;
+							SET ResponseRef.registrationType 					= 'ACN';
+
+							MOVE ResponseRef TO ResponseRefBase2;
+
+						END IF;
+				
+						IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ABNNO_INFO <> ' ' THEN
+	
+							MOVE ResponseRefBase2 TO ResponseRef;
+
+							CREATE LASTCHILD OF ResponseRef		AS ResponseRef				NAME 'partyRegistration';
+							SET ResponseRef.(XMLNSC.Attribute)xsi:type							='registration:CompanyRegistration';
+
+							SET ResponseRef.isIdentifiedBy.registrationId 		= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ABNNO_INFO;
+							SET ResponseRef.registrationType 					= 'ABN';
+
+							MOVE ResponseRef TO ResponseRefBase2;
+
+						END IF;
+				
+					END IF;
+				
+				ELSE
+
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'rolesInContract';
+					SET ResponseRef.(XMLNSC.Attribute)xsi:type									='party:Person';
+
+				END IF;
+
+
+			
+					MOVE ResponseRefBase2 TO ResponseRef;
+							
+					
+					IF refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_LICTYPE <> ' ' THEN
+						CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'partyRegistration';
+						SET ResponseRef.(XMLNSC.Attribute)xsi:type								='registration:DrivingLicence';
+			
+							SET ResponseRef.licenceType 		= refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_LICTYPE;
+			
+						MOVE ResponseRef TO ResponseRefBase2;
+					END IF;	
+--/*			
+			-- START -- for RACV only 
+					IF refInputBody.RP_POLICY_INFO_LNK.RP_POLICYBRAND = 'RACV' THEN
+						
+						IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_EMAIL_INFO <> ' ' THEN	
+							CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+							SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:EmailAddress';
+								SET ResponseRef.emailAddress 			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_EMAIL_INFO);							 
+						END IF;	
+						
+						MOVE ResponseRef TO ResponseRefBase2;
+						
+						IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONENO_WP_INFO <> ' ' THEN	
+							CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+							SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:TelephoneNumber';
+								SET ResponseRef.usage 					= 'business';
+								IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_AREACODE_WP_INFO <> ' ' THEN
+									SET ResponseRef.localNumber			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_AREACODE_WP_INFO)||TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONENO_WP_INFO);
+									SET ResponseRef.extension			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONEEXT_WP_INFO);
+								ELSE
+									SET ResponseRef.localNumber			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONENO_WP_INFO);
+									SET ResponseRef.extension			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONEEXT_WP_INFO);
+								END IF;
+						END IF;	
+						
+						MOVE ResponseRef TO ResponseRefBase2;
+					
+						IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONENO_HP_INFO <> ' ' THEN	
+							CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+							SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:TelephoneNumber';
+								SET ResponseRef.usage 					= 'home';
+								IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_AREACODE_HP_INFO <> ' ' THEN
+									SET ResponseRef.localNumber			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_AREACODE_HP_INFO)||TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONENO_HP_INFO);
+									SET ResponseRef.extension			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONEEXT_HP_INFO);
+								ELSE
+									SET ResponseRef.localNumber			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONENO_HP_INFO);
+									SET ResponseRef.extension			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONEEXT_HP_INFO);
+								END IF;
+						END IF;	
+						
+						MOVE ResponseRef TO ResponseRefBase2;
+					
+						IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONENO_MP_INFO <> ' ' THEN	
+							CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+							SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:TelephoneNumber';
+								SET ResponseRef.usage 					= 'mobile';
+								IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_AREACODE_MP_INFO <> ' ' THEN
+									SET ResponseRef.localNumber			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_AREACODE_MP_INFO)||TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONENO_MP_INFO);
+									SET ResponseRef.extension			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONEEXT_MP_INFO);
+								ELSE
+									SET ResponseRef.localNumber			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONENO_MP_INFO);
+									SET ResponseRef.extension			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONEEXT_MP_INFO);
+								END IF;
+						END IF;	
+						
+						MOVE ResponseRef TO ResponseRefBase2;
+					
+						IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONENO_FX_INFO <> ' ' THEN	
+							CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+							SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:TelephoneNumber';
+								SET ResponseRef.usage 					= 'fax';
+								IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_AREACODE_FX_INFO <> ' ' THEN
+									SET ResponseRef.localNumber			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_AREACODE_FX_INFO)||TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONENO_FX_INFO);
+									SET ResponseRef.extension			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONEEXT_FX_INFO);
+								ELSE
+									SET ResponseRef.localNumber			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONENO_FX_INFO);
+									SET ResponseRef.extension			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_PHONEEXT_FX_INFO);
+								END IF;
+						END IF;	
+						
+						MOVE ResponseRef TO ResponseRefBase2;
+					
+						IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND1_INFO = 'P' THEN
+							CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+							SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:POBoxAddress';
+						ELSE
+							CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'contactedAt';
+							SET ResponseRef.(XMLNSC.Attribute)xsi:type								='location:StructuredPostalAddress';
+						END IF;
+
+	
+							SET ResponseRef.isIdentifiedBy.componentId 	= 'HUON';
+							SET ResponseRef.isIdentifiedBy.locationId	= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRREF_INFO;
+					
+							SET ResponseRef.suburb 			= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_CITY_INFO;
+							SET ResponseRef.state 			= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_STATE_3CHAR_INFO;
+							SET ResponseRef.postCode 		= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_POSTCODE_INFO;
+							SET ResponseRef.country 		= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_COUNTRY_INFO;
+							SET ResponseRef.addresseeLine 	= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_LOCATION1_ATTN_INFO);
+
+
+							IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND1_INFO = 'P' THEN
+								SET ResponseRef.boxType		= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND1_DESC_INFO);  
+								SET ResponseRef.boxNumber	= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRNO1_INFO);  
+							END IF;
+
+					
+							IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND1_INFO <> 'P' 
+							OR refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND1_INFO IS NULL THEN
+
+								IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND1_INFO <> ' ' THEN
+									IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND2_INFO <> ' ' THEN
+									-- Both ADDRIND1 and ADDRIND2 were returned from HUON		
+										-- ADDRIND2 is a Unit or Apartment - so we set the unitNumber to ADDRNO2 and string ADDRIND1,ADDRNO1 into the buildingType
+										IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND2_INFO IN ('A','U') THEN
+											SET ResponseRef.unitNumber 			= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRNO2_INFO;
+											SET buildingTypeFlag				= 'A1';
+										-- ADDRIND2 is a Floor or Level - so we set the floorNumber to ADDRNO2 and string ADDRIND1,ADDRNO1 into the buildingType
+										ELSEIF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND2_INFO IN ('F','L') THEN
+											SET ResponseRef.floorNumber 		= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRNO2_INFO;
+											SET buildingTypeFlag				= 'A1';
+										-- ADDRIND1 is a Unit or Apartment - so we set the unitNumber to ADDRNO1 and string ADDRIND2,ADDRNO2 into the buildingType
+										ELSEIF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND1_INFO IN ('A','U') THEN
+											SET ResponseRef.unitNumber 			= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRNO1_INFO;
+											SET buildingTypeFlag				= 'A2';
+										-- ADDRIND1 is a Floor or Level - so we set the floorNumber to ADDRNO1 and string ADDRIND2,ADDRNO2 into the buildingType
+										ELSEIF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND1_INFO IN ('F','L') THEN
+											SET ResponseRef.floorNumber 		= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRNO1_INFO;
+											SET buildingTypeFlag				= 'A2';
+										ELSE
+										-- Neither ADDRIND1 or ADDRIND2 is a Unit or Apartment or Floor or Level - so we string ADDRIND1,ADDRNO1,ADDRIND2,ADDRNO2 into the buildingType
+											SET buildingTypeFlag				= 'A1A2';
+										END IF;
+									ELSE
+									-- Only ADDRIND1 was returned from HUON		
+										-- ADDRIND1 is a Unit or Apartment - so we set the unitNumber to ADDRNO1
+										IF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND1_INFO IN ('A','U') THEN
+											SET ResponseRef.unitNumber 			= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRNO1_INFO;
+										-- ADDRIND1 is a Floor or Level - so we set the floorNumber to ADDRNO1
+										ELSEIF refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND1_INFO IN ('F','L') THEN
+											SET ResponseRef.floorNumber 		= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRNO1_INFO;
+										ELSE
+										-- ADDRIND1 is neither a Unit or Apartment or Floor or Level - so we string ADDRIND1,ADDRNO1 into the buildingType
+											SET buildingTypeFlag				= 'A1';
+										END IF;	
+									END IF;
+								END IF;		
+
+								SET ResponseRef.streetNumber 	= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_STREETNO_INFO);
+								SET ResponseRef.streetName 		= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_STREET_INFO);
+								IF  refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_STREET_TYPE_DESC_INFO <> ' ' THEN
+									SET ResponseRef.streetType 	= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_STREET_TYPE_DESC_INFO;
+								END IF;
+								SET ResponseRef.buildingName 	= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRFREE_INFO);
+
+								CASE buildingTypeFlag
+								WHEN 'A1' THEN
+									SET ResponseRef.buildingType 		= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND1_DESC_INFO || ' ' || refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRNO1_INFO;
+								WHEN 'A2' THEN
+									SET ResponseRef.buildingType 		= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND2_DESC_INFO || ' ' || refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRNO2_INFO;							
+								WHEN 'A1A2' THEN
+									SET ResponseRef.buildingType 		= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND1_DESC_INFO || ' ' || refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRNO1_INFO || ' ' || refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRIND2_DESC_INFO || ' ' || refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_ADDRNO2_INFO;	
+								END CASE;
+
+								SET ResponseRef.streetDirection	= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_STREETDIR_DESC_INFO);
+					
+							END IF;
+
+						MOVE ResponseRef TO ResponseRefBase2;
+					
+					END IF;
+			-- END ---- for RACV only
+--*/			
+					MOVE ResponseRef TO ResponseRefBase2;
+
+					CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'playsRole';
+					SET ResponseRef.(XMLNSC.Attribute)xsi:type								='party:Driver';
+			
+						SET ResponseRef.dateAccepted		= DateFunc.StrToDate(CAST(refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_DISCLDTE AS CHAR));
+						SET ResponseRef.dateRejected		= DateFunc.StrToDate(CAST(refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_DELETED_DTE AS CHAR));
+						SET ResponseRef.policySequence 		= refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_DRIVERSEQ_DR;
+						SET ResponseRef.drivingExperience 	= refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_DRIVEXP;
+						IF refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_TYPEOFCLT = 'K' THEN
+							SET ResponseRef.ownerDriver 		= 'O';
+						ELSE
+							SET ResponseRef.ownerDriver 		= refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_OWNER_DRIVER;
+						END IF;
+						SET ResponseRef.voidOnPolicy = 
+		  	  				CASE refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_NULLVOID
+		    					WHEN 'Y'  THEN TRUE
+		    					WHEN 'N'  THEN FALSE		    		
+		  	  			END;
+
+					MOVE ResponseRef TO ResponseRefBase2;
+
+					SET ResponseRef.isIdentifiedBy.componentId 	= 'HUON';
+					SET ResponseRef.isIdentifiedBy.partyId 		= refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_SEQCLTNO_DR;
+
+			
+					MOVE ResponseRef TO ResponseRefBase2;
+
+					IF refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_TYPEOFCLT <> 'K' THEN
+
+						CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'occuredLossEvent';
+						SET ResponseRef.(XMLNSC.Attribute)xsi:type								='event:LossEvent';
+					
+							SET ResponseRef.description 		= refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_LICCANC;
+							SET ResponseRef.natureOfEvent 		= 'LicenceCancelled';
+						
+						MOVE ResponseRef TO ResponseRefBase2;
+					
+-- start Incidents					
+						IF refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_INCIDENTS = 'Y' THEN
+
+							SET intJ = 1;
+							WHILE intJ <= refInputBody.RP_COUNTS_LNK.RP_INCDNT_CNT DO
+
+								IF refInputBody.RP_DRIVERS_INCIDENTS_LNK.RP_INCDNT_DTL[intJ].RP_DRIVERSEQ_INC = refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_DRIVERSEQ_DR THEN 
+					
+									CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'occuredLossEvent';
+									SET ResponseRef.(XMLNSC.Attribute)xsi:type								='event:CausedEvent';
+					
+										SET ResponseRef.startDate 						= DateFunc.StrToDate(CAST(refInputBody.RP_DRIVERS_INCIDENTS_LNK.RP_INCDNT_DTL[intJ].RP_LOSSDTE AS CHAR));
+										SET ResponseRef.isIdentifiedBy.eventId	= refInputBody.RP_DRIVERS_INCIDENTS_LNK.RP_INCDNT_DTL[intJ].RP_LOSSCDE;
+										SET ResponseRef.natureOfEvent					= 'INCIDENT';
+										SET ResponseRef.circumstancesDescription		= refInputBody.RP_DRIVERS_INCIDENTS_LNK.RP_INCDNT_DTL[intJ].RP_INC_DESC;
+					
+									MOVE ResponseRef TO ResponseRefBase2;
+								END IF;	
+								SET intJ = intJ + 1;
+							END WHILE;
+						END IF;
+-- end Incidents
+
+-- start Offences					
+						IF refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_OFFENCES = 'Y' THEN
+
+							SET intJ = 1;
+							WHILE intJ <= refInputBody.RP_COUNTS_LNK.RP_OFFNCE_CNT DO
+
+								IF refInputBody.RP_DRIVERS_OFFENSES_LNK.RP_OFFNCE_DTL[intJ].RP_DRIVERSEQ_OFF = refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_DRIVERSEQ_DR THEN 
+					
+									CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'occuredLossEvent';
+									SET ResponseRef.(XMLNSC.Attribute)xsi:type								='event:CausedEvent';
+					
+										SET ResponseRef.startDate 						= DateFunc.StrToDate(CAST(refInputBody.RP_DRIVERS_OFFENSES_LNK.RP_OFFNCE_DTL[intJ].RP_OFFENCE_DTE AS CHAR));
+										SET ResponseRef.description 					= refInputBody.RP_DRIVERS_OFFENSES_LNK.RP_OFFNCE_DTL[intJ].RP_OFFENCE_DESC;	
+										SET ResponseRef.natureOfEvent					= 'OFFENCE';
+										SET ResponseRef.reportDate 						= DateFunc.StrToDate(CAST(refInputBody.RP_DRIVERS_OFFENSES_LNK.RP_OFFNCE_DTL[intJ].RP_DISCLOSED_DTE AS CHAR));
+																				
+										IF refInputBody.RP_DRIVERS_OFFENSES_LNK.RP_OFFNCE_DTL[intJ].RP_FINE > 0 THEN
+											CREATE LASTCHILD OF ResponseRef		NAME 'penalty'	VALUE refInputBody.RP_DRIVERS_OFFENSES_LNK.RP_OFFNCE_DTL[intJ].RP_FINE;
+										END IF;
+					
+										IF refInputBody.RP_DRIVERS_OFFENSES_LNK.RP_OFFNCE_DTL[intJ].RP_BOND_DESC <> ' ' THEN
+											CREATE LASTCHILD OF ResponseRef		NAME 'penalty'	VALUE refInputBody.RP_DRIVERS_OFFENSES_LNK.RP_OFFNCE_DTL[intJ].RP_BOND_DESC;
+										END IF;
+					
+										SET ResponseRef.circumstancesDescription		= TRIM(refInputBody.RP_DRIVERS_OFFENSES_LNK.RP_OFFNCE_DTL[intJ].RP_PCA_DESC);
+					
+									MOVE ResponseRef TO ResponseRefBase2;
+								END IF;	
+								SET intJ = intJ + 1;
+							END WHILE;
+						END IF;
+-- end Offences
+
+
+					END IF;
+					
+
+					IF refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_SPECIALXS <> ' ' THEN
+						CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'hasSpecialExcess';
+						SET ResponseRef.(XMLNSC.Attribute)xsi:type								='moneyprov:Deductible';
+					
+							SET ResponseRef.deductibleAmount		 	= refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_SPECIALXS;
+							SET ResponseRef.excessModificationTypeCode 	= TRIM(refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_EOVERRIDE_DESC);
+					
+						MOVE ResponseRef TO ResponseRefBase2;
+					END IF;	
+
+					MOVE ResponseRef TO ResponseRefBase2;
+
+--/*			
+			-- START -- for RACV only 					
+					IF 	refInputBody.RP_POLICY_INFO_LNK.RP_POLICYBRAND = 'RACV' 
+					AND refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_TYPEOFCLT <> 'K' THEN
+						SET ResponseRef.birthDate 						= DateFunc.StrToDate(CAST(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_BIRTHDTE_INFO AS CHAR));
+						SET ResponseRef.gender 							= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_GENDER_INFO;
+					
+						SET ResponseRef.personName.firstName			= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_FIRST_INFO;
+						SET ResponseRef.personName.lastName				= refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_LAST_INFO;
+						SET ResponseRef.personName.middleNames			= TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_MIDDLE_INFO);
+			
+						CASE refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_GENDER_INFO
+						WHEN 'F' THEN
+				 			IF TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_TITLE_INFO) <> '' THEN
+						 		SET ResponseRef.personName.prefixTitles = GetRefDataLongTx('801225',TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_TITLE_INFO), 'Title');
+					 		END IF;
+						WHEN 'M' THEN
+					 		IF TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_TITLE_INFO) <> '' THEN
+ 					 			SET ResponseRef.personName.prefixTitles = GetRefDataLongTx('801224',TRIM(refInputBody.RP_RACV_CLIENT_INFO_LNK.RP_CLIENT_INFO_DTL[intI].RP_TITLE_INFO), 'Title');
+					 		END IF;
+						END CASE;
+					END IF;
+			-- END ---- for RACV only
+--*/
+			
+					IF refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_TYPEOFCLT <> 'K' THEN
+						
+						CREATE LASTCHILD OF ResponseRef	AS ResponseRef			NAME 'employmentPosition';
+						SET ResponseRef.(XMLNSC.Attribute)xsi:type								='party:EmploymentPosition';
+					
+							SET ResponseRef.staffMember 				= refInputBody.RP_DRIVERS_AND_COMPANY_LNK.RP_DRIVERS_DTL[intI].RP_STAFF_IND_DESC;
+				
+					END IF;
+						
+				MOVE ResponseRef TO ResponseRefBase1;
+				
+				SET intI = intI + 1;
+			END WHILE;
+-- end Drivers 			
+
+-- end rolesInContract
+
+			MOVE ResponseRef TO ResponseRefBase1;
+				
+			IF refInputBody.RP_CURRENT_POLICY_INFO_LNK.RP_XTNCLMNO <> ' ' THEN
+				SET ResponseRef.thirdParty.claimIdentifier.claimId		= TRIM(refInputBody.RP_CURRENT_POLICY_INFO_LNK.RP_XTNCLMNO);
+			END IF;		
+
+-- start Policy Messages 			
+			SET intI = 1;
+			WHILE intI <= refInputBody.RP_COUNTS_LNK.RP_POLMSG_CNT DO
+				
+				CREATE LASTCHILD OF ResponseRef	AS ResponseRef				NAME 'hasMessage';
+
+					SET ResponseRef.type							= refInputBody.RP_POLICY_MESSAGES_LNK.RP_POLMSG_DTL[intI].RP_MSGTYPE;
+					SET ResponseRef.title							= refInputBody.RP_POLICY_MESSAGES_LNK.RP_POLMSG_DTL[intI].RP_MSGTITLE;
+					
+					SET chrTime1 = refInputBody.RP_POLICY_MESSAGES_LNK.RP_POLMSG_DTL[intI].RP_MSGTIME;
+
+					IF LENGTH(chrTime1) = 8 THEN
+						SET chrTime2 = chrTime1;
+					ELSEIF LENGTH(chrTime1) = 7 THEN
+						SET chrTime2 = '0'||chrTime1;
+					ELSEIF LENGTH(chrTime1) = 6 THEN
+						SET chrTime2 = '00'||chrTime1;
+					ELSEIF LENGTH(chrTime1) = 5 THEN
+						SET chrTime2 = '000'||chrTime1;
+					ELSEIF LENGTH(chrTime1) = 4 THEN
+						SET chrTime2 = '0000'||chrTime1;
+					ELSEIF LENGTH(chrTime1) = 3 THEN
+						SET chrTime2 = '00000'||chrTime1;
+					ELSEIF LENGTH(chrTime1) = 2 THEN
+						SET chrTime2 = '000000'||chrTime1;
+					ELSEIF LENGTH(chrTime1) = 1 THEN
+						SET chrTime2 = '0000000'||chrTime1;
+					ELSE	
+						SET chrTime2 = '00000000';
+					END IF;	
+
+					SET ResponseRef.dateTime						= DateFunc.ConvertToTimeStamp(CAST(refInputBody.RP_POLICY_MESSAGES_LNK.RP_POLMSG_DTL[intI].RP_MSGDATE AS CHAR) , chrTime2);
+					
+					SET ResponseRef.externalReference				= refInputBody.RP_POLICY_MESSAGES_LNK.RP_POLMSG_DTL[intI].RP_MSGUSER;
+					SET ResponseRef.isIdentifiedBy.communicationId	= refInputBody.RP_POLICY_MESSAGES_LNK.RP_POLMSG_DTL[intI].RP_MSGNO;
+					
+				MOVE ResponseRef TO ResponseRefBase1;
+				
+				SET intI = intI + 1;
+			END WHILE;
+-- end Policy Messages 	
+
+
+
+
+
+		END IF;		
+		
+		-- Set Output Queue and Queue Manager saved from input
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueName			= Environment.RequestState.MQMD.ReplyToQ; 
+		SET OutputLocalEnvironment.Destination.MQ.DestinationData.queueManagerName 	= Environment.RequestState.MQMD.ReplyToQMgr; 		
+
+		RETURN TRUE;
+	END;
+		
+END MODULE;
+
+

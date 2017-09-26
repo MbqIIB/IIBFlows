@@ -1,0 +1,8 @@
+CREATE COMPUTE MODULE sfAddCommonEnvelope_AddEnvelope
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		CALL AddEnvelope();
+		RETURN TRUE;
+	END;
+	
+	CREATE PROCEDURE AddEnvelope()

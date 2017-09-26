@@ -1,0 +1,38 @@
+BROKER SCHEMA di.policy.policyInquiry.bs
+
+-- 14/11/2013 WRK125969 - Mick Moriarty - Added retv2 namespace
+-- Declare Namespace Prefixes
+
+DECLARE ns 				NAMESPACE 'http://iag.com.au/di/esb/envelope/v1/';
+
+DECLARE agreement 		NAMESPACE 'http://iag.com.au/di/Agreement/v1/';
+DECLARE event 			NAMESPACE 'http://iag.com.au/di/Event/v1/';
+DECLARE location 		NAMESPACE 'http://iag.com.au/di/Location/v1/';
+DECLARE moneyprov		NAMESPACE 'http://iag.com.au/di/MoneyProvision/v1/';
+DECLARE party			NAMESPACE 'http://iag.com.au/di/Party/v1/';
+DECLARE physicalobjects NAMESPACE 'http://iag.com.au/di/PhysicalObject/v1/';
+DECLARE registration 	NAMESPACE 'http://iag.com.au/di/Registration/v1/';
+
+DECLARE ret 			NAMESPACE 'http://iag.com.au/di/PolicyInquiry/RetrieveInsurancePolicyDetails/v1/';	
+DECLARE retv2           NAMESPACE 'http://iag.com.au/di/PolicyInquiry/RetrieveInsurancePolicyDetails_v2_0/v2/';
+DECLARE esbenv 			NAMESPACE 'http://iag.com.au/di/esb/envelope/v1/';
+DECLARE esbhdr 			NAMESPACE 'http://iag.com.au/di/esb/header/v1/';
+DECLARE esberr 			NAMESPACE 'http://iag.com.au/di/esb/error/v1/';
+DECLARE xsi 			NAMESPACE 'http://www.w3.org/2001/XMLSchema-instance';	
+DECLARE xsd 			NAMESPACE 'http://www.w3.org/2001/XMLSchema';
+
+DECLARE hdr 			NAMESPACE 'http://iag.com/scv/header-1/2004/06'; 		
+DECLARE csr     		NAMESPACE 'http://iag.com/scv/customersearchrequest-1/2004/01';
+DECLARE cres    		NAMESPACE 'http://iag.com/scv/customersearchresponse-1/2004/01';
+DECLARE add 			NAMESPACE 'http://iag.com/scv/addressformats-1/2004/06';
+DECLARE cil 			NAMESPACE 'http://iag.com/scv/xcil-1/2004/01'; 
+DECLARE cus  			NAMESPACE 'http://iag.com/scv/customer-1/2004/01';
+DECLARE dls 			NAMESPACE 'http://iag.com/scv/dls-1/2004/03'; 
+DECLARE cviewreq		NAMESPACE 'http://iag.com/scv/customerviewrequest-1/2004/02';
+DECLARE ctrans			NAMESPACE 'http://iag.com/scv/customertransaction-1/2004/10';	
+
+DECLARE 	strSearchVersion  		CONSTANT CHAR 	'3.0.XML20120507.1 - Customer Search';
+DECLARE 	strRetrieveVersion  	CONSTANT CHAR 	'3.0.XML20120507.1 - Customer Retrieve';
+DECLARE 	strAmendVersion 		CONSTANT CHAR 	'3.0.XML20120531.1 - Customer Amend';
+DECLARE 	strAmendAddressVersion 	CONSTANT CHAR 	'3.0.XML20120807.1 - Customer Amend Mailing Address';		
+DECLARE 	strCreateVersion 		CONSTANT CHAR 	'3.0.XML20120703.1 - Customer Create';

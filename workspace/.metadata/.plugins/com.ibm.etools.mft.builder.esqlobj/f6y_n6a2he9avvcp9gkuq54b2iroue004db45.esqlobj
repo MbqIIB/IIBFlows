@@ -1,0 +1,53 @@
+CREATE FUNCTION GetCurrentTimeStampXML() RETURNS CHAR 
+---------------------------------------------------------	
+--
+--  This returns Current TimeStamp in the following 
+--  format CCYY-MM-DDTHH:MM:SS-SS:SS 
+--  
+--  eg.
+--     2001-12-17 09:30:47.567 to
+--     2001-12-17T09:30:47-05:67 
+--
+--  Author : John Yih
+--  Date   : 06/05/2004
+--
+-- change history
+-- 2004/11/23 Andy Ho
+-- the old -05:67 actually means timezone,
+-- However, .567 is the sub-second, not timezone info,
+-- the correct output should be 2001-12-17T09:30:47.567
+--
+--  This returns Current TimeStamp in the following 
+--  format CCYY-MM-DDTHH:MM:SS.tt
+--  eg.
+--     2001-12-17 09:30:47.567 to
+--     2001-12-17T09:30:47.567 
+--
+-- change history
+-- 2005/02/03 John Yih
+-- The CURRENT_TIMESTAMP format is not fixed. sometimes it does not return the sub-second
+--
+	BEGIN
+		
+		DECLARE chrCurrentTimeStamp CHAR;
+		DECLARE chrCCYYMMDD         CHAR;
+		DECLARE chrHHMMSS           CHAR;
+		DECLARE chrMiniSSOne        CHAR;
+		DECLARE chrMiniSSTwo        CHAR;
+		
+		SET chrCurrentTimeStamp = CAST(CURRENT_TIMESTAMP AS CHAR);
+		SET chrCCYYMMDD  = SUBSTRING(chrCurrentTimeStamp FROM 12 FOR 10);
+		SET chrHHMMSS    = SUBSTRING(chrCurrentTimeStamp FROM 23 FOR 8);
+		SET chrMiniSSOne = SUBSTRING(chrCurrentTimeStamp FROM 32 FOR 1);
+		IF chrMiniSSOne = '' THEN
+			SET chrMiniSSOne = '0';
+		END IF;
+		SET chrMiniSSTwo = SUBSTRING(chrCurrentTimeStamp FROM 33 FOR 2);	
+		IF chrMiniSSTwo = '' THEN
+			SET chrMiniSSTwo = '00';
+		END IF;
+
+--		RETURN chrCCYYMMDD || 'T' || chrHHMMSS || '-' || '0' || chrMiniSSOne || ':' || chrMiniSSTwo;
+ 		RETURN chrCCYYMMDD || 'T' || chrHHMMSS || '.' || COALESCE(chrMiniSSOne,'0')  || COALESCE(chrMiniSSTwo,'0');
+		
+	END;

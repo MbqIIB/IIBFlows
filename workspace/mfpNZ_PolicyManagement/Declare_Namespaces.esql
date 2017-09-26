@@ -1,0 +1,31 @@
+
+-- Declare Namespace Prefixes
+	
+		DECLARE 	esb 		NAMESPACE 'http://iag.com.au/di/esb/soa/meta-data';	 
+		DECLARE 	ns  		NAMESPACE 'http://www.iag.co.nz/soa/iagiaa/v2';									
+		DECLARE 	ser 		NAMESPACE 'http://www.iag.co.nz/soa/iagiaa/pm/v2';
+		DECLARE		party		NAMESPACE 'http://iag.com.au/di/partymanagement/all/all/service';			
+		DECLARE 	soapenv 	NAMESPACE 'http://schemas.xmlsoap.org/soap/envelope/';
+		DECLARE 	xsi 		NAMESPACE 'http://www.w3.org/2001/XMLSchema-instance';	
+		DECLARE 	xsd 		NAMESPACE 'http://www.w3.org/2001/XMLSchema';		
+		DECLARE 	hdr 		NAMESPACE 'http://iag.com/scv/header-1/2004/06'; 		
+		DECLARE     csr         NAMESPACE 'http://iag.com/scv/customersearchrequest-1/2004/01';
+		DECLARE     cres        NAMESPACE 'http://iag.com/scv/customersearchresponse-1/2004/01';
+		DECLARE 	add 		NAMESPACE 'http://iag.com/scv/addressformats-1/2004/06';
+		DECLARE 	cil 		NAMESPACE 'http://iag.com/scv/xcil-1/2004/01'; 
+		DECLARE 	cus  		NAMESPACE 'http://iag.com/scv/customer-1/2004/01';
+		DECLARE 	dls 		NAMESPACE 'http://iag.com/scv/dls-1/2004/03'; 	
+		DECLARE 	iagins 		NAMESPACE 'http://iag.com.au/di/iaginsurance/all/all';		
+		DECLARE     prod		NAMESPACE 'http://iag.com/scv/products-1/2004/01';	
+		DECLARE 	cviewreq	NAMESPACE 'http://iag.com/scv/customerviewrequest-1/2004/02';
+		DECLARE 	ctrans		NAMESPACE 'http://iag.com/scv/customertransaction-1/2004/10';
+		DECLARE 	camendreq	NAMESPACE 'http://iag.com/scv/customeramendrequest-1/2004/04';
+		DECLARE 	defns 		NAMESPACE '';		
+		
+-- End of Declare Namespace prefixes
+
+		DECLARE 	strSearchVersion  		CONSTANT CHAR 	'3.0.XML20120507.1 - Customer Search';
+		DECLARE 	strRetrieveVersion  	CONSTANT CHAR 	'3.0.XML20120507.1 - Customer Retrieve';
+		DECLARE 	strAmendVersion 		CONSTANT CHAR 	'3.0.XML20120531.1 - Customer Amend';
+		DECLARE 	strAmendAddressVersion 	CONSTANT CHAR 	'3.0.XML20120807.1 - Customer Amend Mailing Address';		
+		DECLARE 	strCreateVersion 		CONSTANT CHAR 	'3.0.XML20120703.1 - Customer Create';

@@ -1,0 +1,73 @@
+BROKER SCHEMA di.policy.policyInquiry.bs
+
+/*
+WRK125969 Mick Moriarty 19/11/2913 - Added New Zealand functionality
+*/
+
+CREATE COMPUTE MODULE SetupRequest_v2
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		DECLARE refInputHeader 	REFERENCE TO InputRoot.XMLNSC.esbenv:Envelope.esbhdr:Header;
+		DECLARE refInputBody 	REFERENCE TO InputRoot.XMLNSC.esbenv:Envelope.esbenv:Body.ret:retrieveInsurancePolicyDetailsReq;
+
+		-- Save Input Fields
+		SET Environment.HubWorkArea.policyNumber.policyId   		= refInputBody.policyNumber.policyId;
+		SET Environment.HubWorkArea.policyNumber.productCode    	= refInputBody.policyNumber.productCode;
+		SET Environment.HubWorkArea.asAtDate    					= refInputBody.asAtDate;
+
+		-- Save Input Message MsgId and Correlid
+		SET Environment.HubWorkArea.Origin.MsgId       			= InputRoot.MQMD.MsgId;
+
+		-- Save ReplyToQueue/ReplyToQueueManager
+		SET Environment.HubWorkArea.Origin.ReplyToQ     		= InputRoot.MQMD.ReplyToQ;
+		SET Environment.HubWorkArea.Origin.ReplyToQMgr  		= InputRoot.MQMD.ReplyToQMgr;
+		
+		RETURN TRUE;
+	END;
+
+END MODULE;
+ 
+
+
+/* Setup the reply */
+CREATE COMPUTE MODULE SetupThruReply_v2
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		set OutputRoot = InputRoot;
+		-- Create MQMD 	
+		set OutputRoot.MQMD.Version             			= MQMD_CURRENT_VERSION; 
+		set OutputRoot.MQMD.MsgType             			= MQMT_REPLY;  
+		set OutputRoot.MQMD.Format              			= MQFMT_STRING;
+
+		set OutputRoot.MQMD.CorrelId						= InputRoot.MQMD.MsgId;
+		
+
+		RETURN TRUE;
+	END;
+		
+END MODULE;
+
+
+
+/* Check which consumer has invokde the service - keep */
+CREATE FILTER MODULE RetrieveInsurancePolicyDetails_v2_Which_Consumer
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		declare refIn reference to Root.XMLNSC;
+		declare refHeader reference to refIn.esbenv:Envelope.esbhdr:Header;
+		
+		/* If New Zealand */
+		if (refHeader.esbhdr:brand = 'STATE') then	
+			return true;
+		else
+			return false;
+		end if;
+		
+	END;
+
+END MODULE;
+
+

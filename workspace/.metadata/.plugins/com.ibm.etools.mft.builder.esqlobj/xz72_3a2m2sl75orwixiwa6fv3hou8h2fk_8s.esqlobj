@@ -1,0 +1,15 @@
+/*EATE FUNCTION Main() RETURNS BOOLE*/
+	BEGIN
+		
+		declare refIn reference to Root.XMLNSC;
+		declare refHeader reference to refIn.esbenv:Envelope.esbhdr:Header;
+		
+		/* If New Zealand */
+		if (refHeader.esbhdr:brand = 'STATE') then	
+			return true;
+		else
+			return false;
+		end if;
+		
+	END;
+

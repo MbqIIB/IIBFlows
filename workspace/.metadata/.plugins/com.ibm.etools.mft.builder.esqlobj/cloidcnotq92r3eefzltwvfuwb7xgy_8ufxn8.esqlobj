@@ -1,0 +1,23 @@
+CREATE FUNCTION GetCurrentDateCCYYMMDD2() RETURNS CHAR 
+---------------------------------------------------------	
+--
+--  Return current date in DD/MM/CCYY format
+-- 
+--  Author : Bonnie Javier
+--  Date   : 13/05/2005
+--
+	BEGIN
+		
+		DECLARE chrCurrentTimeStamp CHAR;
+		DECLARE chrCCYY             CHAR;
+		DECLARE chrMM               CHAR;
+		DECLARE chrDD               CHAR;
+
+		SET chrCurrentTimeStamp = CAST(CURRENT_TIMESTAMP AS CHAR);
+		SET chrCCYY = SUBSTRING(chrCurrentTimeStamp FROM 12 FOR 4);
+		SET chrMM   = SUBSTRING(chrCurrentTimeStamp FROM 17 FOR 2);
+		SET chrDD   = SUBSTRING(chrCurrentTimeStamp FROM 20 FOR 2);	
+
+		RETURN chrDD || '/' || chrMM || '/' ||chrCCYY;
+		
+	END;

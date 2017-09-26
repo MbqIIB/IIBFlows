@@ -1,0 +1,35 @@
+CREATE PROCEDURE Build_XML_Response_Header (INOUT refOut REFERENCE, IN Operation CHAR,IN Header REFERENCE,IN refIn REFERENCE) BEGIN
+
+		SET refOut.(XMLNSC.Attribute)xmlns:xsi 			= 	xsi;
+		SET refOut.(XMLNSC.Attribute)xmlns:xsd			=	xsd;
+		SET refOut.(XMLNSC.Attribute)xmlns:ns1			=	ser;
+		SET refOut.(XMLNSC.Attribute)xmlns:ns2			=	ns;				
+		SET refOut.(XMLNSC.Attribute)xmlns:esb			=	esb;
+			
+		SET refOut.ResponseHeader.Header 				= Header;			
+		-- Check Response
+	    IF refIn.RP_RC			= 04
+	    	OR refIn.RP_RC		= 08
+	    	OR refIn.RP_RC		= 16 THEN
+			-- Map Error code in ResponseHeader
+			SET refOut.ResponseHeader.maxReturnLevel = 
+		  	  CASE refIn.RP_RC
+		    	WHEN 04  THEN 'WARN'
+		    	WHEN 08  THEN 'ERROR'
+		    	WHEN 16  THEN 'FATAL'		    		
+		  	  END;	
+		  	  
+			SET refOut.ResponseHeader.errorList.errorInfo.level = 
+		  	  CASE refIn.RP_RC
+		    	WHEN 04  THEN 'WARN'
+		    	WHEN 08  THEN 'ERROR'
+		    	WHEN 16  THEN 'FATAL'		    		
+		  	  END;
+		  	  			
+			SET refOut.ResponseHeader.errorList.errorInfo.system 	= Operation;
+			SET refOut.ResponseHeader.errorList.errorInfo.code 		= refIn.RP_ERRNO;
+			SET refOut.ResponseHeader.errorList.errorInfo.message 	= refIn.RP_ERR_MSG;			
+		ELSE																
+			SET refOut.ResponseHeader.maxReturnLevel 				= 'OK';		
+		END IF; 
+END;

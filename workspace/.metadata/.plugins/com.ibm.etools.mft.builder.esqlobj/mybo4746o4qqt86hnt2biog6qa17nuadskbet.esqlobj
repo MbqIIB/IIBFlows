@@ -1,0 +1,10 @@
+CREATE COMPUTE MODULE sfExtractCommonEnvelope_ExtractESBHeader
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+
+
+
+
+	END;
+END MODULE;
